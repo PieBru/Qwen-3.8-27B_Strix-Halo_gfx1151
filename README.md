@@ -22,7 +22,7 @@ cmake --build build-vk --target llama-server llama-cli llama-bench -j
 # 4. verify backend + bare perf (expect: Vulkan0 AMD 8060S; pp512 220-256; tg32 ~6.7)
 ./build-vk/bin/llama-cli --list-devices
 ./build-vk/bin/llama-bench -m MODEL-UD-Q5_K_XL.gguf -ngl 99 -fa on -ctk q8_0 -ctv q8_0 -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
-# 5. verify spec-decode (expect ~15 t/s Q5 / ~20 t/s Q6 with the DFlash2 draft)
+# 5. verify spec-decode (fresh quiet box: Q6 up to ~28 t/s, Q8 ~25; typical 15-20)
 ./run_llama-server.sh   # then: curl localhost:8081/completion ..."n_predict":256
 ```
 
@@ -33,9 +33,10 @@ Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/s
 fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding. This repo holds the
 launchers and notes; model weights (`.gguf`) and the `llama.cpp/` clone are local-only.
 
-- `run_llama-server.sh` — verified server config (Q5 target, DFlash2-Q8_0 draft, ~15 t/s gen)
+- `run_llama-server.sh` — Q5 launcher (legacy baseline config)
+- `run_llama-server-q6.sh` / `run_llama-server-q8.sh` — **recommended** per-model configs from the config research
 - `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
-- `sweep_llama_configs.sh` — staged config search for the sweet spots ([config research](#config-research-sweep_llama_configssh))
+- `sweep_llama_configs.sh` — staged config search ([config research](#config-research-sweep_llama_configssh))
 - Benchmarks and the Reddit-"31 t/s" reality check below
 
 ## Environment (read this first)
@@ -248,17 +249,37 @@ config under `results/`):
 Guards built in: per-server wait ceiling, fail-fast on dead loads, process-group
 cleanup (no orphans), crash-tolerant CSV (status column).
 
-### Findings so far on this gfx1151 (Stage 0, 2026-08-20)
+### Findings on this gfx1151 (full sweep, 2026-08-20)
 
-| Finding | Evidence |
-|---|---|
-| **Qwen3.8 is a hybrid SSM — context is nearly free** | `qwen35.ssm.*` in the GGUF; RSS-delta 8k→64k ctx ≈ **48 B/token** (Q6): 256k ctx would add ~0.01–0.3 GiB. Pick `-c` for the 64k crash ceiling, not memory |
-| **Q6 / Q8 targets reach 19.7 / 16.7 t/s with the Q8_0 draft** (baseline config: q8_0 KV, c=8192, ub 4096, n-max 4) | no draft A/B was run on these targets — on Q5 the deleted `DFlash2-Q4_K_M` draft measured ~+5% *faster* (15.4 vs 14.55), so draft choice is target-dependent |
-| **Warm server loads are 6–12 s** — the earlier "dozen seconds vs minutes" gap was cold page cache + the orphaned-server memory pressure, not the build | timing column in `results/sweep.csv` |
-| Draft-model KV is ~free (1.9B SSM) | `Vulkan0 model buffer size = 1950.71 MiB` (draft) vs 23328.84 MiB (Q6 target) |
+**Methodology lesson first:** absolute t/s drifts ±25% across the day — GTT weight
+pages are shmem-backed and land in **zram** under memory churn, and decode then pays
+per-token decompression. All rankings below come from back-to-back (interleaved)
+runs inside tight windows; fresh-load peaks: **Q6 28.6 / Q8 24.7 t/s**. For an
+inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit).
 
-Stages 1–5 not yet run on this box; the harness is ready and the commands above
-are the exact next steps.
+| Axis | Winner | Evidence (back-to-back pairs) |
+|---|---|---|
+| KV types (target × draft) | **f16 / f16, both models** | Q6: 20.8 vs 19.2 (q8/q8); Q8: 16.6 vs 15.6 — with 128 GB unified, quality KV is also the faster choice here |
+| `--spec-draft-n-max` | **6** (6–7 plateau; 4 clearly worse) | Q6: n6 28.6 > n5 27.4 > n4 24.8 (fresh window); n7 ≈ n6 elsewhere |
+| `-c` (allocated ctx) | **65536 default; raise on demand** | ALLOCATED ctx alone costs decode: Q6 19.8→16.7 (64k→128k), Q8 17.8→13.9. **256k loads in 20 s and serves** — the ≥128k crash is deep-prefill-specific (bench filling the ctx), not an allocation limit. Ceilings: Q6 256k (16.8), Q8 192k (14.3), 256k works but 12.2 |
+| `-b/-ub` | **4096** | tg flat (±2%, 2048/4096/8192); llama-bench already showed 4096 = +6% deep prefill over 2048; 8192 doubles compute buffers for nothing |
+| `-tb` | **32** (parity) | tb16 within ~1% of tb32 — GPU-bound, as expected |
+
+### Recommended configs (per model)
+
+| | Q6_K_XL (`run_llama-server-q6.sh`) | Q8_K_XL (`run_llama-server-q8.sh`) |
+|---|---|---|
+| draft | DFlash2-Q8_0 | DFlash2-Q8_0 |
+| KV (target & draft) | f16 | f16 |
+| `--spec-draft-n-max` | 6 | 6 |
+| `-b/-ub`, `-t/-tb` | 4096, 16/32 | 4096, 16/32 |
+| default `-c` | 65536 | 65536 |
+| ctx ceiling (sane) | 256k | 192k |
+| verified tg / pp4k | 16.4 t/s / 247 t/s | 14.9 t/s / 259 t/s |
+| fresh-window peak tg | ~28.6 | ~24.7 |
+
+Decision rule between them: **Q8 when quality is the point, Q6 when tokens/s is** —
+prefill is equal (~250–260 pp4k), decode favors Q6 at every context size.
 
 ## 🙏 Thanks to the authors of this software stack
 
