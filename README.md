@@ -23,8 +23,9 @@ cmake --build build-vk --target llama-server llama-cli llama-bench -j
 #    Q6 pp512 ~346 / tg32 ~8.6; Q8 pp512 ~366 / tg32 ~7.3 — zram churn can halve tg)
 ./build-vk/bin/llama-cli --list-devices
 ./build-vk/bin/llama-bench -m MODEL-UD-Q6_K_XL.gguf -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
-# 5. verify spec-decode (fresh quiet box: Q6 up to ~28 t/s, Q8 ~25; typical 15-20)
-./run_llama-server.sh   # then: curl localhost:8081/completion ..."n_predict":256
+# 5. verify spec-decode with a preset (balanced-speed = Q6 daily driver;
+#    quiet box peaks Q6 ~28 / Q8 ~25 t/s; typical 15-20)
+./run_llama-server.sh --goal balanced-speed   # then: curl localhost:8081/completion ..."n_predict":256
 ```
 
 Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. Deep prefill
@@ -53,8 +54,9 @@ Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/s
 fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding. This repo holds the
 launchers and notes; model weights (`.gguf`) and the `llama.cpp/` clone are local-only.
 
-- `run_llama-server.sh` — Q5 launcher (legacy baseline config)
-- `run_llama-server-q6.sh` / `run_llama-server-q8.sh` — **recommended** per-model configs from the config research
+- `run_llama-server.sh` — **unified launcher**: `--goal max-quality|balanced-quality|balanced-speed|max-speed`
+  presets from the config research, every field overridable (`--model`, `--ctx`, `--nmax`,
+  `--kv`, `--port`, `--draft`, `--no-mlock`, `--dry-run`; `--help` explains each)
 - `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
 - `sweep_llama_configs.sh` — staged config search ([config research](#config-research-sweep_llama_configssh))
 - Benchmarks and the Reddit-"31 t/s" reality check below
@@ -136,8 +138,10 @@ RADV + libdrm, so it won't touch the system driver and needs no compile toolchai
 
 ```bash
 curl -L https://github.com/Nathanw1014/strix-halo-llamacpp/releases/download/v0.6.6/strix-halo-llamacpp-vulkan-portable.tar.gz | tar xz
-# point run_llama-server.sh at the extracted binary instead of the local build:
-#   ./vulkan/llama-server -m <MODEL.gguf> -ngl 99 -fa 1 --host 0.0.0.0
+# the tarball's launcher self-sets the perf env; run its server directly with the
+# preset flags (the repo's run_llama-server.sh hardcodes the local build path):
+#   ./vulkan/llama-server -m <UD-Q6_K_XL.gguf> -md <DFlash2-Q8_0.gguf> -ngl all -fa on \
+#       -c 65536 -b 4096 -ub 4096 --spec-type draft-dflash --spec-draft-n-max 6 --host 0.0.0.0
 ```
 
 **Verified on this box**: same llama.cpp commit as the local build (`7b6c613`),
@@ -221,7 +225,7 @@ Qwen3.8-27B-UD-Q5_K_XL (18.8 GiB), Vulkan backend confirmed, `AMD_VULKAN_ICD=RAD
 | pp512 @ ≥128k | **crash** | `vk::DeviceLostError` at d131072 — same crash class issue #86 hit on stock builds (there f16 KV @64k); 64k is the measured working ceiling for prefill on this Vulkan stack |
 | tg32 decode, no draft | **6.7** | bandwidth-bound (drift-era floor; quiet-box Q6 reaches 8.6, Q8 7.3); even at ~223 GB/s effective, ~31 t/s *without* a draft remains impossible for a 27B dense-weight stream |
 | tg with DFlash2 draft (n-max 4) | 14.5–15.5 | Q4_K_M draft ≥ Q8_0 draft (15.4 vs 14.55); n-max 16 ≈ n-max 4 (block_size 8 caps it) |
-| tg, full `run_llama-server.sh` config | **16.8** | adds `-ub 4096` — the +5% the author measured on Q4/Q5 targets |
+| tg, full server config (Q5-era settings) | **16.8** | adds `-ub 4096` — the +5% the author measured on Q4/Q5 targets |
 
 **The Reddit "31 t/s" headline is a burst/best-case number, not steady state.** The
 thread itself reports 16–23 t/s interactive (Q8 target, draft 4) and describes
@@ -252,11 +256,20 @@ at 85 W.
 
 ## Running it: speculative decoding
 
-Use the per-model launchers from the config research — `run_llama-server-q6.sh`
-(max speed) or `run_llama-server-q8.sh` (max quality): Q6/Q8 target + DFlash2-Q8_0
-draft, **f16 KV**, 64k context, `--spec-type draft-dflash --spec-draft-n-max 6`,
-`-lm mmap+mlock` (zram-immune weights), sharp.jinja template, metrics on.
-`run_llama-server.sh` remains as the Q5-era legacy baseline.
+Use the unified launcher — presets from the [per-goal table](#recommended-configs-per-goal),
+any field overridable:
+
+```bash
+./run_llama-server.sh --goal balanced-speed            # Q6 @ 64k — daily driver
+./run_llama-server.sh --goal max-quality               # Q8 @ 192k — final answers
+./run_llama-server.sh --goal max-speed --ctx 32768     # trimmed ctx for pure t/s
+./run_llama-server.sh --model q8 --kv q8_0 --nmax 4   # fully custom
+```
+
+All presets: DFlash2-Q8_0 draft, **f16 KV**, n-max 6, `-b/-ub 4096`, `-t 16 -tb 32`,
+`-lm mmap+mlock` (zram-immune weights; needs the memlock limit raised — see
+[Lessons learned](#lessons-learned)), sharp.jinja template, metrics on.
+Live-verified: bare `balanced-speed` on a quiet box → **27.7 t/s**.
 
 ## Optional: HIP variant (decode fix)
 
@@ -310,12 +323,12 @@ inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit
 All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6, `-b/-ub 4096`, `-t 16 -tb 32`,
 `-lm mmap+mlock`. tg = typical sustained; **fresh quiet box peaks ≈ +50%**.
 
-| Goal | Model | `-c` | typical tg | pp4k | When to pick |
+| Goal | Command (`run_llama-server.sh …`) | `-c` | typical tg | pp4k | When to pick |
 |---|---|---|---:|---:|---|
-| **Max quality** | Q8_K_XL (`run_llama-server-q8.sh`) | 196608 (sane ceiling) | ~14 | ~260 | final answers, code, synthesis — quality over everything |
-| **Balanced → quality** | Q8_K_XL (`run_llama-server-q8.sh`) | 65536 (default) | ~15–18 | ~260 | default when correctness matters more than latency |
-| **Balanced → speed** | Q6_K_XL (`run_llama-server-q6.sh`) | 65536 (default) | ~16–20 | ~250 | daily driver; Q6 is barely distinguishable in chat |
-| **Max speed** | Q6_K_XL (`run_llama-server-q6.sh`) | trim to the task (≤65536) | ~20+ | ~250 | interactive churn; every t/s counts |
+| **Max quality** | `--goal max-quality` (Q8) | 196608 (sane ceiling) | ~14 | ~260 | final answers, code, synthesis — quality over everything |
+| **Balanced → quality** | `--goal balanced-quality` (Q8) | 65536 (default) | ~15–18 | ~260 | default when correctness matters more than latency |
+| **Balanced → speed** | `--goal balanced-speed` (Q6) | 65536 (default) | ~16–20 | ~250 | daily driver; Q6 is barely distinguishable in chat |
+| **Max speed** | `--goal max-speed` (Q6) | trim with `--ctx` (≤65536) | ~20+ | ~250 | interactive churn; every t/s counts |
 
 Decision rule between them: **Q8 when quality is the point, Q6 when tokens/s is** —
 prefill is equal (~250–260 pp4k), decode favors Q6 at every context size.
