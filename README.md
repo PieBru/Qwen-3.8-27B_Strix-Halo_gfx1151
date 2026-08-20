@@ -44,7 +44,7 @@ goal-oriented presets in its [recommendations table](#recommended-configs-per-go
 |---|---|---|
 | KV type (target & draft) | f16 **faster** than q8_0 on both models (Q6 20.8 vs 19.2, Q8 16.6 vs 15.6) and higher fidelity — 128 GB unified makes it free | **f16 / f16** |
 | `--spec-draft-n-max` | 6–7 plateau, 4 clearly worse (DFlash2 `block_size=8, n_extract=5`) | **6** |
-| `-c` allocated ctx | costs decode ~15–20% by 256k, but **256k loads in 20 s** (SSM state is tiny); ≥128k crash is deep-prefill-only | **65536 default, raise on demand** |
+| `-c` allocated ctx | **flat 16k–64k** (clean-window ladder 25.8/27.0/28.1 — order-biased, no real cost); 128k+ decay numbers were drift-era, re-measure before trusting them; **256k loads in 20 s** (SSM state is tiny); ≥128k crash is deep-prefill-only | **65536 default** |
 | `-b/-ub` | tg flat ±2%; 4096 = +6% deep prefill over 2048; 8192 buys nothing | **4096** |
 | `-tb` | parity (GPU-bound) | **32** |
 | Model choice | decode favors Q6 at every ctx; **Q8 prefill edges Q6** (pp512 366 vs 346 — Q8_0's symmetric blocks ride the fast kernel path) | Q6 speed / Q8 quality |
@@ -323,12 +323,12 @@ inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit
 All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6, `-b/-ub 4096`, `-t 16 -tb 32`,
 `-lm mmap+mlock`. tg = typical sustained; **fresh quiet box peaks ≈ +50%**.
 
-| Goal | Command (`run_llama-server.sh …`) | `-c` | typical tg | pp4k | When to pick |
+| Goal | Command (`run_llama-server.sh …`) | `-c` | sustained tg (quiet box) | pp4k | When to pick |
 |---|---|---|---:|---:|---|
-| **Max quality** | `--goal max-quality` (Q8) | 196608 (sane ceiling) | ~14 | ~260 | final answers, code, synthesis — quality over everything |
-| **Balanced → quality** | `--goal balanced-quality` (Q8) | 65536 (default) | ~15–18 | ~260 | default when correctness matters more than latency |
-| **Balanced → speed** | `--goal balanced-speed` (Q6) | 65536 (default) | ~16–20 | ~250 | daily driver; Q6 is barely distinguishable in chat |
-| **Max speed** | `--goal max-speed` (Q6) | trim with `--ctx` (≤65536) | ~20+ | ~250 | interactive churn; every t/s counts |
+| **Max quality** | `--goal max-quality` (Q8) | 196608 (sane ceiling) | ~25 | ~365 | final answers, code, synthesis — quality over everything |
+| **Balanced → quality** | `--goal balanced-quality` (Q8) | 65536 (default) | ~25 | ~365 | default when correctness matters more than latency |
+| **Balanced → speed** ✅ default | `run_llama-server.sh` (Q6) | 65536 | **~28** | ~346 | daily driver — Q6 quality is good anyway; best sustained t/s measured |
+| **Max speed** | `--goal max-speed` (Q6) | 65536 (16k–64k flat; trim to the task) | **~28** | ~346 | interactive churn |
 
 Decision rule between them: **Q8 when quality is the point, Q6 when tokens/s is** —
 prefill is equal (~250–260 pp4k), decode favors Q6 at every context size.
@@ -337,7 +337,10 @@ prefill is equal (~250–260 pp4k), decode favors Q6 at every context size.
 
 1. **Measure back-to-back or not at all.** Absolute t/s drifted ±25% during a day of
    stage sweeps; only interleaved pairs gave trustworthy rankings. The first
-   stage-2 block was drift-corrupted and was re-run.
+   stage-2 block was drift-corrupted and was re-run. Mind **run order** too: the
+   first server after a cold start pays page-cache warm-up, so sequential ladders
+   lean toward whatever ran last (a 16k/32k/64k ctx ladder inverted until we saw
+   the bias).
 2. **zram eats inference.** GTT weight pages are shmem-backed → swappable → they
    compress into zram under load churn, and decode then pays per-token
    decompression (up to ~30%). Fixes, best first: (a) `-lm mmap+mlock` so the

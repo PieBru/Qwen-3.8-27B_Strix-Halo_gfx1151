@@ -44,7 +44,7 @@ case "$GOAL" in
   max-quality)      MODEL=q8; [ "$CTX_SET" = 0 ] && CTX=196608;;
   balanced-quality) MODEL=q8; [ "$CTX_SET" = 0 ] && CTX=65536;;
   balanced-speed)   MODEL=q6; [ "$CTX_SET" = 0 ] && CTX=65536;;
-  max-speed)        MODEL=q6; [ "$CTX_SET" = 0 ] && CTX=65536;;   # trim --ctx for more t/s
+  max-speed)        MODEL=q6; [ "$CTX_SET" = 0 ] && CTX=65536;;   # same config: 16k-64k measured flat; trim --ctx only to fit the task
   "") MODEL=${MODEL:-q6};;                       # bare invocation = balanced-speed
   *) echo "error: --goal must be max-quality|balanced-quality|balanced-speed|max-speed" >&2; exit 1;;
 esac
