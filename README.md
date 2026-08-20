@@ -8,16 +8,6 @@ launchers and notes; model weights (`.gguf`) and the `llama.cpp/` clone are loca
 - `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
 - Benchmarks and the Reddit-"31 t/s" reality check below
 
-> ## 🙏 Big thanks
->
-> **[u/froggeric](https://www.reddit.com/user/froggeric)** — author of
-> [*Fixed jinja chat template for Qwen 3.5/3.6 and the Qwen3.8 family*
-> (r/LocalLLaMA)](https://www.reddit.com/r/LocalLLaMA/comments/1vnm7le/fixed_jinja_chat_template_for_qwen_35_36_and_the/).
-> The `sharp.jinja` template shipped here is that work
-> (`qwen3.8-froggeric-v22.1.1`) — it fixed the broken tool-call/thinking formatting
-> that stock templates produce for this model family. Without it the server output
-> above would be garbage with tools enabled.
-
 ## Environment (read this first)
 
 Everything below was verified on **Arch Linux installed as a minimal headless
@@ -210,8 +200,13 @@ This experiment stands entirely on other people's work:
 - **[Unsloth](https://unsloth.ai/)** — the UD (Unsloth Dynamic) Q4/Q5_K_XL quantizations
   used as targets here, and the community's quant tooling.
 - **The Qwen team (Alibaba)** — the Qwen 3.8 model family these configs run.
-- **[u/froggeric](https://www.reddit.com/user/froggeric)** — again, for the chat
-  template (see the top of this README).
+- **[u/froggeric](https://www.reddit.com/user/froggeric)** — author of
+  [*Fixed jinja chat template for Qwen 3.5/3.6 and the Qwen3.8 family*
+  (r/LocalLLaMA)](https://www.reddit.com/r/LocalLLaMA/comments/1vnm7le/fixed_jinja_chat_template_for_qwen_35_36_and_the/).
+  The `sharp.jinja` template shipped here is that work
+  (`qwen3.8-froggeric-v22.1.1`) — it fixed the broken tool-call/thinking formatting
+  that stock templates produce for this model family. Without it the server output
+  would be garbage with tools enabled.
 
 ## License
 
