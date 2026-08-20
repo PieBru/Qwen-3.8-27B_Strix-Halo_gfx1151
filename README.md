@@ -47,6 +47,25 @@ sudo pacman -S --needed rocm-hip-sdk rocm-cmake
 `vulkan-radeon` (system RADV) is the driver llama.cpp actually runs on — no bundled
 Mesa needed on this box. `vulkan-tools` provides `vulkaninfo` for the checks above.
 
+## Models — Unsloth Dynamic 1.2 2-quant **v2**, pinned revision
+
+The target GGUFs benchmarked here are **Unsloth Dynamic 1.2 2-quant v2** (`UD-Q4_K_XL`,
+`UD-Q5_K_XL`). ⚠️ The unsloth repo tip now carries **different files under the same
+names** (re-quantized — different sizes and LFS hashes), so download the v2 set from
+the pinned commit, not `main`:
+
+**<https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab>**
+
+| File (this repo's benchmarks) | Exact size (bytes) | sha256 starts with |
+|---|---:|---|
+| `Qwen3.8-27B-UD-Q5_K_XL.gguf` | 20,218,178,624 | `176a6a3f034e` |
+| `Qwen3.8-27B-UD-Q4_K_XL.gguf` | 17,923,394,624 | `bee238bbeb3d` |
+
+Verify a download against the table (`ls -l` size, or `sha256sum` prefix) — a
+same-named file of a different size is the newer revision, not the one measured here.
+The `DFlash2-*` draft GGUFs come from elsewhere (not in that repo) and are loaded via
+`-md`, never standalone.
+
 ## Quick Start: just run the prebuilt release (time-saving)
 
 Skip the build entirely — the toolbox releases ship a portable, self-contained stack
@@ -197,8 +216,9 @@ This experiment stands entirely on other people's work:
 - **[Mesa / RADV](https://www.mesa3d.org/) and the [AMD ROCm](https://rocm.docs.amd.com/)
   teams** — the open Vulkan and compute stacks that make gfx1151 a first-class
   citizen, and the driver-level compute work this fork's kernels assume.
-- **[Unsloth](https://unsloth.ai/)** — the UD (Unsloth Dynamic) Q4/Q5_K_XL quantizations
-  used as targets here, and the community's quant tooling.
+- **[Unsloth](https://unsloth.ai/)** — the UD (Unsloth Dynamic 1.2 2-quant v2)
+  Q4/Q5_K_XL quantizations used as targets here ([pinned revision](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab)),
+  and the community's quant tooling.
 - **The Qwen team (Alibaba)** — the Qwen 3.8 model family these configs run.
 - **[u/froggeric](https://www.reddit.com/user/froggeric)** — author of
   [*Fixed jinja chat template for Qwen 3.5/3.6 and the Qwen3.8 family*
