@@ -154,3 +154,10 @@ it won't touch the system driver. **Verified on this box**: same llama.cpp commi
 the local build (`7b6c613`), Vulkan backend confirmed, tg8 = 7.55 t/s on Q5_K_XL —
 also usable as a quick A/B against a custom build. The full 1–5 toolbox build is only
 worthwhile if you plan to package/publish images yourself.
+
+## License
+
+[MIT](LICENSE) © 2026 PieBru. The configs and notes here are MIT; the
+[strix-halo llama.cpp fork](https://github.com/Nathanw1014/llama.cpp) and llama.cpp
+itself remain under their own MIT license, and the model weights (not in this repo)
+belong to their respective publishers.
