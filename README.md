@@ -19,15 +19,20 @@ cmake --build build-vk --target llama-server llama-cli llama-bench -j
 # 3. models: UD quants from the PINNED commit (tip files differ! fingerprints in Models)
 #    https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab
 #    plus a Qwen3.8-27B-DFlash2 draft GGUF
-# 4. verify backend + bare perf (expect: Vulkan0 AMD 8060S; pp512 220-256; tg32 ~6.7)
+# 4. verify backend + bare perf (expect: Vulkan0 AMD 8060S; quiet box, f16 KV:
+#    Q6 pp512 ~346 / tg32 ~8.6; Q8 pp512 ~366 / tg32 ~7.3 — zram churn can halve tg)
 ./build-vk/bin/llama-cli --list-devices
-./build-vk/bin/llama-bench -m MODEL-UD-Q5_K_XL.gguf -ngl 99 -fa on -ctk q8_0 -ctv q8_0 -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
+./build-vk/bin/llama-bench -m MODEL-UD-Q6_K_XL.gguf -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
 # 5. verify spec-decode (fresh quiet box: Q6 up to ~28 t/s, Q8 ~25; typical 15-20)
 ./run_llama-server.sh   # then: curl localhost:8081/completion ..."n_predict":256
 ```
 
 Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. Deep prefill
 **crashes ≥128k ctx** (`vk::DeviceLostError`) on this stack — 64k is the ceiling.
+Once verified, pick your workload preset from the
+[**Recommended configs (per goal)**](#recommended-configs-per-goal) table —
+max quality / balanced → quality / balanced → speed / max speed, each with its
+launcher script and expected numbers.
 
 ## Sweep findings at a glance
 
@@ -41,7 +46,7 @@ goal-oriented presets in its [recommendations table](#recommended-configs-per-go
 | `-c` allocated ctx | costs decode ~15–20% by 256k, but **256k loads in 20 s** (SSM state is tiny); ≥128k crash is deep-prefill-only | **65536 default, raise on demand** |
 | `-b/-ub` | tg flat ±2%; 4096 = +6% deep prefill over 2048; 8192 buys nothing | **4096** |
 | `-tb` | parity (GPU-bound) | **32** |
-| Model choice | prefill equal (~250–260 pp4k); decode favors Q6 at every ctx | Q6 speed / Q8 quality |
+| Model choice | decode favors Q6 at every ctx; **Q8 prefill edges Q6** (pp512 366 vs 346 — Q8_0's symmetric blocks ride the fast kernel path) | Q6 speed / Q8 quality |
 | Host state | zram-swapped weight pages cost up to ~30% decode — mlock the weights | `-lm mmap+mlock` |
 
 Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/strix-halo-llamacpp)
@@ -196,7 +201,14 @@ Not an issue with the system RADV, but always confirm the backend:
 ./build-vk/bin/llama-server --host 127.0.0.1 --port 8080 -m <model.gguf> -ngl 99
 ```
 
-## Realistic performance on this box (measured 2026-08-20, flat 85 W PPT)
+## Baseline performance (Q5-era measurements — superseded by the config research)
+
+> **Read the numbers below as a floor, not a ceiling.** They were taken on 2026-08-20
+> with the box under day-long load churn (zram-swapped weight pages — see
+> [Lessons learned](#lessons-learned)). On a quiet box the same stack reaches
+> **~223 GB/s effective** (Q6: pp512 **345.8**, tg32 **8.58**; Q8: pp512 **365.7**,
+> tg32 **7.28**, f16 KV) — i.e. the Q5-era tg32 of 6.7 was ~60% of achievable.
+> Current recommended configs: [per-goal table](#recommended-configs-per-goal).
 
 Qwen3.8-27B-UD-Q5_K_XL (18.8 GiB), Vulkan backend confirmed, `AMD_VULKAN_ICD=RADV`:
 
@@ -207,7 +219,7 @@ Qwen3.8-27B-UD-Q5_K_XL (18.8 GiB), Vulkan backend confirmed, `AMD_VULKAN_ICD=RAD
 | pp512 @ d32k | 190.8 | deep prefill, q8_0 KV, `-ub 4096` |
 | pp512 @ d64k | 146.0 | deep prefill, q8_0 KV, `-ub 4096` |
 | pp512 @ ≥128k | **crash** | `vk::DeviceLostError` at d131072 — same crash class issue #86 hit on stock builds (there f16 KV @64k); 64k is the measured working ceiling for prefill on this Vulkan stack |
-| tg32 decode, no draft | **6.7** | bandwidth-bound: 18.8 GiB of weights per token ≈ 130 GB/s effective; ~31 t/s *without* a draft is physically impossible on Strix Halo |
+| tg32 decode, no draft | **6.7** | bandwidth-bound (drift-era floor; quiet-box Q6 reaches 8.6, Q8 7.3); even at ~223 GB/s effective, ~31 t/s *without* a draft remains impossible for a 27B dense-weight stream |
 | tg with DFlash2 draft (n-max 4) | 14.5–15.5 | Q4_K_M draft ≥ Q8_0 draft (15.4 vs 14.55); n-max 16 ≈ n-max 4 (block_size 8 caps it) |
 | tg, full `run_llama-server.sh` config | **16.8** | adds `-ub 4096` — the +5% the author measured on Q4/Q5 targets |
 
@@ -224,16 +236,15 @@ sustained power envelope (this one holds a flat 85 W).
 `-tb`, `-c`/`-np`. The transferable set, with the `-ub` A/B folded in:
 
 ```bash
-./build-vk/bin/llama-bench -m ../Qwen3.8-27B-UD-Q5_K_XL.gguf \
-  -ngl 99 -fa on -ctk q8_0 -ctv q8_0 -t 16 -b 4096 -ub 2048,4096 \
-  -p 512 -n 32 -d 0,8192 -r 2
+./build-vk/bin/llama-bench -m ../Qwen3.8-27B-UD-Q6_K_XL.gguf \
+  -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 1
 ```
 
-OBSERVED (build `7b6c61330`): pp512 220.9→225.3 and pp512@d8192 203.9→**216.2**
-going ub 2048→4096 (**+6% deep prefill** — matches the author's ~5%-on-Q4/Q5 claim);
-tg32 6.68/6.69 and tg32@d8192 6.36/6.35 (flat — decode is bandwidth-bound, only the
-draft moves it). Shallow pp512 varies 220–250 across sessions; treat ~±10% as run-to-run
-noise at 85 W.
+OBSERVED quiet-box, f16 KV, build `7b6c61330`: Q6 pp512 **345.8** / pp512@d8192
+**315.2** / tg32 **8.58**; Q8 pp512 **365.7** / d8192 **327.7** / tg32 **7.28**.
+(Earlier Q5-era runs at q8_0 KV measured 220–250 pp / 6.7 tg under load churn — the
+difference is box state, not KV type.) Shallow pp512 still varies ±10% run-to-run
+at 85 W.
 
 > The `DFlash2` GGUFs are **draft models** (1.9B, `dflash` arch): running one standalone
 > fails with `dflash requires ctx_other to be set` — they only load via `-md` next to a
@@ -241,9 +252,11 @@ noise at 85 W.
 
 ## Running it: speculative decoding
 
-Use `run_llama-server.sh` in this directory — Q5_K_XL target + DFlash2 Q4_K_M draft,
-q8_0 KV, 64k context, `--spec-type draft-dflash --spec-draft-n-max 4`, sharp.jinja
-template, metrics on. Verified end-to-end: 16.8 t/s generation.
+Use the per-model launchers from the config research — `run_llama-server-q6.sh`
+(max speed) or `run_llama-server-q8.sh` (max quality): Q6/Q8 target + DFlash2-Q8_0
+draft, **f16 KV**, 64k context, `--spec-type draft-dflash --spec-draft-n-max 6`,
+`-lm mmap+mlock` (zram-immune weights), sharp.jinja template, metrics on.
+`run_llama-server.sh` remains as the Q5-era legacy baseline.
 
 ## Optional: HIP variant (decode fix)
 
@@ -365,7 +378,8 @@ This experiment stands entirely on other people's work:
   teams** — the open Vulkan and compute stacks that make gfx1151 a first-class
   citizen, and the driver-level compute work this fork's kernels assume.
 - **[Unsloth](https://unsloth.ai/)** — the UD (Unsloth Dynamic 1.2 2-quant v2)
-  Q4/Q5_K_XL quantizations used as targets here ([pinned revision](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab)),
+  Q4–Q8_K_XL quantizations used as targets across these experiments
+  ([pinned revision](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab)),
   and the community's quant tooling.
 - **The Qwen team (Alibaba)** — the Qwen 3.8 model family these configs run.
 - **[u/froggeric](https://www.reddit.com/user/froggeric)** — author of
