@@ -1,4 +1,12 @@
-# Quick start: strix-halo llama.cpp on this machine
+# Qwen3.8-27B on Strix Halo (Radeon 8060S / gfx1151)
+
+Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/strix-halo-llamacpp)
+fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding. This repo holds the
+launchers and notes; model weights (`.gguf`) and the `llama.cpp/` clone are local-only.
+
+- `llama-server.sh` — verified server config (16.8 t/s gen with the DFlash2 draft)
+- `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
+- Benchmarks and the Reddit-"31 t/s" reality check below
 
 Adapted from [BUILD.md](https://github.com/Nathanw1014/strix-halo-llamacpp/blob/master/BUILD.md)
 for a box where **ROCm and Vulkan (system RADV) are already installed and proven working**.

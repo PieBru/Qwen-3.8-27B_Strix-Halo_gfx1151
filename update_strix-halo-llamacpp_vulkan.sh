@@ -1,7 +1,7 @@
 #!/bin/bash
 # Update + rebuild the strix-halo llama.cpp Vulkan build (branch strix-halo-vulkan
 # of https://github.com/Nathanw1014/llama.cpp) and verify the GPU backend.
-# Aligned with QUICK_START.md — run it from the directory containing this script.
+# Aligned with README.md — run it from the directory containing this script.
 
 set -euo pipefail
 
@@ -23,7 +23,7 @@ cmake -B "$BUILD_DIR" -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release \
     -DGGML_NATIVE=ON -DLLAMA_CURL=OFF
 cmake --build "$BUILD_DIR" --target llama-server llama-cli llama-bench -j"$(nproc)"
 
-# Verify GPU backend, not a silent CPU fallback (~7x slower — see QUICK_START.md)
+# Verify GPU backend, not a silent CPU fallback (~7x slower — see README.md)
 export AMD_VULKAN_ICD=RADV
 devices="$("$BUILD_DIR"/bin/llama-cli --list-devices)"
 echo "$devices"
