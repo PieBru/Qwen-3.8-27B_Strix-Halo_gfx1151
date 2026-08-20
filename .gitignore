@@ -1,0 +1,9 @@
+# Model weights — far too large for git (back these up separately)
+*.gguf
+
+# Upstream fork clone + its build artifacts (has its own git history)
+llama.cpp/
+
+# Runtime logs / temp
+*.log
+nohup.out
