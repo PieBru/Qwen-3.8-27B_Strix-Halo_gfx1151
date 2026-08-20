@@ -29,6 +29,21 @@ cmake --build build-vk --target llama-server llama-cli llama-bench -j
 Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. Deep prefill
 **crashes ≥128k ctx** (`vk::DeviceLostError`) on this stack — 64k is the ceiling.
 
+## Sweep findings at a glance
+
+Full data + methodology in [Config research](#config-research-sweep_llama_configssh);
+goal-oriented presets in its [recommendations table](#recommended-configs-per-goal).
+
+| Axis | Finding | Winner |
+|---|---|---|
+| KV type (target & draft) | f16 **faster** than q8_0 on both models (Q6 20.8 vs 19.2, Q8 16.6 vs 15.6) and higher fidelity — 128 GB unified makes it free | **f16 / f16** |
+| `--spec-draft-n-max` | 6–7 plateau, 4 clearly worse (DFlash2 `block_size=8, n_extract=5`) | **6** |
+| `-c` allocated ctx | costs decode ~15–20% by 256k, but **256k loads in 20 s** (SSM state is tiny); ≥128k crash is deep-prefill-only | **65536 default, raise on demand** |
+| `-b/-ub` | tg flat ±2%; 4096 = +6% deep prefill over 2048; 8192 buys nothing | **4096** |
+| `-tb` | parity (GPU-bound) | **32** |
+| Model choice | prefill equal (~250–260 pp4k); decode favors Q6 at every ctx | Q6 speed / Q8 quality |
+| Host state | zram-swapped weight pages cost up to ~30% decode — mlock the weights | `-lm mmap+mlock` |
+
 Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/strix-halo-llamacpp)
 fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding. This repo holds the
 launchers and notes; model weights (`.gguf`) and the `llama.cpp/` clone are local-only.
@@ -42,10 +57,12 @@ launchers and notes; model weights (`.gguf`) and the `llama.cpp/` clone are loca
 ## Environment (read this first)
 
 Everything below was verified on **Arch Linux installed as a minimal headless
-server** — no desktop environment, GPU used purely as a compute device.
-**Ubuntu may work but we didn't test it**; the package names in the dependencies
-section are Arch's, so translate them (`apt`/universe, possibly newer upstream
-packages for shaderc/RADV) before assuming parity.
+server** — no desktop environment, GPU used purely as a compute device — and that
+is what we **use and recommend for serving LLM inference**: latest compilers and
+Mesa/RADV with zero desktop drag, and nothing competing with the GPU for memory
+bandwidth. **Ubuntu may work but we didn't test it**; the package names in the
+dependencies section are Arch's, so translate them (`apt`/universe, possibly newer
+upstream packages for shaderc/RADV) before assuming parity.
 
 Adapted from [BUILD.md](https://github.com/Nathanw1014/strix-halo-llamacpp/blob/master/BUILD.md)
 for a box where **ROCm and Vulkan (system RADV) are already installed and proven working**.
@@ -136,6 +153,12 @@ For context — the upstream repo assembles a portable *toolbox* from 3 (4 with 
 
 Steps 1–2 only matter for *portability to other machines*. On this box, with working
 system RADV, you only need **step 3**.
+
+> **Upstreaming outlook.** The fixes measured here are riding llama.cpp PRs
+> (e.g. [ggml-org/llama.cpp#25494](https://github.com/ggml-org/llama.cpp/pull/25494),
+> the FA dequant-once work). Hopefully they land in mainline — unless surpassed by
+> an even better method — at which point stock llama.cpp inherits these wins and
+> the fork becomes redundant. Until then: pin the fork (`strix-halo-vulkan`).
 
 ## Full local build — for testing improvements
 
@@ -265,21 +288,51 @@ inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit
 | `-b/-ub` | **4096** | tg flat (±2%, 2048/4096/8192); llama-bench already showed 4096 = +6% deep prefill over 2048; 8192 doubles compute buffers for nothing |
 | `-tb` | **32** (parity) | tb16 within ~1% of tb32 — GPU-bound, as expected |
 
-### Recommended configs (per model)
+### Recommended configs (per goal)
 
-| | Q6_K_XL (`run_llama-server-q6.sh`) | Q8_K_XL (`run_llama-server-q8.sh`) |
-|---|---|---|
-| draft | DFlash2-Q8_0 | DFlash2-Q8_0 |
-| KV (target & draft) | f16 | f16 |
-| `--spec-draft-n-max` | 6 | 6 |
-| `-b/-ub`, `-t/-tb` | 4096, 16/32 | 4096, 16/32 |
-| default `-c` | 65536 | 65536 |
-| ctx ceiling (sane) | 256k | 192k |
-| verified tg / pp4k | 16.4 t/s / 247 t/s | 14.9 t/s / 259 t/s |
-| fresh-window peak tg | ~28.6 | ~24.7 |
+All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6, `-b/-ub 4096`, `-t 16 -tb 32`,
+`-lm mmap+mlock`. tg = typical sustained; fresh quiet box peaks ≈ +50%.
+
+| Goal | Model | `-c` | typical tg | pp4k | When to pick |
+|---|---|---|---:|---:|---|
+| **Max quality** | Q8_K_XL (`run_llama-server-q8.sh`) | 196608 (sane ceiling) | ~14 | ~260 | final answers, code, synthesis — quality over everything |
+| **Balanced → quality** | Q8_K_XL (`run_llama-server-q8.sh`) | 65536 (default) | ~15–18 | ~260 | default when correctness matters more than latency |
+| **Balanced → speed** | Q6_K_XL (`run_llama-server-q6.sh`) | 65536 (default) | ~16–20 | ~250 | daily driver; Q6 is barely distinguishable in chat |
+| **Max speed** | Q6_K_XL (`run_llama-server-q6.sh`) | trim to the task (≤65536) | ~20+ | ~250 | interactive churn; every t/s counts |
 
 Decision rule between them: **Q8 when quality is the point, Q6 when tokens/s is** —
 prefill is equal (~250–260 pp4k), decode favors Q6 at every context size.
+
+## Lessons learned
+
+1. **Measure back-to-back or not at all.** Absolute t/s drifted ±25% during a day of
+   stage sweeps; only interleaved pairs gave trustworthy rankings. The first
+   stage-2 block was drift-corrupted and was re-run.
+2. **zram eats inference.** GTT weight pages are shmem-backed → swappable → they
+   compress into zram under load churn, and decode then pays per-token
+   decompression (up to ~30%). Fixes, best first: (a) `-lm mmap+mlock` so the
+   weights can never be swapped (needs `memlock` unlimited — see below);
+   (b) tune the pressure that triggers swapping instead of disabling it:
+   `vm.swappiness` (default 60 biases toward swapping anon pages; 1–10 makes zram
+   a last resort) and `vm.watermark_scale_factor` (how early kswapd wakes);
+   (c) `sudo swapoff -a` disables zram entirely until reboot — safe on 128 GB with
+   the box otherwise quiet, but it removes the safety net and makes the kernel's
+   precautional OOM killer trigger earlier under pressure. We prefer (a)+(b).
+3. **mlock needs a limit raise.** Default `ulimit -l` is 8 GB-class and multi-GB
+   buffers fail with `Cannot allocate memory`. One-time, then re-login:
+   `echo -e 'piero soft memlock unlimited\npiero hard memlock unlimited' | sudo tee /etc/security/limits.d/99-llama-mlock.conf`
+4. **Power is a throttling detector, not a cost metric.** We logged PPT only to
+   confirm the box held a flat 85 W (no throttle). A Strix Halo's max draw is more
+   than an order of magnitude below a pre-Blackwell NVIDIA desktop part — the
+   interesting wattage story is elsewhere.
+5. **A clean box is part of the benchmark.** All tests ran on a "clean" Strix Halo
+   with no other heavy processes sharing RAM/GTT/bandwidth. You don't need to
+   dedicate the machine to inference — but if you want SOTA-at-home, privilege
+   inference quality over co-located niceties (a SQL server, several heavy LLMs
+   on the same box). One model, mlocked, on quiet unified memory.
+6. **Trust but verify the fork's failure modes.** The `vk::DeviceLostError` ceiling
+   (deep prefill ≥128k) and the one-off KV core dump were found by sweeping —
+   neither appears in casual use. Allocation ≠ prefill: 256k ctx loads in 20 s.
 
 ## 🙏 Thanks to the authors of this software stack
 
@@ -297,6 +350,11 @@ This experiment stands entirely on other people's work:
   the fixes and documented the silent-CPU-fallback trap.
 - **Gaetan Puleo** — the DeepSeek V4 lightning-indexer Vulkan kernels contributed to
   the fork.
+- **The r/LocalLLaMA community behind the
+  [“Qwen3.8-27B Q5_K_XL on Strix Halo at 31 t/s decode” thread](https://www.reddit.com/r/LocalLLaMA/comments/1vsw6nz/qwen3827b_q5_k_xl_on_strix_halo_at_31_ts_decode/)**
+  — the post that inspired these tests, and specifically
+  [the comment](https://www.reddit.com/r/LocalLLaMA/comments/1vsw6nz/comment/p4tku1z/?context=3)
+  whose config (Q8 target, DFlash2 draft 4, u/ub 2048) seeded our sweep starting point.
 - **[llama.cpp](https://github.com/ggml-org/llama.cpp) / ggml** — the whole enterprise:
   the upstream project and its maintainer team and community.
 - **[Mesa / RADV](https://www.mesa3d.org/) and the [AMD ROCm](https://rocm.docs.amd.com/)

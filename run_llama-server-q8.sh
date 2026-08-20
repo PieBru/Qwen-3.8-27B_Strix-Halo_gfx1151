@@ -5,14 +5,15 @@
 # than Q6 at every ctx, prefill is equal (~250-260 t/s pp4k) — choose Q8 when
 # quality is the point (the repo motto), Q6 when tokens/s is.
 # Context ladder (tg cost of ALLOCATED ctx): 64k ~17.8, 128k ~13.9,
-# 192k ~14.3, 256k ~12.2 (works, costs more than Q6). Raise -c only as needed.
-# Keep the box quiet: zram-swapped weight pages cost up to ~30% decode.
+# # 192k ~14.3, 256k ~12.2 (works, costs more than Q6). Raise -c only as needed.
+# Weights are mlocked (`-lm mmap+mlock`) — zram-immune (see README lessons).
+ulimit -l unlimited 2>/dev/null || true  # enables multi-GB mlock once limits.d allows (README lessons)
 export AMD_VULKAN_ICD=RADV
 
 ./llama.cpp/build-vk/bin/llama-server \
   -m Qwen3.8-27B-UD-Q8_K_XL.gguf \
   -md Qwen3.8-27B-DFlash2-Q8_0.gguf \
-  -ngl all -ngld all -fa on \
+  -ngl all -ngld all -fa on -lm mmap+mlock \
   -c 65536 -np 1 \
   -b 4096 -ub 4096 \
   -t 16 -tb 32 \
