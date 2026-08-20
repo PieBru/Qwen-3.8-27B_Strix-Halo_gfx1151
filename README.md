@@ -97,17 +97,21 @@ Mesa needed on this box. `vulkan-tools` provides `vulkaninfo` for the checks abo
 
 ## Models — Unsloth Dynamic 1.2 2-quant **v2**, pinned revision
 
-The target GGUFs benchmarked here are **Unsloth Dynamic 1.2 2-quant v2** (`UD-Q4_K_XL`,
-`UD-Q5_K_XL`). ⚠️ The unsloth repo tip now carries **different files under the same
-names** (re-quantized — different sizes and LFS hashes), so download the v2 set from
+The target GGUFs benchmarked here are **Unsloth Dynamic 1.2 2-quant v2** — the
+**config-research models are `UD-Q6_K_XL` and `UD-Q8_K_XL`** (recommended
+launchers); the earlier perf tables also used `UD-Q5_K_XL` (and Q4 before it).
+⚠️ The unsloth repo tip now carries **different files under the same names**
+(re-quantized — different sizes and LFS hashes), so download the v2 set from
 the pinned commit, not `main`:
 
 **<https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab>**
 
-| File (this repo's benchmarks) | Exact size (bytes) | sha256 starts with |
+| File | Exact size (bytes) | sha256 starts with |
 |---|---:|---|
-| `Qwen3.8-27B-UD-Q5_K_XL.gguf` | 20,218,178,624 | `176a6a3f034e` |
-| `Qwen3.8-27B-UD-Q4_K_XL.gguf` | 17,923,394,624 | `bee238bbeb3d` |
+| `Qwen3.8-27B-UD-Q8_K_XL.gguf` — **max quality** | 31,457,991,680 | `af36ecb6b5db` (identical at `main`) |
+| `Qwen3.8-27B-UD-Q6_K_XL.gguf` — **max speed preset** | 25,924,152,384 | `739202186fd9` (tip differs!) |
+| `Qwen3.8-27B-UD-Q5_K_XL.gguf` — legacy perf tables | 20,218,178,624 | `176a6a3f034e` (tip differs!) |
+| `Qwen3.8-27B-UD-Q4_K_XL.gguf` — legacy (removed locally) | 17,923,394,624 | `bee238bbeb3d` (tip differs!) |
 
 Verify a download against the table (`ls -l` size, or `sha256sum` prefix) — a
 same-named file of a different size is the newer revision, not the one measured here.
