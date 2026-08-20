@@ -308,7 +308,7 @@ inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit
 ### Recommended configs (per goal)
 
 All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6, `-b/-ub 4096`, `-t 16 -tb 32`,
-`-lm mmap+mlock`. tg = typical sustained; fresh quiet box peaks ≈ +50%.
+`-lm mmap+mlock`. tg = typical sustained; **fresh quiet box peaks ≈ +50%**.
 
 | Goal | Model | `-c` | typical tg | pp4k | When to pick |
 |---|---|---|---:|---:|---|
