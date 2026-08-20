@@ -7,3 +7,4 @@ llama.cpp/
 # Runtime logs / temp
 *.log
 nohup.out
+results/
