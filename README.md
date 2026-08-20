@@ -1,11 +1,41 @@
 # Qwen3.8-27B on Strix Halo (Radeon 8060S / gfx1151)
 
+> *Speed is useful, but quality is fundamental — one subtle bug fewer or a better
+> codebase always pays for itself in wall-time gained.*
+
+## TL;DR — reproduce on any gfx1151 (Strix Halo) box
+
+Five steps, ~30 min, no desktop environment needed (Arch minimal headless verified;
+Ubuntu may work, untested):
+
+```bash
+# 1. deps (Arch; versions OBSERVED working: shaderc 2026.3, libdrm 2.4.134)
+sudo pacman -S --needed base-devel cmake ninja git shaderc vulkan-headers \
+  spirv-headers vulkan-icd-loader vulkan-radeon vulkan-tools libdrm
+# 2. build the fork (or skip: prebuilt v0.6.6 tarball — same commit, see Quick Start)
+git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp && git checkout strix-halo-vulkan
+cmake -B build-vk -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=ON -DLLAMA_CURL=OFF
+cmake --build build-vk --target llama-server llama-cli llama-bench -j
+# 3. models: UD quants from the PINNED commit (tip files differ! fingerprints in Models)
+#    https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab
+#    plus a Qwen3.8-27B-DFlash2 draft GGUF
+# 4. verify backend + bare perf (expect: Vulkan0 AMD 8060S; pp512 220-256; tg32 ~6.7)
+./build-vk/bin/llama-cli --list-devices
+./build-vk/bin/llama-bench -m MODEL-UD-Q5_K_XL.gguf -ngl 99 -fa on -ctk q8_0 -ctv q8_0 -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
+# 5. verify spec-decode (expect ~15 t/s Q5 / ~20 t/s Q6 with the DFlash2 draft)
+./run_llama-server.sh   # then: curl localhost:8081/completion ..."n_predict":256
+```
+
+Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. Deep prefill
+**crashes ≥128k ctx** (`vk::DeviceLostError`) on this stack — 64k is the ceiling.
+
 Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/strix-halo-llamacpp)
 fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding. This repo holds the
 launchers and notes; model weights (`.gguf`) and the `llama.cpp/` clone are local-only.
 
-- `run_llama-server.sh` — verified server config (16.8 t/s gen with the DFlash2 draft)
+- `run_llama-server.sh` — verified server config (Q5 target, DFlash2-Q8_0 draft, ~15 t/s gen)
 - `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
+- `sweep_llama_configs.sh` — staged config search for the sweet spots ([config research](#config-research-sweep_llama_configssh))
 - Benchmarks and the Reddit-"31 t/s" reality check below
 
 ## Environment (read this first)
@@ -65,6 +95,11 @@ Verify a download against the table (`ls -l` size, or `sha256sum` prefix) — a
 same-named file of a different size is the newer revision, not the one measured here.
 The `DFlash2-*` draft GGUFs come from elsewhere (not in that repo) and are loaded via
 `-md`, never standalone.
+
+Local set at the time of the config research: `UD-Q5/Q6/Q8_K_XL` targets,
+`DFlash2-Q8_0` draft (the slightly faster `DFlash2-Q4_K_M` and the `UD-Q4_K_XL`
+were removed to make room; all remain fetchable from the pinned commit above).
+A stray `mmproj-F16.gguf` (vision projector) is unused by these configs.
 
 ## Quick Start: just run the prebuilt release (time-saving)
 
@@ -194,6 +229,36 @@ cmake -B build-hip -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 \
   -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF
 cmake --build build-hip --target llama-server llama-cli llama-bench -j
 ```
+
+## Config research (`sweep_llama_configs.sh`)
+
+A staged, one-axis-at-a-time search for the optimal server config per target quant
+(winners carried forward; every result appended to `results/sweep.csv`, one log per
+config under `results/`):
+
+```bash
+./sweep_llama_configs.sh 0                                # capacity probe (done, below)
+./sweep_llama_configs.sh 1                                # --spec-draft-n-max 3-9, both models
+./sweep_llama_configs.sh 2 <best-n6> <best-n8>            # KV types 2x2 (target x draft)
+./sweep_llama_configs.sh 3 "Q6 q8_0 q8_0 <n6>" "Q8 q8_0 q8_0 <n8>"   # ctx 128k/192k/256k
+./sweep_llama_configs.sh 4 "Q6 q8_0 q8_0 <n6> <ctx>" ... # -b/-ub 2048/4096/8192
+./sweep_llama_configs.sh 5 ...                            # -tb 16 vs 32
+```
+
+Guards built in: per-server wait ceiling, fail-fast on dead loads, process-group
+cleanup (no orphans), crash-tolerant CSV (status column).
+
+### Findings so far on this gfx1151 (Stage 0, 2026-08-20)
+
+| Finding | Evidence |
+|---|---|
+| **Qwen3.8 is a hybrid SSM — context is nearly free** | `qwen35.ssm.*` in the GGUF; RSS-delta 8k→64k ctx ≈ **48 B/token** (Q6): 256k ctx would add ~0.01–0.3 GiB. Pick `-c` for the 64k crash ceiling, not memory |
+| **Q6 / Q8 targets reach 19.7 / 16.7 t/s with the Q8_0 draft** (baseline config: q8_0 KV, c=8192, ub 4096, n-max 4) | no draft A/B was run on these targets — on Q5 the deleted `DFlash2-Q4_K_M` draft measured ~+5% *faster* (15.4 vs 14.55), so draft choice is target-dependent |
+| **Warm server loads are 6–12 s** — the earlier "dozen seconds vs minutes" gap was cold page cache + the orphaned-server memory pressure, not the build | timing column in `results/sweep.csv` |
+| Draft-model KV is ~free (1.9B SSM) | `Vulkan0 model buffer size = 1950.71 MiB` (draft) vs 23328.84 MiB (Q6 target) |
+
+Stages 1–5 not yet run on this box; the harness is ready and the commands above
+are the exact next steps.
 
 ## 🙏 Thanks to the authors of this software stack
 
