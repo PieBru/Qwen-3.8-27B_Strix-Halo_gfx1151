@@ -8,6 +8,24 @@ launchers and notes; model weights (`.gguf`) and the `llama.cpp/` clone are loca
 - `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
 - Benchmarks and the Reddit-"31 t/s" reality check below
 
+> ## 🙏 Big thanks
+>
+> **[u/froggeric](https://www.reddit.com/user/froggeric)** — author of
+> [*Fixed jinja chat template for Qwen 3.5/3.6 and the Qwen3.8 family*
+> (r/LocalLLaMA)](https://www.reddit.com/r/LocalLLaMA/comments/1vnm7le/fixed_jinja_chat_template_for_qwen_35_36_and_the/).
+> The `sharp.jinja` template shipped here is that work
+> (`qwen3.8-froggeric-v22.1.1`) — it fixed the broken tool-call/thinking formatting
+> that stock templates produce for this model family. Without it the server output
+> above would be garbage with tools enabled.
+
+## Environment (read this first)
+
+Everything below was verified on **Arch Linux installed as a minimal headless
+server** — no desktop environment, GPU used purely as a compute device.
+**Ubuntu may work but we didn't test it**; the package names in the dependencies
+section are Arch's, so translate them (`apt`/universe, possibly newer upstream
+packages for shaderc/RADV) before assuming parity.
+
 Adapted from [BUILD.md](https://github.com/Nathanw1014/strix-halo-llamacpp/blob/master/BUILD.md)
 for a box where **ROCm and Vulkan (system RADV) are already installed and proven working**.
 
@@ -39,9 +57,25 @@ sudo pacman -S --needed rocm-hip-sdk rocm-cmake
 `vulkan-radeon` (system RADV) is the driver llama.cpp actually runs on — no bundled
 Mesa needed on this box. `vulkan-tools` provides `vulkaninfo` for the checks above.
 
-## What BUILD.md actually describes
+## Quick Start: just run the prebuilt release (time-saving)
 
-The repo assembles a portable *toolbox* from 3 (4 with HIP) build outputs via
+Skip the build entirely — the toolbox releases ship a portable, self-contained stack
+(latest `v0.6.6`, `strix-halo-llamacpp-vulkan-portable.tar.gz`) that bundles its own
+RADV + libdrm, so it won't touch the system driver and needs no compile toolchain:
+
+```bash
+curl -L https://github.com/Nathanw1014/strix-halo-llamacpp/releases/download/v0.6.6/strix-halo-llamacpp-vulkan-portable.tar.gz | tar xz
+# point run_llama-server.sh at the extracted binary instead of the local build:
+#   ./vulkan/llama-server -m <MODEL.gguf> -ngl 99 -fa 1 --host 0.0.0.0
+```
+
+**Verified on this box**: same llama.cpp commit as the local build (`7b6c613`),
+Vulkan backend confirmed, tg8 = 7.55 t/s on Q5_K_XL. Read on only if you want to
+build from source to test improvements.
+
+## What BUILD.md actually describes (full toolbox)
+
+For context — the upstream repo assembles a portable *toolbox* from 3 (4 with HIP) build outputs via
 `build-from-source.sh`:
 
 1. **libdrm ≥ 2.4.133** — meson build, `--prefix=/usr` (the `amdgpu.ids` path is baked
@@ -58,7 +92,10 @@ The repo assembles a portable *toolbox* from 3 (4 with HIP) build outputs via
 Steps 1–2 only matter for *portability to other machines*. On this box, with working
 system RADV, you only need **step 3**.
 
-## Build (Vulkan, the one that matters here)
+## Full local build — for testing improvements
+
+Build the fork yourself when you want to try new commits, patches or flag tweaks
+(the update script automates this). Straight from BUILD.md, simplified for this box:
 
 ```bash
 git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp
@@ -146,14 +183,32 @@ cmake -B build-hip -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 \
 cmake --build build-hip --target llama-server llama-cli llama-bench -j
 ```
 
-## Alternative: just run the prebuilt release
+## 🙏 Thanks to the authors of this software stack
 
-Releases ship a portable, self-contained stack (latest `v0.6.6`,
-`strix-halo-llamacpp-vulkan-portable.tar.gz`) that bundles its own RADV and libdrm —
-it won't touch the system driver. **Verified on this box**: same llama.cpp commit as
-the local build (`7b6c613`), Vulkan backend confirmed, tg8 = 7.55 t/s on Q5_K_XL —
-also usable as a quick A/B against a custom build. The full 1–5 toolbox build is only
-worthwhile if you plan to package/publish images yourself.
+This experiment stands entirely on other people's work:
+
+- **[Nathanw1014](https://github.com/Nathanw1014)** — the
+  [strix-halo llama.cpp toolbox](https://github.com/Nathanw1014/strix-halo-llamacpp)
+  and fork branches: the FA dequant-once / transpose prefill fixes, the mmid MoE
+  work, the evidence-driven benchmark methodology, and the prebuilt payloads this
+  repo leans on. Also the author of the r/LocalLLaMA benchmarks this README
+  reality-checks against.
+- **[aic0d3r](https://github.com/aic0d3r)** — the independent port/validation of the
+  prefill stack onto current main
+  ([ROCmFPX#86](https://github.com/charlie12345/ROCmFPX/issues/86)), which confirmed
+  the fixes and documented the silent-CPU-fallback trap.
+- **Gaetan Puleo** — the DeepSeek V4 lightning-indexer Vulkan kernels contributed to
+  the fork.
+- **[llama.cpp](https://github.com/ggml-org/llama.cpp) / ggml** — the whole enterprise:
+  the upstream project and its maintainer team and community.
+- **[Mesa / RADV](https://www.mesa3d.org/) and the [AMD ROCm](https://rocm.docs.amd.com/)
+  teams** — the open Vulkan and compute stacks that make gfx1151 a first-class
+  citizen, and the driver-level compute work this fork's kernels assume.
+- **[Unsloth](https://unsloth.ai/)** — the UD (Unsloth Dynamic) Q4/Q5_K_XL quantizations
+  used as targets here, and the community's quant tooling.
+- **The Qwen team (Alibaba)** — the Qwen 3.8 model family these configs run.
+- **[u/froggeric](https://www.reddit.com/user/froggeric)** — again, for the chat
+  template (see the top of this README).
 
 ## License
 
