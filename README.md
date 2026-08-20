@@ -4,7 +4,7 @@ Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/s
 fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding. This repo holds the
 launchers and notes; model weights (`.gguf`) and the `llama.cpp/` clone are local-only.
 
-- `llama-server.sh` — verified server config (16.8 t/s gen with the DFlash2 draft)
+- `run_llama-server.sh` — verified server config (16.8 t/s gen with the DFlash2 draft)
 - `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
 - Benchmarks and the Reddit-"31 t/s" reality check below
 
@@ -97,7 +97,7 @@ Qwen3.8-27B-UD-Q5_K_XL (18.8 GiB), Vulkan backend confirmed, `AMD_VULKAN_ICD=RAD
 | pp512 @ d8192 | 228.6 | depth costs ~8% — normal head-dim effect |
 | tg32 decode, no draft | **6.7** | bandwidth-bound: 18.8 GiB of weights per token ≈ 130 GB/s effective; ~31 t/s *without* a draft is physically impossible on Strix Halo |
 | tg with DFlash2 draft (n-max 4) | 14.5–15.5 | Q4_K_M draft ≥ Q8_0 draft (15.4 vs 14.55); n-max 16 ≈ n-max 4 (block_size 8 caps it) |
-| tg, full `llama-server.sh` config | **16.8** | adds `-ub 4096` — the +5% the author measured on Q4/Q5 targets |
+| tg, full `run_llama-server.sh` config | **16.8** | adds `-ub 4096` — the +5% the author measured on Q4/Q5 targets |
 
 **The Reddit "31 t/s" headline is a burst/best-case number, not steady state.** The
 thread itself reports 16–23 t/s interactive (Q8 target, draft 4) and describes
@@ -107,7 +107,7 @@ sustained power envelope (this one holds a flat 85 W).
 
 ### llama-bench with the server's flags (reproducible verification)
 
-`llama-bench` takes most of `llama-server.sh`'s tunables — but **not** `-md`/
+`llama-bench` takes most of `run_llama-server.sh`'s tunables — but **not** `-md`/
 `--spec-*` (no draft support: it measures bare decode only), nor `-ctkd/-ctvd`,
 `-tb`, `-c`/`-np`. The transferable set, with the `-ub` A/B folded in:
 
@@ -129,7 +129,7 @@ noise at 85 W.
 
 ## Running it: speculative decoding
 
-Use `llama-server.sh` in this directory — Q5_K_XL target + DFlash2 Q4_K_M draft,
+Use `run_llama-server.sh` in this directory — Q5_K_XL target + DFlash2 Q4_K_M draft,
 q8_0 KV, 64k context, `--spec-type draft-dflash --spec-draft-n-max 4`, sharp.jinja
 template, metrics on. Verified end-to-end: 16.8 t/s generation.
 

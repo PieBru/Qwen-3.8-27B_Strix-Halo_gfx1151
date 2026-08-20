@@ -33,5 +33,7 @@ echo "$devices" | grep -q "Vulkan0: AMD Radeon 8060S" || {
 }
 echo "OK: Vulkan backend on Radeon 8060S confirmed."
 
-# Optional smoke test (uncomment — picks a local model):
-# "$BUILD_DIR"/bin/llama-cli -m ../Qwen3.8-27B-DFlash2-Q4_K_M.gguf -ngl 999 -p "Hello" -n 64
+# Optional smoke test (uncomment — picks a local target model):
+# NOTE: must be a *target* model (UD-Q5_K_XL etc.) — the DFlash2 files are draft-only
+# (dflash arch needs ctx_other; standalone runs fail with "dflash requires ctx_other").
+# "$BUILD_DIR"/bin/llama-cli -m ../Qwen3.8-27B-UD-Q5_K_XL.gguf -ngl 999 -fa on -p "Hello" -n 64
