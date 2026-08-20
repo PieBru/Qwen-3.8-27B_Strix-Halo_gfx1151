@@ -132,8 +132,9 @@ Qwen3.8-27B-UD-Q5_K_XL (18.8 GiB), Vulkan backend confirmed, `AMD_VULKAN_ICD=RAD
 |---|---:|---|
 | pp512 prefill | **249.8** | `-fa on -ctk/ctv q8_0 -ub 2048`; healthy — beats issue #86's ported 215 t/s @d32k (70 W box) |
 | pp512 @ d8192 | 228.6 | depth costs ~8% — normal head-dim effect |
-| pp512 @ d32k | 190.82 | deep-context prefill, q8_0 KV, -ub 4096 |
-| pp512 @ d64k | 146.02 | deep-context prefill, q8_0 KV, -ub 4096 |
+| pp512 @ d32k | 190.8 | deep prefill, q8_0 KV, `-ub 4096` |
+| pp512 @ d64k | 146.0 | deep prefill, q8_0 KV, `-ub 4096` |
+| pp512 @ ≥128k | **crash** | `vk::DeviceLostError` at d131072 — same crash class issue #86 hit on stock builds (there f16 KV @64k); 64k is the measured working ceiling for prefill on this Vulkan stack |
 | tg32 decode, no draft | **6.7** | bandwidth-bound: 18.8 GiB of weights per token ≈ 130 GB/s effective; ~31 t/s *without* a draft is physically impossible on Strix Halo |
 | tg with DFlash2 draft (n-max 4) | 14.5–15.5 | Q4_K_M draft ≥ Q8_0 draft (15.4 vs 14.55); n-max 16 ≈ n-max 4 (block_size 8 caps it) |
 | tg, full `run_llama-server.sh` config | **16.8** | adds `-ub 4096` — the +5% the author measured on Q4/Q5 targets |
