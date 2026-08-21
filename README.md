@@ -44,7 +44,7 @@ goal-oriented presets in its [recommendations table](#recommended-configs-per-go
 |---|---|---|
 | KV type (target & draft) | f16 **faster** than q8_0 on both models (Q6 20.8 vs 19.2, Q8 16.6 vs 15.6) and higher fidelity — 128 GB unified makes it free | **f16 / f16** |
 | `--spec-draft-n-max` | 6–7 plateau, 4 clearly worse (DFlash2 `block_size=8, n_extract=5`) | **6** |
-| `-c` allocated ctx | **flat 16k–64k** (clean-window ladder 25.8/27.0/28.1 — order-biased, no real cost); 128k+ decay numbers were drift-era, re-measure before trusting them; **256k loads in 20 s** (SSM state is tiny); ≥128k crash is deep-prefill-only | **65536 default** |
+| `-c` allocated ctx | **flat 64k–256k on a quiet box** (Q6 ~20.2 ±0.2 t/s, Q8 ~17.6 at ≥128k; two passes + order-controlled); the drift-era "128k+ decay" was zram, not ctx; ≥128k crash is deep-prefill-only | **65536 default; raise to 192k/256k freely** |
 | `-b/-ub` | tg flat ±2%; 4096 = +6% deep prefill over 2048; 8192 buys nothing | **4096** |
 | `-tb` | parity (GPU-bound) | **32** |
 | Model choice | decode favors Q6 at every ctx; **Q8 prefill edges Q6** (pp512 366 vs 346 — Q8_0's symmetric blocks ride the fast kernel path) | Q6 speed / Q8 quality |
@@ -118,16 +118,16 @@ the pinned commit, not `main`:
 | `Qwen3.8-27B-UD-Q8_K_XL.gguf` — **max quality** | 31,457,991,680 | `af36ecb6b5db` (identical at `main`) |
 | `Qwen3.8-27B-UD-Q6_K_XL.gguf` — **max speed preset** | 25,924,152,384 | `739202186fd9` (tip differs!) |
 | `Qwen3.8-27B-UD-Q5_K_XL.gguf` — legacy perf tables | 20,218,178,624 | `176a6a3f034e` (tip differs!) |
-| `Qwen3.8-27B-UD-Q4_K_XL.gguf` — legacy (removed locally) | 17,923,394,624 | `bee238bbeb3d` (tip differs!) |
+| `Qwen3.8-27B-UD-Q4_K_XL.gguf` — legacy (still on disk, unused by presets) | 17,923,394,624 | `bee238bbeb3d` (tip differs!) |
 
 Verify a download against the table (`ls -l` size, or `sha256sum` prefix) — a
 same-named file of a different size is the newer revision, not the one measured here.
 The `DFlash2-*` draft GGUFs come from elsewhere (not in that repo) and are loaded via
 `-md`, never standalone.
 
-Local set at the time of the config research: `UD-Q5/Q6/Q8_K_XL` targets,
-`DFlash2-Q8_0` draft (the slightly faster `DFlash2-Q4_K_M` and the `UD-Q4_K_XL`
-were removed to make room; all remain fetchable from the pinned commit above).
+Local set at the time of the config research: `UD-Q4/Q5/Q6/Q8_K_XL` targets,
+`DFlash2-Q8_0` draft (the slightly faster `DFlash2-Q4_K_M` was removed to make
+room; it remains fetchable from the pinned commit above).
 A stray `mmproj-F16.gguf` (vision projector) is unused by these configs.
 
 ## Quick Start: just run the prebuilt release (time-saving)
@@ -144,9 +144,10 @@ curl -L https://github.com/Nathanw1014/strix-halo-llamacpp/releases/download/v0.
 #       -c 65536 -b 4096 -ub 4096 --spec-type draft-dflash --spec-draft-n-max 6 --host 0.0.0.0
 ```
 
-**Verified on this box**: same llama.cpp commit as the local build (`7b6c613`),
-Vulkan backend confirmed, tg8 = 7.55 t/s on Q5_K_XL. Read on only if you want to
-build from source to test improvements.
+**Verified on this box**: the tarball pins commit `7b6c613`; the local build now
+tracks the fork tip (`9b9ac3e38` at last sync — chat-parser-only delta, perf
+identical within 1%), Vulkan backend confirmed, tg8 = 7.55 t/s on Q5_K_XL. Read on
+only if you want to build from source to test improvements.
 
 ## What BUILD.md actually describes (full toolbox)
 
@@ -172,6 +173,18 @@ system RADV, you only need **step 3**.
 > the FA dequant-once work). Hopefully they land in mainline — unless surpassed by
 > an even better method — at which point stock llama.cpp inherits these wins and
 > the fork becomes redundant. Until then: pin the fork (`strix-halo-vulkan`).
+>
+> **Stock-vs-fork, measured 2026-08-21** (mainline tip `cd26896` with #25494 already
+> merged; same-day back-to-back `llama-bench`, quiet box, f16 KV, `-r 1`):
+>
+> | Metric | fork `7b6c61330` | stock `cd26896` | fork Δ |
+> |---|---:|---:|---:|
+> | Q6 pp512 / @d8192 | 355.8 / 314.8 | 301.0 / 263.7 | **+18% / +19%** |
+> | Q8 pp512 / @d8192 | 371.6 / 326.1 | 302.9 / 267.0 | **+23% / +22%** |
+> | tg32 (Q6 / Q8) | 8.60 / 7.30 | 8.55 / 7.27 | parity |
+>
+> Stock also has no DFlash2 spec-decode at all (the 20→28 t/s layer). **Fork stays
+> mandatory** until the remaining prefill PRs land.
 
 ## Full local build — for testing improvements
 
@@ -294,7 +307,9 @@ config under `results/`):
 ./sweep_llama_configs.sh 0                                # capacity probe (done, below)
 ./sweep_llama_configs.sh 1                                # --spec-draft-n-max 3-9, both models
 ./sweep_llama_configs.sh 2 <best-n6> <best-n8>            # KV types 2x2 (target x draft)
-./sweep_llama_configs.sh 3 "Q6 q8_0 q8_0 <n6>" "Q8 q8_0 q8_0 <n8>"   # ctx 128k/192k/256k
+./sweep_llama_configs.sh 3 "Q6 - - 6" "Q8 - - 6"   # ctx ladder 64k(control)→128k→192k→256k
+#  (`-` = default f16 KV; SWEEP_TAG_PREFIX=r2- tags repeat passes; optional 6th+
+#   fields override the ctx list/order — use to break run-order confounds)
 ./sweep_llama_configs.sh 4 "Q6 q8_0 q8_0 <n6> <ctx>" ... # -b/-ub 2048/4096/8192
 ./sweep_llama_configs.sh 5 ...                            # -tb 16 vs 32
 ```
@@ -314,7 +329,7 @@ inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit
 |---|---|---|
 | KV types (target × draft) | **f16 / f16, both models** | Q6: 20.8 vs 19.2 (q8/q8); Q8: 16.6 vs 15.6 — with 128 GB unified, quality KV is also the faster choice here |
 | `--spec-draft-n-max` | **6** (6–7 plateau; 4 clearly worse) | Q6: n6 28.6 > n5 27.4 > n4 24.8 (fresh window); n7 ≈ n6 elsewhere |
-| `-c` (allocated ctx) | **65536 default; raise on demand** | ALLOCATED ctx alone costs decode: Q6 19.8→16.7 (64k→128k), Q8 17.8→13.9. **256k loads in 20 s and serves** — the ≥128k crash is deep-prefill-specific (bench filling the ctx), not an allocation limit. Ceilings: Q6 256k (16.8), Q8 192k (14.3), 256k works but 12.2 |
+| `-c` (allocated ctx) | **65536 default; allocation is free up to 256k** | Quiet-box re-measure (2026-08-21, fresh boot, zram 0 B used, two passes + an order-controlled third): **flat** — Q6 20.2 ±0.2 t/s and Q8 ~17.6 t/s from 64k straight through 256k. The earlier "ALLOCATED ctx costs decode" decay (Q6 19.8→16.7, Q8 17.8→13.9) was drift-era zram noise and does **not** reproduce. Only real quirk: Q8 dips ~1.4 t/s at 64k vs ≥128k (confirmed not a run-order artifact; mechanism unknown). The ≥128k crash is deep-prefill-specific (bench filling the ctx), not an allocation limit |
 | `-b/-ub` | **4096** | tg flat (±2%, 2048/4096/8192); llama-bench already showed 4096 = +6% deep prefill over 2048; 8192 doubles compute buffers for nothing |
 | `-tb` | **32** (parity) | tb16 within ~1% of tb32 — GPU-bound, as expected |
 
@@ -328,7 +343,7 @@ All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6, `-b/-ub 4096`, `-t 16 -tb 32`,
 | **Max quality** | `--goal max-quality` (Q8) | 196608 (sane ceiling) | ~25 | ~365 | final answers, code, synthesis — quality over everything |
 | **Balanced → quality** | `--goal balanced-quality` (Q8) | 65536 (default) | ~25 | ~365 | default when correctness matters more than latency |
 | **Balanced → speed** ✅ default | `run_llama-server.sh` (Q6) | 65536 | **~28** | ~346 | daily driver — Q6 quality is good anyway; best sustained t/s measured |
-| **Max speed** | `--goal max-speed` (Q6) | 65536 (16k–64k flat; trim to the task) | **~28** | ~346 | interactive churn |
+| **Max speed** | `--goal max-speed` (Q6) | 65536 (16k–256k flat on a quiet box; trim to the task) | **~28** | ~346 | interactive churn |
 
 Decision rule between them: **Q8 when quality is the point, Q6 when tokens/s is** —
 prefill is equal (~250–260 pp4k), decode favors Q6 at every context size.
@@ -340,7 +355,9 @@ prefill is equal (~250–260 pp4k), decode favors Q6 at every context size.
    stage-2 block was drift-corrupted and was re-run. Mind **run order** too: the
    first server after a cold start pays page-cache warm-up, so sequential ladders
    lean toward whatever ran last (a 16k/32k/64k ctx ladder inverted until we saw
-   the bias).
+   the bias). The 2026-08-21 ctx re-measure took it further: two full passes
+   (identical results) plus one reversed-order pass to prove the lone anomaly
+   (Q8's 64k dip) was real, not a first-in-sequence artifact.
 2. **zram eats inference.** GTT weight pages are shmem-backed → swappable → they
    compress into zram under load churn, and decode then pays per-token
    decompression (up to ~30%). Fixes, best first: (a) `-lm mmap+mlock` so the
@@ -351,9 +368,15 @@ prefill is equal (~250–260 pp4k), decode favors Q6 at every context size.
    (c) `sudo swapoff -a` disables zram entirely until reboot — safe on 128 GB with
    the box otherwise quiet, but it removes the safety net and makes the kernel's
    precautional OOM killer trigger earlier under pressure. We prefer (a)+(b).
-3. **mlock needs a limit raise.** Default `ulimit -l` is 8 GB-class and multi-GB
-   buffers fail with `Cannot allocate memory`. One-time, then re-login:
+3. **mlock needs a limit raise — and fails SILENTLY without it.** Default
+   `ulimit -l` here was 8192 KB (8 MB-class) and multi-GB buffers then fail with
+   `Cannot allocate memory`. One-time, then re-login:
    `echo -e 'piero soft memlock unlimited\npiero hard memlock unlimited' | sudo tee /etc/security/limits.d/99-llama-mlock.conf`
+   ⚠️ **Observed 2026-08-21:** the server only *warns* on mlock ENOMEM and keeps
+   serving **unprotected** — it does not abort. `/etc/security/limits.d/` didn't
+   even exist on this box (the step above had never been applied), so every
+   "mlock'd" run until then ran without actual protection. After re-login verify:
+   `ulimit -l` must print `unlimited`.
 4. **Power is a throttling detector, not a cost metric.** We logged PPT only to
    confirm the box held a flat 85 W (no throttle). A Strix Halo's max draw is more
    than an order of magnitude below a pre-Blackwell NVIDIA desktop part — the
