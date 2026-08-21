@@ -26,8 +26,8 @@ cmake --build build-vk --target llama-server llama-cli llama-bench -j
 #    Q6 pp512 ~346 / tg32 ~8.6; Q8 pp512 ~366 / tg32 ~7.3 — zram churn can halve tg)
 ./build-vk/bin/llama-cli --list-devices
 ./build-vk/bin/llama-bench -m MODEL-UD-Q6_K_XL.gguf -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
-# 5. serve a preset (balanced-speed = Q6 daily driver, ~29 t/s on a quiet box)
-./run_llama-server.sh --goal balanced-speed
+# 5. serve a preset (balanced = Q6 daily driver, ~29 t/s on a quiet box)
+./run_llama-server.sh --goal balanced
 curl -s localhost:8081/completion -H 'Content-Type: application/json' \
      -d '{"prompt":"Explain briefly why the sky is blue at sunset.","n_predict":64}'
 ```
@@ -60,7 +60,7 @@ to build from source.
 Model weights (`.gguf`) and the `llama.cpp/` clone are local-only; this repo holds
 the serving setup and notes:
 
-- `run_llama-server.sh` — **unified launcher**: `--goal max-quality|balanced-quality|balanced-speed|max-speed`
+- `run_llama-server.sh` — **unified launcher**: `--goal quality|balanced|speed`
   single-model presets, or `--router` to serve every recipe; every field overridable
   (`--model`, `--ctx`, `--nmax`, `--kv`, `--port`, `--draft`, `--no-mlock`, `--dry-run`;
   `--help` explains each)
@@ -75,13 +75,13 @@ the serving setup and notes:
 
 ## Recommended configs (per goal)
 
-| Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | `-c` | RAM | left | tg (served) | pp4k | PPL / KLD↑ | When to pick |
+| Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | context | RAM | left | tg (served) | pp4k | PPL / KLD↑ | When to pick |
 |---|---|---|---|---:|---:|---:|---:|---:|---|
-| **Quality** | `Qwen38-27B-Q8-65K-quality` (up to 192K) | `--goal balanced-quality|max-quality` (Q8) | 65536 default; ceiling 196608 | ~45 GiB (64k) / ~54 (192k) | ~78 / ~68 | ~25 | ~330 | 4.692 / ref | correctness-first — raise `c` in models.ini to 192k when the window is needed (decode-flat, +~10 GiB KV; long-ctx loads can be slow on an uptimed box) |
-| **Balanced → speed** ✅ default | `Qwen38-27B-Q6-65K-balanced-speed` | `run_llama-server.sh` (Q6) | 65536 | ~40 GiB | ~83 GiB | **~29** | ~306 | 4.706 / 0.0073 | daily driver — Q6 quality is good anyway; best quality/speed balance |
-| **Max speed** | `Qwen38-27B-Q6-65K-fast` | `--goal max-speed` (Q6) | 65536 (trim to the task if you like) | ~40 GiB | ~83 GiB | **~29** | ~306 | 4.706 / 0.0073 | interactive churn |
-| **Fast churn** | `Qwen38-27B-Q5-65K-turbo` | `--model q5` (Q5) | 65536 | ~35 GiB | ~88 GiB | **~32** | ~297 | 4.722 / 0.0137 | fastest decoder on the box (n-max 5); lightest spec footprint |
-| **Vision** | `Qwen38-27B-Q6-65K-vision` | router-only (mmproj, no spec) | 65536 | ~32 GiB | ~91 GiB | ~8.4 | — | 4.706 / 0.0073 | the only image-capable recipe — runs `spec-type = none` (see lessons #7); lightest resident footprint (no draft model) |
+| **Quality** | `Qwen38-27B-quality` | `--goal quality` (Q8) | 65536 default; up to 256k | ~45 GiB @64k (+~10 per 3×) | ~78 | ~25 | ~330 | 4.692 / ref | correctness-first; raise `c` in models.ini for a bigger window |
+| **Balanced** ✅ default | `Qwen38-27B-balanced` | `run_llama-server.sh` (Q6) | 65536 default; flat to 256k | ~40 GiB | ~83 | **~29** | ~306 | 4.706 / 0.0073 | daily driver — best quality/speed balance (28.1–29.6 t/s across the 32k–256k ladder) |
+| **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 GiB | ~88 | **~32** | ~297 | 4.722 / 0.0137 | fastest decoder: +10% tg and −5 GiB vs balanced, at the documented quality cost — churn/prototyping |
+| **Vision** | `Qwen38-27B-vision` | router-only (mmproj, no spec) | 65536 | ~32 GiB | ~91 | ~8.4 | — | 4.706 / 0.0073 | the only image-capable recipe — runs `spec-type = none` (lessons #7); lightest resident footprint |
+| **Max context** | `Qwen38-27B-max-context` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 GiB | ~63 | ~25 | ~330 | 4.692 / ref | the biggest window this stack can serve — for many/long contexts, NOT one ≥128k-position prompt (Vulkan prefill ceiling); loads can be slow on an uptimed box |
 
 Notes on the columns:
 
@@ -92,12 +92,11 @@ box; fresh-load peaks run higher. **RAM** = resident footprint vs idle router
 "available" with that recipe live — headroom for concurrent models/activities.
 Measured 2026-08-21 on a 124 GiB box via the router; variance ±1–2 GiB.
 
-tg was measured fresh-slot (first task after load), temp-0: the former two Q8
-recipes tied at ~24.7 t/s when probed at both 65536 and 196608
-(journal-confirmed `n_ctx_slot`), and the Q6 pair ties at ~29 — same quant ⇒
-same decode speed, so the Q8 pair is now ONE recipe: 64k default, 192k
-ceiling (`c` in models.ini). ctx allocation is decode-free, not RAM-free
-(+~10 GiB per 3×). Served defaults are sampling-penalty-free.
+tg was measured fresh-slot (first task after load), temp-0. Decode is ctx-flat
+for every recipe (Q6 ladder 32k→256k: 28.1–29.6 t/s; Q8: 24.7–24.9), so the
+context column is a default, not a speed trade-off — raise `c` in models.ini
+freely; only RAM (+~10 GiB KV per 3× ctx) and load time grow. Served defaults
+are sampling-penalty-free.
 ⚠️ Opting into `repeat_penalty 1.05` costs **23–28% decode on every spec recipe**
 (it collapses DFlash2 acceptance 0.647 → 0.450); prefill and vision are immune.
 Use it per-request, only when repetition actually bites — lessons #9.
@@ -125,9 +124,10 @@ equal (~250–330 pp4k), decode favors Q5-turbo > Q6 > Q8 at every context size.
 Single model with a preset (any field overridable, `--help` for all):
 
 ```bash
-./run_llama-server.sh --goal balanced-speed            # Q6 @ 64k — daily driver
-./run_llama-server.sh --goal max-quality               # Q8 @ 192k — final answers
-./run_llama-server.sh --goal max-speed --ctx 32768     # trimmed ctx for pure t/s
+./run_llama-server.sh --goal balanced            # Q6 @ 64k — daily driver
+./run_llama-server.sh --goal quality             # Q8 @ 64k — correctness first
+./run_llama-server.sh --goal speed              # Q5 @ 64k — fastest decoder
+./run_llama-server.sh --goal quality --ctx 196608  # Q8 with a bigger window
 ./run_llama-server.sh --model q8 --kv q8_0 --nmax 4   # fully custom
 ```
 
@@ -142,12 +142,14 @@ cp llama-router.service ~/.config/systemd/user/ && systemctl --user daemon-reloa
 systemctl --user enable --now llama-router
 
 curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
-     -d '{"model":"Qwen38-27B-Q6-65K-balanced-speed","max_tokens":64,
+     -d '{"model":"Qwen38-27B-balanced","max_tokens":64,
           "messages":[{"role":"user","content":"hi"}]}'
 ```
 
-Recipe names are `Qwen38-27B-<QUANT>-<CTX>-<ROLE>`; the short names
-(`Qwen38-27B-turbo`, `-fast`, …) still work as aliases. Recipe-specific keys
+Recipe names are plain roles — `Qwen38-27B-quality | -balanced | -speed | -vision
+| -max-context`; every historical name (`Qwen38-27B-Q6-65K-balanced-speed`,
+`-turbo`, `-fast`, `-Q8-192K-quality`, …) still works as an alias.
+Recipe-specific keys
 (weights, ctx, spec config, mmproj) live in `models.ini` sections — see the header
 of that file for the key reference and the CLI-vs-section precedence rule (lessons #8).
 
@@ -232,9 +234,10 @@ We built and load-tested a `Q6-1M-yarn` recipe (`rope-scaling = yarn`,
 - **And prompts beyond ~128k hit the Vulkan deep-prefill crash** regardless
   (the known `vk::DeviceLostError` ceiling).
 
-So `Q8-192K-quality` remains the practical maximum served recipe, and a ready-
-to-enable 1M recipe is kept commented at the bottom of `models.ini` for when
-the fork lifts both blockers. `Q8-65K-quality` (ceiling 192k) is the practical
+So `Qwen38-27B-max-context` (256k) is the practical maximum served recipe, and a
+ready-to-enable 1M recipe is kept commented at the bottom of `models.ini` for
+when
+the fork lifts both blockers. `Qwen38-27B-max-context` (256k) is the practical
 maximum served recipe. No quality claim is made either way: positions
 beyond 262k are extrapolated (YaRN-interpolated RoPE), not trained.
 
@@ -431,7 +434,7 @@ interleaved comparisons, never numbers from different sessions.
    text decode neutral) and the recipe serves text at full speed — but the first
    real image request dies with `decode() failed: failed to process speculative
    batch`: image embeddings are incompatible with the DFlash2 spec path in this
-   fork. Hence vision is its own `Q6-65K-vision` recipe with `spec-type = none` —
+   fork. Hence vision is its own `Qwen38-27B-vision` recipe with `spec-type = none` —
    it pays the no-spec decode tax (8.4 t/s vs 21–29 for the same weights with
    spec; image encode itself is fast, <0.5 s warm for 512 px) so every text recipe
    keeps its speed, and it's the lightest resident recipe (~32 GiB, no draft

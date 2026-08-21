@@ -9,10 +9,9 @@
 # repetition actually bites.
 #
 # Usage:
-#   ./run_llama-server.sh --goal max-quality       # Q8 @ 192k  — final answers, code
-#   ./run_llama-server.sh --goal balanced-quality  # Q8 @ 64k   — correctness first
-#   ./run_llama-server.sh --goal balanced-speed    # Q6 @ 64k   — daily driver (default)
-#   ./run_llama-server.sh --goal max-speed         # Q6 @ 64k, trim --ctx for more t/s
+#   ./run_llama-server.sh --goal quality         # Q8 @ 64k   — correctness first
+#   ./run_llama-server.sh --goal balanced       # Q6 @ 64k   — daily driver (default)
+#   ./run_llama-server.sh --goal speed          # Q5 @ 64k   — fastest decoder
 # Overrides (any preset field can be overridden individually):
 #   --model q5|q6|q8    target UD quant (q6/q8 recommended, q5 = turbo;
 #                         q4 evaluated 2026-08-21 and dropped — see README Models)
@@ -61,12 +60,12 @@ while [ $# -gt 0 ]; do case "$1" in
 esac; done
 
 case "$GOAL" in
-  max-quality)      MODEL=q8; [ "$CTX_SET" = 0 ] && CTX=196608;;
-  balanced-quality) MODEL=q8; [ "$CTX_SET" = 0 ] && CTX=65536;;
-  balanced-speed)   MODEL=q6; [ "$CTX_SET" = 0 ] && CTX=65536;;
-  max-speed)        MODEL=q6; [ "$CTX_SET" = 0 ] && CTX=65536;;   # same config: 64k-256k measured flat; trim --ctx only to fit the task
-  "") MODEL=${MODEL:-q6};;                       # bare invocation = balanced-speed
-  *) echo "error: --goal must be max-quality|balanced-quality|balanced-speed|max-speed" >&2; exit 1;;
+  quality|balanced-quality) MODEL=q8; [ "$CTX_SET" = 0 ] && CTX=65536;;
+  max-quality)       MODEL=q8; [ "$CTX_SET" = 0 ] && CTX=196608;;   # legacy name for quality @192k
+  balanced|balanced-speed|max-speed) MODEL=q6; [ "$CTX_SET" = 0 ] && CTX=65536;;   # 'balanced' since 2026-08-21; older names still accepted
+  speed)            MODEL=q5; [ "$NMAX_SET" = 0 ] && NMAX=5;;      # Q5 optimum is 5, not 6
+  "") MODEL=${MODEL:-q6};;                       # bare invocation = balanced
+  *) echo "error: --goal must be quality|balanced|speed (legacy: max-quality|balanced-quality|balanced-speed|max-speed)" >&2; exit 1;;
 esac
 
 KVARGS=()
