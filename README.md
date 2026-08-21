@@ -669,6 +669,18 @@ interleaved comparisons, never numbers from different sessions.
    (c) `sudo swapoff -a` disables zram entirely until reboot — safe on 128 GB with
    the box otherwise quiet, but it removes the safety net and makes the kernel's
    precautional OOM killer trigger earlier under pressure. We prefer (a)+(b).
+
+   The exact (b) we run on both boxes — `/etc/sysctl.d/99-llama-inference.conf`:
+   `vm.swappiness = 10` (zram a last resort) and `vm.watermark_scale_factor = 125`
+   (wake kswapd earlier — the install-time value of 10 gives a ~13 MiB wake gap
+   on 124 GiB, i.e. almost never, which caused late direct-reclaim stalls; 125
+   gives ~158 MiB of background-reclaim headroom). Apply with
+   `sudo sysctl --system`; flush a filled zram without rebooting with
+   `sudo swapoff /dev/zram0 && sudo systemctl restart
+   systemd-zram-setup@zram0.service` (checked RAM headroom first). Monitor with
+   `swapon --show` and `/sys/block/zram0/mm_stat` — the first column should stay
+   near 0 during normal serving; anything growing means something swapped and
+   decode is paying for it.
 3. **mlock needs a limit raise — and fails SILENTLY without it.** Default
    `ulimit -l` here was 8192 KB (8 MB-class) and multi-GB buffers then fail with
    `Cannot allocate memory`. One-time, then re-login:
