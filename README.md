@@ -113,10 +113,15 @@ box; fresh-load peaks run higher. **RAM** = resident footprint vs idle router
 "available" with that recipe live — headroom for concurrent models/activities.
 Measured 2026-08-21 on a 124 GiB box via the router; variance ±1–2 GiB.
 
-tg was measured fresh-slot (first task after load), temp-0. Decode is ctx-flat
-for every recipe (Q6 ladder 32k→256k: 28.1–29.6 t/s; Q8: 24.7–24.9), so the
-context column is a default, not a speed trade-off — raise `c` in models.ini
-freely; only RAM (+~10 GiB KV per 3× ctx) and load time grow. Served defaults
+tg was measured fresh-slot (first task after load), temp-0. Decode is flat
+across ctx ALLOCATION for every recipe (Q6 ladder 32k→256k: 28.1–29.6 t/s;
+Q8: 24.7–24.9) — the hybrid-SSM architecture gives most layers a constant-size
+state, so an allocated-but-unfilled window costs nothing. What DOES cost
+decode is how much of the window is FILLED: the NIAH battery's journal measured
+~29 t/s at 8k filled → ~16–18 t/s at 64–96k filled (the few full-attention
+layers scan the filled KV per token). So `~25` is the short-prompt benchmark —
+a max-context session that actually fills its window decodes slower. Context
+buys RAM (+~10 GiB per 3×) and load time, not benchmark tg. Served defaults
 are sampling-penalty-free.
 ⚠️ Opting into `repeat_penalty 1.05` costs **23–28% decode on every spec recipe**
 (it collapses DFlash2 acceptance 0.647 → 0.450); prefill and vision are immune.
