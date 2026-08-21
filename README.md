@@ -179,9 +179,11 @@ tg was measured fresh-slot (first task after load), temp-0. Decode is flat
 across ctx ALLOCATION for every recipe (Q6 ladder 32k→256k: 28.1–29.6 t/s;
 Q8: 24.7–24.9) — the hybrid-SSM architecture gives most layers a constant-size
 state, so an allocated-but-unfilled window costs nothing. What DOES cost
-is how much of the window is FILLED — measured on Q8 (fill battery 2026-08-21):
-**24.7 t/s fresh → 13.1 @64k → 9.8 @128k filled** (the few full-attention
-layers scan the filled KV per token; incremental prefill decays similarly).
+is how much of the window is FILLED — measured on Q8 (fill batteries
+2026-08-21, quality@256k): **24.7 fresh → ~21 @2.6k → 16.8 @26k → 13–13.7
+@64–118k (plateau) → 9.8 @128k → vk::DeviceLost ≥~160k** (the few
+full-attention layers scan the filled KV per token; incremental prefill
+decays similarly).
 So `~25` is the short-prompt benchmark — a filled long-window session decodes
 at roughly half speed or less. Context buys RAM (+~10 GiB per 3×) and load
 time, not sustained tg at depth. Served defaults
