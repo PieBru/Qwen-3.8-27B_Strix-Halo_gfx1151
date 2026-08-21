@@ -75,13 +75,28 @@ the serving setup and notes:
 
 ## Recommended configs (per goal)
 
-| Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | context | RAM | left | tg (served) | pp4k | PPL / KLD↑ | When to pick |
-|---|---|---|---|---:|---:|---:|---:|---:|---|
-| **Quality** | `Qwen38-27B-quality` | `--goal quality` (Q8) | 65536 default; up to 256k | ~45 GiB @64k (+~10 per 3×) | ~78 | ~25 | ~330 | 4.692 / ref | correctness-first; raise `c` in models.ini for a bigger window |
-| **Balanced** ✅ default | `Qwen38-27B-balanced` | `run_llama-server.sh` (Q6) | 65536 default; flat to 256k | ~40 GiB | ~83 | **~29** | ~306 | 4.706 / 0.0073 | daily driver — best quality/speed balance (28.1–29.6 t/s across the 32k–256k ladder) |
-| **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 GiB | ~88 | **~32** | ~297 | 4.722 / 0.0137 | fastest decoder: +10% tg and −5 GiB vs balanced, at the documented quality cost — churn/prototyping |
-| **Vision** | `Qwen38-27B-vision` | router-only (mmproj, no spec) | 65536 | ~32 GiB | ~91 | ~8.4 | — | 4.706 / 0.0073 | the only image-capable recipe — runs `spec-type = none` (lessons #7); lightest resident footprint |
-| **Max context** | `Qwen38-27B-max-context` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 GiB | ~63 | ~25 | ~330 | 4.692 / ref | the biggest window this stack can serve — for many/long contexts, NOT one ≥128k-position prompt (Vulkan prefill ceiling); loads can be slow on an uptimed box |
+| Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | context | RAM (GiB) | left (GiB) | tg (t/s) | pp4k (t/s) | PPL / KLD↑ |
+|---|---|---|---|---:|---:|---:|---:|---:|
+| **Quality** | `Qwen38-27B-quality` | `--goal quality` (Q8) | 65536 default; up to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
+| **Balanced** ✅ default | `Qwen38-27B-balanced` | `run_llama-server.sh` (Q6) | 65536 default; flat to 256k | ~40 | ~83 | **~29** | ~306 | 4.706 / 0.0073 |
+| **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 | ~88 | **~32** | ~297 | 4.722 / 0.0137 |
+| **Vision** | `Qwen38-27B-vision` | router-only (mmproj, no spec) | 65536 | ~32 | ~91 | ~8.4 | — | 4.706 / 0.0073 |
+| **Max context** | `Qwen38-27B-max-context` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 | ~63 | ~25 | ~330 | 4.692 / ref |
+
+When to pick which:
+
+- **Quality** — correctness-first answers, code, synthesis. Raise `c` in
+  models.ini for a bigger window: decode is ctx-flat, only RAM (+~10 GiB per 3×
+  ctx) and load time grow.
+- **Balanced** (default) — the daily driver: best quality/speed balance
+  (28.1–29.6 t/s across the whole 32k–256k ladder).
+- **Speed** — fastest decoder: +10% tg and ~5 GiB lighter than balanced, at the
+  documented quality cost (see the PPL/KLD columns) — churn and prototyping.
+- **Vision** — the only image-capable recipe (mmproj, no spec decode — lessons
+  #7); lightest resident footprint.
+- **Max context** — the biggest window this stack can serve: for many/long
+  contexts, NOT one ≥128k-position prompt (Vulkan prefill ceiling); loads can
+  be slow on an uptimed box.
 
 Notes on the columns:
 
@@ -109,9 +124,12 @@ weights — recipes sharing a quant share these values; spec decode, mmproj, ctx
 penalties don't enter.
 
 Heads-up for concurrency: `--models-max 1` is policy, not a hard memory limit —
-two small recipes would *fit* (e.g. turbo + fast ≈ 75 GiB), but three resident
+two small recipes would *fit* (e.g. speed + balanced ≈ 75 GiB), but three resident
 models exhausted memory and hard-hung the box, so 1 stays the default; raise only
-with verified headroom. Nothing loads at boot: each recipe's **first request pays a
+with verified headroom. Note there is **no weight sharing between recipes**: two
+recipes pointing at the same GGUF (e.g. balanced + vision, both Q6) each upload
+their own copy — measured 41.0 → 71.5 GiB RAM and 37.2 → 67.1 GiB GTT when the
+second one loaded. Nothing loads at boot: each recipe's **first request pays a
 one-time load** (~6 s warm, up to ~13 s from cold page cache), and switching recipe
 names under `--models-max 1` unloads the previous one first, paying the same load
 again — steady-state serving after that is instant.
