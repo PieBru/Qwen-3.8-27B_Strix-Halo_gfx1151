@@ -6,6 +6,31 @@
 Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/strix-halo-llamacpp)
 fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding.
 
+## Why this exists: cloud-free intelligence on a desk
+
+If you are a solo developer with an AI agent working around the clock, a
+privacy-sensitive operator, or any other entity that wants to be free from
+cloud chains — read on. An all-purpose computer that cost **less than €2,000**
+(launch offer) now serves a 27-billion-parameter reasoning model, entirely
+from your own desk:
+
+- **No API keys, no quotas, no meters.** The model lives in your RAM
+  (~122 GiB of it, mlock'd — the box's whole personality is inference).
+- **Real speeds, measured**: 25–32 tokens/s sustained decode with DFlash2
+  speculative decoding, ~330 t/s prefill; a five-recipe menu (quality /
+  balanced / speed / vision / a context dial to a 256k-token window) you
+  switch per request, like a reasoning level.
+- **Sips power**: ~85 W sustained at full tilt — order of magnitude under a
+  multi-GPU rig; idle cost roughly a lightbulb (~€0.04/night at €0.12/kWh,
+  computed from the 85 W figure — verify against your tariff).
+- **Private by physics**: prompts never leave the machine. No telemetry to
+  disable, no retention policy to trust — unplugged is unambiguous.
+- **Yours**: no deprecations, no price changes, no terms-of-service updates
+  that quietly reshape your workflow. The stack is open source end to end.
+
+The recipes, the numbers, and every trap we hit (there were many) are
+documented below — so your agent can run 24/7 on hardware you own outright.
+
 ## TL;DR — reproduce on any gfx1151 (Strix Halo) box
 
 Five steps, ~30 min, no desktop environment needed (Arch minimal headless verified;
