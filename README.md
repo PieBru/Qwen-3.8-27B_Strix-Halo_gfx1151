@@ -385,9 +385,10 @@ The split costs nothing to switch between: it's one model name in the client,
 with `--models-max 1` doing the load swap (~6–15 s) between request batches.
 
 Recipe names are plain roles — `Qwen38-27B-quality@64k…@256k | -balanced |
--speed | -vision`; every historical name (`Qwen38-27B-quality`,
-`-max-context`, `-Q6-65K-balanced-speed`, `-turbo`, `-fast`, …) still works as
-an alias.
+-speed | -vision`. No extra aliases are registered (they only clutter the
+llama-server WebUI model picker); older names from this repo's history
+(`-turbo`, `-fast`, `-Q8-192K-quality`, …) no longer resolve — update clients
+to the role names.
 Recipe-specific keys
 (weights, ctx, spec config, mmproj) live in `models.ini` sections — see the header
 of that file for the key reference and the CLI-vs-section precedence rule (lessons #8).
