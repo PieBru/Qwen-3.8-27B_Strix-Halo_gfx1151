@@ -77,8 +77,7 @@ the serving setup and notes:
 
 | Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | `-c` | RAM | left | tg (served) | pp4k | PPL / KLD↑ | When to pick |
 |---|---|---|---|---:|---:|---:|---:|---:|---|
-| **Max quality** | `Qwen38-27B-Q8-192K-quality` | `--goal max-quality` (Q8) | 196608 (sane ceiling) | ~54 GiB | ~68 GiB | ~25 | ~330 | 4.692 / ref | final answers, code, synthesis — quality over everything |
-| **Balanced → quality** | `Qwen38-27B-Q8-65K-balanced-quality` | `--goal balanced-quality` (Q8) | 65536 (default) | ~45 GiB | ~78 GiB | ~25 | ~331 | 4.692 / ref | default when correctness matters more than latency |
+| **Quality** | `Qwen38-27B-Q8-65K-quality` (up to 192K) | `--goal balanced-quality|max-quality` (Q8) | 65536 default; ceiling 196608 | ~45 GiB (64k) / ~54 (192k) | ~78 / ~68 | ~25 | ~330 | 4.692 / ref | correctness-first — raise `c` in models.ini to 192k when the window is needed (decode-flat, +~10 GiB KV; long-ctx loads can be slow on an uptimed box) |
 | **Balanced → speed** ✅ default | `Qwen38-27B-Q6-65K-balanced-speed` | `run_llama-server.sh` (Q6) | 65536 | ~40 GiB | ~83 GiB | **~29** | ~306 | 4.706 / 0.0073 | daily driver — Q6 quality is good anyway; best quality/speed balance |
 | **Max speed** | `Qwen38-27B-Q6-65K-fast` | `--goal max-speed` (Q6) | 65536 (trim to the task if you like) | ~40 GiB | ~83 GiB | **~29** | ~306 | 4.706 / 0.0073 | interactive churn |
 | **Fast churn** | `Qwen38-27B-Q5-65K-turbo` | `--model q5` (Q5) | 65536 | ~35 GiB | ~88 GiB | **~32** | ~297 | 4.722 / 0.0137 | fastest decoder on the box (n-max 5); lightest spec footprint |
@@ -93,9 +92,12 @@ box; fresh-load peaks run higher. **RAM** = resident footprint vs idle router
 "available" with that recipe live — headroom for concurrent models/activities.
 Measured 2026-08-21 on a 124 GiB box via the router; variance ±1–2 GiB.
 
-tg was measured fresh-slot (first task after load), temp-0, at each row's own `-c`:
-same-quant rows tie because ctx allocation is free (see
-[findings](#sweep-findings-at-a-glance)). Served defaults are sampling-penalty-free.
+tg was measured fresh-slot (first task after load), temp-0: the former two Q8
+recipes tied at ~24.7 t/s when probed at both 65536 and 196608
+(journal-confirmed `n_ctx_slot`), and the Q6 pair ties at ~29 — same quant ⇒
+same decode speed, so the Q8 pair is now ONE recipe: 64k default, 192k
+ceiling (`c` in models.ini). ctx allocation is decode-free, not RAM-free
+(+~10 GiB per 3×). Served defaults are sampling-penalty-free.
 ⚠️ Opting into `repeat_penalty 1.05` costs **23–28% decode on every spec recipe**
 (it collapses DFlash2 acceptance 0.647 → 0.450); prefill and vision are immune.
 Use it per-request, only when repetition actually bites — lessons #9.
@@ -232,7 +234,8 @@ We built and load-tested a `Q6-1M-yarn` recipe (`rope-scaling = yarn`,
 
 So `Q8-192K-quality` remains the practical maximum served recipe, and a ready-
 to-enable 1M recipe is kept commented at the bottom of `models.ini` for when
-the fork lifts both blockers. No quality claim is made either way: positions
+the fork lifts both blockers. `Q8-65K-quality` (ceiling 192k) is the practical
+maximum served recipe. No quality claim is made either way: positions
 beyond 262k are extrapolated (YaRN-interpolated RoPE), not trained.
 
 ### Dynamic Quant v3.0 — `UD-Q6_K_M`: compatible alternative, not the default

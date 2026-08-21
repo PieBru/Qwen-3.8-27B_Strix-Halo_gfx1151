@@ -1,9 +1,10 @@
 [Unit]
 Description=llama-server router — Qwen3.8-27B presets (models.ini) on :8080
-# Serves the 5 recipes from the repo's models.ini:
+# Serves the recipes from the repo's models.ini:
 #   Qwen38-27B-Q5-65K-turbo | Q6-65K-fast | Q6-65K-balanced-speed |
-#   Q8-65K-balanced-quality | Q8-192K-quality
-# (old short names — Qwen38-27B-turbo, -fast, ... — still work as aliases)
+#   Q8-65K-quality (ctx up to 192K) | Q6-65K-vision
+# (old short names — Qwen38-27B-turbo, -fast, -balanced-quality, -quality, … —
+# still work as aliases)
 # Port 8080 is this box's canonical local-LLM endpoint (~/.pi/agent/models.json
 # provider "local"; the nightly pi-dream.service pins it). No model is loaded at
 # boot — the first request to each name pays the on-demand load (~6 s warm,
