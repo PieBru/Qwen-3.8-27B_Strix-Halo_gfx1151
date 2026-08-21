@@ -165,6 +165,19 @@ recalled on @192k. For fully-local users this makes the context window a
 dial much like the reasoning-level switch (none/low/medium/high), trading
 free RAM for window on the fly; `--models-max 1` serializes the switch (the
 old preset unloads first — switch between requests, not during one).
+
+```mermaid
+xychart-beta
+    title "The context dial: quality@NNk presets, % of the @64k baseline"
+    x-axis "window preset" ["@64k", "@128k", "@192k", "@256k"]
+    y-axis "% of @64k baseline" 0 --> 150
+    bar [100, 111, 120, 136]
+    line [100, 100, 100, 100]
+```
+
+Bars = RAM occupied; line = decode speed (quality is likewise flat) — the window
+costs memory and nothing else. (Fill-depth decay, above, is the separate price
+of actually *using* the window.)
 **Two measured realities temper the dial** (fill battery 2026-08-21, Q8,
 f16 KV, chunked incremental fill): decode falls with FILLED depth —
 **24.7 t/s fresh → 13.1 @64k → 9.8 @128k filled** (incremental prefill
@@ -189,6 +202,17 @@ shown — of the 262,144-token window, and of the ~128k usable-content ceiling):
 
 Not linear: fast decay in the first quarter, a ~13–14 t/s plateau through
 the middle band, a further drop approaching the ceiling, then the hard wall.
+
+```mermaid
+xychart-beta
+    title "Decode speed vs FILLED context (Q8, quality@256k)"
+    x-axis "positions filled" ["0", "2.6k", "26k", "64k", "118k", "128k"]
+    y-axis "decode t/s" 0 --> 27
+    bar [24.7, 21, 16.8, 13.1, 13.7, 9.8]
+```
+
+The wall is not chartable: at ~160k positions prefill dies with `vk::DeviceLostError`
+(child crash, router wedge) — the table row above marks it.
 
 When to pick which:
 
