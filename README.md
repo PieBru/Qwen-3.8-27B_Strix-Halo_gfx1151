@@ -337,13 +337,25 @@ inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit
 
 All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6, `-b/-ub 4096`, `-t 16 -tb 32`,
 `-lm mmap+mlock`. tg = typical sustained; **fresh quiet box peaks ≈ +50%**.
+RAM columns (measured 2026-08-21, 124 GiB box, recipe resident via the router,
+sequentially, `--models-max 1`): **RAM** = resident footprint vs idle router
+(weights + draft + KV + compute buffers; mlock'd, so it never swaps out),
+**left** = `free` "available" with that recipe live — headroom for concurrent
+models/activities. Run-to-run variance ±1–2 GiB.
 
-| Goal | Command (`run_llama-server.sh …`) | `-c` | sustained tg (quiet box) | pp4k | When to pick |
-|---|---|---|---:|---:|---|
-| **Max quality** | `--goal max-quality` (Q8) | 196608 (sane ceiling) | ~25 | ~365 | final answers, code, synthesis — quality over everything |
-| **Balanced → quality** | `--goal balanced-quality` (Q8) | 65536 (default) | ~25 | ~365 | default when correctness matters more than latency |
-| **Balanced → speed** ✅ default | `run_llama-server.sh` (Q6) | 65536 | **~28** | ~346 | daily driver — Q6 quality is good anyway; best sustained t/s measured |
-| **Max speed** | `--goal max-speed` (Q6) | 65536 (16k–256k flat on a quiet box; trim to the task) | **~28** | ~346 | interactive churn |
+| Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | `-c` | RAM | left | sustained tg (quiet box) | pp4k | When to pick |
+|---|---|---|---|---:|---:|---:|---:|---|
+| **Max quality** | `Qwen38-27B-Q8-192K-quality` | `--goal max-quality` (Q8) | 196608 (sane ceiling) | ~54 GiB | ~68 GiB | ~25 | ~365 | final answers, code, synthesis — quality over everything |
+| **Balanced → quality** | `Qwen38-27B-Q8-65K-balanced-quality` | `--goal balanced-quality` (Q8) | 65536 (default) | ~45 GiB | ~78 GiB | ~25 | ~365 | default when correctness matters more than latency |
+| **Balanced → speed** ✅ default | `Qwen38-27B-Q6-65K-balanced-speed` | `run_llama-server.sh` (Q6) | 65536 | ~40 GiB | ~83 GiB | **~28** | ~346 | daily driver — Q6 quality is good anyway; best sustained t/s measured |
+| **Max speed** | `Qwen38-27B-Q6-65K-fast` | `--goal max-speed` (Q6) | 65536 (16k–256k flat on a quiet box; trim to the task) | ~40 GiB | ~83 GiB | **~28** | ~346 | interactive churn |
+| **Fast churn** | `Qwen38-27B-Q5-65K-turbo` | `--model q5` (Q5) | 65536 | ~35 GiB | ~88 GiB | ~23 | — | fast throwaway prototyping |
+| **Vision** | `Qwen38-27B-Q6-65K-vision` | router-only (mmproj, no spec) | 65536 | ~32 GiB | ~91 GiB | ~8.6 (no spec) | — | the only image-capable recipe — image tokens crash the dflash spec batch, so it runs `spec-type = none` (2026-08-21); lightest resident footprint (no draft model) |
+
+Heads-up for concurrency: `--models-max 1` is policy, not a hard memory limit —
+two small recipes would *fit* (e.g. turbo + fast ≈ 75 GiB), but three resident
+models exhausted memory and hard-hung the box (2026-08-21), so 1 stays the
+default; raise only with verified headroom.
 
 Decision rule between them: **Q8 when quality is the point, Q6 when tokens/s is** —
 prefill is equal (~250–260 pp4k), decode favors Q6 at every context size.
