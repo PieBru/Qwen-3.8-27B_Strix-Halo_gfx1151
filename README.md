@@ -202,6 +202,27 @@ via `-md` next to a target — run standalone they fail with
 `dflash requires ctx_other to be set`. `mmproj-F16.gguf` is the vision projector,
 wired per-recipe via the `mmproj` key in `models.ini`.
 
+### Context beyond 192k: the 1M question (researched, not servable yet)
+
+The model card declares 262,144 native context, "extensible up to 1,000,000
+tokens" via YaRN (factor 4.0 from the 262,144 training ctx), and budgets
+262k reasoning + 131k output for long-horizon agentic work inside that window.
+We built and load-tested a `Q6-1M-yarn` recipe (`rope-scaling = yarn`,
+`rope-scale = 4`, `yarn-orig-ctx = 262144`, `c = 1048576`):
+
+- **The allocation fits this box**: 100.9 of 122.1 GiB GTT with f16 KV (RAM
+  avail 14.3 G — tight; q8_0 KV would land ~75 G, comfortable).
+- **But it can't serve**: the fork caps every slot to the model's training ctx
+  (262,144) with no YaRN exemption (server-context.cpp) — the KV is allocated,
+  then unusable beyond 262k.
+- **And prompts beyond ~128k hit the Vulkan deep-prefill crash** regardless
+  (the known `vk::DeviceLostError` ceiling).
+
+So `Q8-192K-quality` remains the practical maximum served recipe, and a ready-
+to-enable 1M recipe is kept commented at the bottom of `models.ini` for when
+the fork lifts both blockers. No quality claim is made either way: positions
+beyond 262k are extrapolated (YaRN-interpolated RoPE), not trained.
+
 ### Dynamic Quant v3.0 — `UD-Q6_K_M`: compatible alternative, not the default
 
 Unsloth's v3.0 `Qwen3.8-27B-UD-Q6_K_M.gguf` (23,088,409,504 bytes, sha256
