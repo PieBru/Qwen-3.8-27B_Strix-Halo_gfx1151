@@ -310,8 +310,10 @@ the file cache — mmap already shares the file pages (the RAM delta ≈ the GTT
 delta; no second file copy appears), and no llama-server flag or Linux knob
 (KSM can't see driver shmem) dedups device memory across processes. Concurrent
 same-weights recipes therefore always cost a full extra copy; the alternative
-is the current `--models-max 1` serialization (~6–13 s reload on switch). Nothing loads at boot: each recipe's **first request pays a
-one-time load** (~6 s warm, up to ~13 s from cold page cache), and switching recipe
+is the current `--models-max 1` serialization (~6–13 s reload on switch). At boot
+only **balanced** loads (`load-on-startup = true` in its models.ini section — the
+one recipe allowed under `--models-max 1`); every other recipe's **first request
+pays a one-time load** (~6 s warm, up to ~13 s from cold page cache), and switching recipe
 names under `--models-max 1` unloads the previous one first, paying the same load
 again — steady-state serving after that is instant.
 
