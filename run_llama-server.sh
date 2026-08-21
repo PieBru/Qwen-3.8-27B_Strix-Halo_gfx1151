@@ -23,9 +23,9 @@
 #                         resident exhausted memory and hard-hung the whole box,
 #                         ssh included; 2026-08-21, models-max 5 → 1)
 #   --router               serve ALL recipes from models.ini via llama-server router
-#                         mode (names: Qwen38-27B-turbo|fast|balanced-speed|
-#                         balanced-quality|quality; recipe-specific keys live in
-#                         models.ini, shared flags below stay on the command line)
+#                         mode (names: Qwen38-27B-<QUANT>-<CTX>-<ROLE>, e.g.
+#                         Qwen38-27B-Q6-65K-fast; old short names stay valid as
+#                         aliases via LLAMA_ARG_ALIAS in models.ini)
 #   --dry-run             print the resolved command, don't exec
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -65,8 +65,8 @@ MLOCKARGS=(); [ "$MLOCK" = 1 ] && MLOCKARGS=(-lm mmap+mlock)
 
 if [ "$ROUTER" = 1 ]; then
   # Router mode: every recipe's shared flags on the CLI; models.ini sections carry
-  # ONLY per-recipe keys (weights file + ctx + Q5's own n-max). Names clients use:
-  # Qwen38-27B-turbo|fast|balanced-speed|balanced-quality|quality.
+  # ONLY per-recipe keys (weights file + ctx + Q5's own n-max + old-name alias).
+  # Names clients use: Qwen38-27B-<QUANT>-<CTX>-<ROLE> (e.g. Qwen38-27B-Q6-65K-fast).
   [ -f models.ini ] || { echo "error: models.ini not found next to this script" >&2; exit 1; }
   # Router mode also scans the HF cache (~/.cache/huggingface) for servable models;
   # pin LLAMA_CACHE to an empty dir so ONLY the models.ini recipes are served.
