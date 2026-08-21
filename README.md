@@ -135,6 +135,7 @@ the serving setup and notes:
 - `run_llama-server.sh` — **unified launcher**: `--goal quality|balanced|speed`
   single-model presets, or `--router` to serve every recipe; every field overridable
   (`--model`, `--ctx`, `--nmax`, `--kv`, `--port`, `--draft`, `--no-mlock`, `--dry-run`;
+  agent surface opt-in: `--agent`, `--tools`, `--mcp-config`, `--tools-runtime`;
   `--help` explains each)
 - `models.ini` — the router recipes (the names in the table below)
 - `llama-router.service` — systemd user unit (installs to `~/.config/systemd/user/`)
@@ -327,6 +328,8 @@ Single model with a preset (any field overridable, `--help` for all):
 ./run_llama-server.sh --goal speed              # Q5 @ 64k — fastest decoder
 ./run_llama-server.sh --goal quality --ctx 196608  # Q8 with a bigger window
 ./run_llama-server.sh --model q8 --kv q8_0 --nmax 4   # fully custom
+./run_llama-server.sh --router --agent              # WebUI agent: all tools + MCP proxy
+./run_llama-server.sh --router --tools all --tools-runtime docker:alpine  # sandboxed
 ```
 
 ### Serving all recipes (the router)
