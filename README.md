@@ -258,6 +258,20 @@ We built and load-tested a `Q6-1M-yarn` recipe (`rope-scaling = yarn`,
   fork→mainline merge won't lift it. The unlock is a separate upstream change:
   a YaRN exemption for the cap (window) plus the deep-prefill fix (single
   prompts).
+
+**Other servers *can* serve 1M — including on this box.** vLLM's install docs
+officially list `Ryzen AI MAX / AI 300 Series (gfx1151/1150)` as supported
+hardware (ROCm 7.0.2+), and vLLM supports YaRN rope scaling with PagedAttention
+— so a 1M window on this very APU is a vLLM-on-ROCm install away. Caveats:
+vLLM does not read GGUF (needs HF/AWQ-format weights — a separate download),
+DFlash2 spec decode is llama.cpp-fork-only (vLLM has its own spec-decode
+paths; the model's trained MTP head may recover speed there — unverified),
+and the 1M KV budget still applies (fp16 ≈ 75–104 GiB — needs quantized
+KV/weights to fit alongside the weights in 122 GiB GTT). `transformers` also
+supports YaRN (`rope_scaling` in config) but is a demo, not a server, at this
+scale on this box. The >262k region is YaRN-extrapolated on **every** server —
+the publisher endorses it for long-horizon work (budgeting 262k reasoning +
+131k output inside 1M) but it is not trained territory.
 - **And prompts beyond ~128k hit the Vulkan deep-prefill crash** regardless
   (the known `vk::DeviceLostError` ceiling).
 
