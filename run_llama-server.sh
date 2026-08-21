@@ -3,7 +3,10 @@
 #
 # Defaults encode the config-research winners (README "Recommended configs (per goal)"):
 # f16 KV everywhere, --spec-draft-n-max 6, -b/-ub 4096, -t 16 -tb 32, mlock'd weights,
-# sampling defaults --presence-penalty 0.0 --repeat-penalty 1.05.
+# sampling default --presence-penalty 0.0 only. repeat-penalty is NOT served:
+# it collapsed DFlash2 acceptance (0.647->0.450) and cost 23-28% decode t/s on
+# every spec recipe (README lessons #9); send it per-request only when
+# repetition actually bites.
 #
 # Usage:
 #   ./run_llama-server.sh --goal max-quality       # Q8 @ 192k  — final answers, code
@@ -89,10 +92,10 @@ if [ "$ROUTER" = 1 ]; then
     --models-preset models.ini --models-max "$MMAX"
     -ngl all -ngld all -fa on "${MLOCKARGS[@]}" "${KVARGS[@]}"
     -b 4096 -ub 4096 -np 1 -t 16 -tb 32
-    --presence-penalty 0.0 --repeat-penalty 1.05
+    --presence-penalty 0.0
     --chat-template-file sharp.jinja
     --jinja --host 0.0.0.0 --port "$PORT" --metrics)
-  echo ">> router: recipes from models.ini on :$PORT (mmax=$MMAX kv=$KV mlock=$MLOCK pen=0.0/1.05)"
+  echo ">> router: recipes from models.ini on :$PORT (mmax=$MMAX kv=$KV mlock=$MLOCK pen=0.0)"
   [ "$DRY" = 1 ] && { printf '   %q' "${CMD[@]}"; echo; exit 0; }
   # build-vk's RUNPATH is a stale pre-move path; this export keeps libs resolvable.
   export LD_LIBRARY_PATH="$PWD/llama.cpp/build-vk/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
@@ -109,7 +112,7 @@ CMD=(./llama.cpp/build-vk/bin/llama-server
   -ngl all -ngld all -fa on "${MLOCKARGS[@]}"
   "${KVARGS[@]}"
   -c "$CTX" -np 1 -b 4096 -ub 4096 -t 16 -tb 32
-  --presence-penalty 0.0 --repeat-penalty 1.05
+  --presence-penalty 0.0
   --spec-type draft-dflash --spec-draft-n-max "$NMAX"
   --chat-template-file sharp.jinja
   --jinja --host 0.0.0.0 --port "$PORT" --metrics)
