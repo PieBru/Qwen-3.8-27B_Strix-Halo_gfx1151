@@ -23,17 +23,33 @@ cmake --build build-vk --target llama-server llama-cli llama-bench -j
 #    Q6 pp512 ~346 / tg32 ~8.6; Q8 pp512 ~366 / tg32 ~7.3 — zram churn can halve tg)
 ./build-vk/bin/llama-cli --list-devices
 ./build-vk/bin/llama-bench -m MODEL-UD-Q6_K_XL.gguf -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
-# 5. verify spec-decode with a preset (balanced-speed = Q6 daily driver;
-#    quiet box peaks Q6 ~28 / Q8 ~25 t/s; typical 15-20)
-./run_llama-server.sh --goal balanced-speed   # then: curl localhost:8081/completion ..."n_predict":256
+# 5. serve a preset (balanced-speed = Q6 daily driver, ~29 t/s on a quiet box)
+./run_llama-server.sh --goal balanced-speed
+curl -s localhost:8081/completion -H 'Content-Type: application/json' \
+     -d '{"prompt":"Explain briefly why the sky is blue at sunset.","n_predict":64}'
 ```
 
 Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. Deep prefill
 **crashes ≥128k ctx** (`vk::DeviceLostError`) on this stack — 64k is the ceiling.
-Once verified, pick your workload preset from the
-[**Recommended configs (per goal)**](#recommended-configs-per-goal) table —
-max quality / balanced → quality / balanced → speed / max speed, each with its
-launcher script and expected numbers.
+Once verified, pick your workload recipe from the
+[**Recommended configs (per goal)**](#recommended-configs-per-goal) table.
+
+## What's in this repo
+
+Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/strix-halo-llamacpp)
+fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding. Model weights
+(`.gguf`) and the `llama.cpp/` clone are local-only; this repo holds the serving
+setup and notes:
+
+- `run_llama-server.sh` — **unified launcher**: `--goal max-quality|balanced-quality|balanced-speed|max-speed`
+  single-model presets, or `--router` to serve every recipe; every field overridable
+  (`--model`, `--ctx`, `--nmax`, `--kv`, `--port`, `--draft`, `--no-mlock`, `--dry-run`;
+  `--help` explains each)
+- `models.ini` — the router recipes (the names in the table below)
+- `llama-router.service` — systemd user unit (installs to `~/.config/systemd/user/`)
+- `sharp.jinja` — fixed chat template for this model family (see Thanks)
+- `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
+- `sweep_llama_configs.sh` — staged config search ([config research](#config-research-sweep_llama_configssh))
 
 ## Recommended configs (per goal)
 
@@ -42,80 +58,58 @@ launcher script and expected numbers.
 | **Max quality** | `Qwen38-27B-Q8-192K-quality` | `--goal max-quality` (Q8) | 196608 (sane ceiling) | ~54 GiB | ~68 GiB | ~25 | ~330 | 4.692 / ref | final answers, code, synthesis — quality over everything |
 | **Balanced → quality** | `Qwen38-27B-Q8-65K-balanced-quality` | `--goal balanced-quality` (Q8) | 65536 (default) | ~45 GiB | ~78 GiB | ~25 | ~331 | 4.692 / ref | default when correctness matters more than latency |
 | **Balanced → speed** ✅ default | `Qwen38-27B-Q6-65K-balanced-speed` | `run_llama-server.sh` (Q6) | 65536 | ~40 GiB | ~83 GiB | **~29** | ~306 | 4.706 / 0.0073 | daily driver — Q6 quality is good anyway; best quality/speed balance |
-| **Max speed** | `Qwen38-27B-Q6-65K-fast` | `--goal max-speed` (Q6) | 65536 (16k–256k flat on a quiet box; trim to the task) | ~40 GiB | ~83 GiB | **~29** | ~306 | 4.706 / 0.0073 | interactive churn |
+| **Max speed** | `Qwen38-27B-Q6-65K-fast` | `--goal max-speed` (Q6) | 65536 (trim to the task if you like) | ~40 GiB | ~83 GiB | **~29** | ~306 | 4.706 / 0.0073 | interactive churn |
 | **Fast churn** | `Qwen38-27B-Q5-65K-turbo` | `--model q5` (Q5) | 65536 | ~35 GiB | ~88 GiB | **~32** | ~297 | 4.722 / 0.0137 | fastest decoder on the box (n-max 5); lightest spec footprint |
-| **Vision** | `Qwen38-27B-Q6-65K-vision` | router-only (mmproj, no spec) | 65536 | ~32 GiB | ~91 GiB | ~8.4 | — | 4.706 / 0.0073 | the only image-capable recipe — image tokens crash the dflash spec batch, so it runs `spec-type = none` (2026-08-21); lightest resident footprint (no draft model) |
+| **Vision** | `Qwen38-27B-Q6-65K-vision` | router-only (mmproj, no spec) | 65536 | ~32 GiB | ~91 GiB | ~8.4 | — | 4.706 / 0.0073 | the only image-capable recipe — runs `spec-type = none` (see lessons #7); lightest resident footprint (no draft model) |
 
 Notes on the columns:
 
 All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6 (turbo: 5), `-b/-ub 4096`, `-t 16 -tb 32`,
-`-lm mmap+mlock`. tg = typical sustained; **fresh quiet box peaks ≈ +50%**.
-RAM columns (measured 2026-08-21, 124 GiB box, recipe resident via the router,
-sequentially, `--models-max 1`): **RAM** = resident footprint vs idle router
-(weights + draft + KV + compute buffers; mlock'd, so it never swaps out),
-**left** = `free` "available" with that recipe live — headroom for concurrent
-models/activities. Run-to-run variance ±1–2 GiB.
+`-lm mmap+mlock`, sharp.jinja template, metrics on. tg = sustained decode on a quiet
+box; fresh-load peaks run higher. **RAM** = resident footprint vs idle router
+(weights + draft + KV + compute buffers; mlock'd, never swapped), **left** = `free`
+"available" with that recipe live — headroom for concurrent models/activities.
+Measured 2026-08-21 on a 124 GiB box via the router; variance ±1–2 GiB.
 
-tg column re-verified 2026-08-21 through the router (256-token temp-0 probes,
-reversed-order double pass), **served defaults are sampling-penalty-free**
-(`repeat_penalty 1.0`). Each recipe was probed with its own row's `-c` (the
-journal's `n_ctx_slot` line confirms 196608 vs 65536): the two Q8 rows tie at
-~24.7 t/s and the two Q6 rows at ~29 — same quant ⇒ same decode speed, ctx
-allocation is free (the sweep's flat-64k–256k finding, reconfirmed here at
-spec; the sweep's lone −1.4 t/s Q8@64k dip did not reproduce). ⚠️ If you opt into `repeat_penalty 1.05` — per request
-or as a served default — it collapses DFlash2 acceptance (0.647 → 0.450,
-accepted-run length 4.8 → 3.4) and costs **23–28% decode t/s on every spec
-recipe** (Q6 29.0 → 21.0, turbo 32.3 → 24.2, Q8 24.7 → 19.1); prefill is immune
-(no sampling), and vision is unaffected (no spec). Details: lessons #9.
+tg was measured fresh-slot (first task after load), temp-0, at each row's own `-c`:
+same-quant rows tie because ctx allocation is free (see
+[findings](#sweep-findings-at-a-glance)). Served defaults are sampling-penalty-free.
+⚠️ Opting into `repeat_penalty 1.05` costs **23–28% decode on every spec recipe**
+(it collapses DFlash2 acceptance 0.647 → 0.450); prefill and vision are immune.
+Use it per-request, only when repetition actually bites — lessons #9.
 
-Quality columns (2026-08-21, `llama-perplexity`, 200×512-token chunks of a local
-LLM-docs corpus — absolute values are corpus-specific, use them for internal
-ranking only): **PPL** and **KLD↑** = KL divergence of the token distribution vs
-the `UD-Q8_K_XL` reference logits (`--save-all-logits` / `--kl-divergence`).
-PPL depends only on the weights, so recipes sharing a quant share these values
-(and spec decode, mmproj, ctx, penalties don't enter — it's a pure forward pass);
-top-p agreement with the reference: Q8 100% (ref), Q6 96.5%, Q5 95.5%.
+PPL / KLD↑ (`llama-perplexity`, 200×512-token chunks of a local docs corpus; use for
+internal ranking only — absolute values are corpus-specific). KLD = KL divergence of
+the token distribution vs the `UD-Q8_K_XL` reference logits; top-p agreement with the
+reference: Q8 100% (is the reference), Q6 96.5%, Q5 95.5%. PPL depends only on the
+weights — recipes sharing a quant share these values; spec decode, mmproj, ctx and
+penalties don't enter.
 
 Heads-up for concurrency: `--models-max 1` is policy, not a hard memory limit —
 two small recipes would *fit* (e.g. turbo + fast ≈ 75 GiB), but three resident
-models exhausted memory and hard-hung the box (2026-08-21), so 1 stays the
-default; raise only with verified headroom. Nothing loads at boot: each
-recipe's **first request pays a one-time load** (measured 2026-08-21: ~6 s
-warm, up to ~13 s from cold page cache), and switching recipe names under
-`--models-max 1` unloads the previous one first, paying the same load again —
-steady-state serving after that is instant.
+models exhausted memory and hard-hung the box, so 1 stays the default; raise only
+with verified headroom. Nothing loads at boot: each recipe's **first request pays a
+one-time load** (~6 s warm, up to ~13 s from cold page cache), and switching recipe
+names under `--models-max 1` unloads the previous one first, paying the same load
+again — steady-state serving after that is instant.
 
-Decision rule between them: **Q8 when quality is the point, Q6 when tokens/s is** —
-prefill is equal (~250–260 pp4k penalty-free), decode favors Q5-turbo > Q6 > Q8
-at every context size. If you need repeat suppression, request-level
-`"repeat_penalty": 1.05` costs ~25–30% decode on spec recipes (see the note
-above and lessons #9) — reach for it only when repetition actually bites.
+Decision rule: **Q8 when quality is the point, Q6 when tokens/s is** — prefill is
+equal (~250–330 pp4k), decode favors Q5-turbo > Q6 > Q8 at every context size.
 
 ## Sweep findings at a glance
 
-Full data + methodology in [Config research](#config-research-sweep_llama_configssh);
-goal-oriented presets in [Recommended configs (per goal)](#recommended-configs-per-goal), above.
+How these were measured: [config research](#config-research-sweep_llama_configssh).
 
-| Axis | Finding | Winner |
+| Axis | Winner | Evidence |
 |---|---|---|
-| KV type (target & draft) | f16 **faster** than q8_0 on both models (Q6 20.8 vs 19.2, Q8 16.6 vs 15.6) and higher fidelity — 128 GB unified makes it free | **f16 / f16** |
-| `--spec-draft-n-max` | 6–7 plateau, 4 clearly worse (DFlash2 `block_size=8, n_extract=5`) | **6** |
-| `-c` allocated ctx | **flat 64k–256k on a quiet box** (Q6 ~20.2 ±0.2 t/s, Q8 ~17.6 at ≥128k; two passes + order-controlled); the drift-era "128k+ decay" was zram, not ctx; ≥128k crash is deep-prefill-only | **65536 default; raise to 192k/256k freely** |
-| `-b/-ub` | tg flat ±2%; 4096 = +6% deep prefill over 2048; 8192 buys nothing | **4096** |
-| `-tb` | parity (GPU-bound) | **32** |
-| Model choice | decode favors Q6 at every ctx; **Q8 prefill edges Q6** (pp512 366 vs 346 — Q8_0's symmetric blocks ride the fast kernel path) | Q6 speed / Q8 quality |
-| Host state | zram-swapped weight pages cost up to ~30% decode — mlock the weights | `-lm mmap+mlock` |
-
-Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/strix-halo-llamacpp)
-fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding. This repo holds the
-launchers and notes; model weights (`.gguf`) and the `llama.cpp/` clone are local-only.
-
-- `run_llama-server.sh` — **unified launcher**: `--goal max-quality|balanced-quality|balanced-speed|max-speed`
-  presets from the config research, every field overridable (`--model`, `--ctx`, `--nmax`,
-  `--kv`, `--port`, `--draft`, `--no-mlock`, `--dry-run`; `--help` explains each)
-- `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
-- `sweep_llama_configs.sh` — staged config search ([config research](#config-research-sweep_llama_configssh))
-- Benchmarks and the Reddit-"31 t/s" reality check below
+| KV type (target & draft) | **f16 / f16** | f16 is faster than q8_0 on both models (Q6 20.8 vs 19.2, Q8 16.6 vs 15.6 t/s) and higher fidelity — 128 GB unified makes it free |
+| `--spec-draft-n-max` | **6** | 6–7 plateau, 4 clearly worse (DFlash2 `block_size=8, n_extract=5`); Q6: n6 28.6 > n5 27.4 > n4 24.8 |
+| `-c` allocated ctx | **65536 default; allocation is free up to 256k** | decode flat 64k–256k (Q6 20.2 ±0.2 t/s, Q8 ~17.6); the ≥128k crash is deep-prefill-only, not an allocation limit |
+| `-b/-ub` | **4096** | tg flat ±2% across 2048/4096/8192; 4096 = +6% deep prefill over 2048; 8192 doubles compute buffers for nothing |
+| `-tb` | **32** | tb16 within ~1% — GPU-bound |
+| Model choice | **Q6 speed / Q8 quality** | decode favors Q6 at every ctx; Q8 prefill edges Q6 (pp512 366 vs 346 — Q8_0's symmetric blocks ride the fast kernel path) |
+| Host state | **`-lm mmap+mlock`** | zram-swapped weight pages cost up to ~30% decode; mlock makes weights unswappable |
+| dflash fine-tuning | **inert beyond n-max** | `spec-draft-n-min` 2/3 and `spec-draft-p-min` 0.3/0.9 change nothing (bit-identical decodes, acceptance 0.647); stacking `ngram-map-k` on dflash *hurts* (29.0 → 27.4 t/s). Draft quality sets acceptance — `n_max` is the only working knob |
 
 ## Environment (read this first)
 
@@ -134,8 +128,7 @@ Verified on this machine (Arch Linux, Ryzen AI MAX+ 395 / Radeon 8060S, gfx1151)
 
 - `rocminfo` → gfx1151 ✔
 - `vulkaninfo` → RADV, ICD `radeon_icd.json` ✔
-- `glslc 2026.3` — meets the "current shaderc" requirement (the warned-about distro
-  2023.8 does not apply) ✔
+- `glslc 2026.3` — meets the "current shaderc" requirement ✔
 - Vulkan + SPIRV headers present in `/usr/include` ✔
 
 ## Dependencies (Arch Linux — pacman / paru)
@@ -160,64 +153,48 @@ Mesa needed on this box. `vulkan-tools` provides `vulkaninfo` for the checks abo
 
 ## Models — Unsloth Dynamic 1.2 2-quant **v2**, pinned revision
 
-The target GGUFs benchmarked here are **Unsloth Dynamic 1.2 2-quant v2** — the
-**config-research models are `UD-Q6_K_XL` and `UD-Q8_K_XL`** (recommended
-launchers); the earlier perf tables also used `UD-Q5_K_XL` (and Q4 before it).
-⚠️ The unsloth repo tip now carries **different files under the same names**
-(re-quantized — different sizes and LFS hashes), so download the v2 set from
-the pinned commit, not `main`:
+The target GGUFs are **Unsloth Dynamic 1.2 2-quant v2**. ⚠️ The unsloth repo tip
+carries **different files under the same names** (re-quantized — different sizes and
+LFS hashes), so download the v2 set from the pinned commit, not `main`:
 
 **<https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab>**
 
-| File | Exact size (bytes) | sha256 starts with |
-|---|---:|---|
-| `Qwen3.8-27B-UD-Q8_K_XL.gguf` — **max quality** | 31,457,991,680 | `af36ecb6b5db` (identical at `main`) |
-| `Qwen3.8-27B-UD-Q6_K_XL.gguf` — **max speed preset** | 25,924,152,384 | `739202186fd9` (tip differs!) |
-| `Qwen3.8-27B-UD-Q5_K_XL.gguf` — legacy perf tables | 20,218,178,624 | `176a6a3f034e` (tip differs!) |
-| `Qwen3.8-27B-UD-Q4_K_XL.gguf` — legacy (still on disk, unused by presets) | 17,923,394,624 | `bee238bbeb3d` (tip differs!) |
+| File | Role | Exact size (bytes) | sha256 starts with |
+|---|---|---:|---|
+| `Qwen3.8-27B-UD-Q8_K_XL.gguf` | quality recipes | 31,457,991,680 | `af36ecb6b5db` (identical at `main`) |
+| `Qwen3.8-27B-UD-Q6_K_XL.gguf` | speed recipes + vision | 25,924,152,384 | `739202186fd9` (tip differs!) |
+| `Qwen3.8-27B-UD-Q5_K_XL.gguf` | turbo recipe | 20,218,178,624 | `176a6a3f034e` (tip differs!) |
+| `Qwen3.8-27B-UD-Q4_K_XL.gguf` | unused by recipes | 17,923,394,624 | `bee238bbeb3d` (tip differs!) |
 
 Verify a download against the table (`ls -l` size, or `sha256sum` prefix) — a
 same-named file of a different size is the newer revision, not the one measured here.
-The `DFlash2-*` draft GGUFs come from elsewhere (not in that repo) and are loaded via
-`-md`, never standalone.
 
-### Dynamic Quant v3.0 — `UD-Q6_K_M` evaluated (2026-08-21), not adopted
+The `DFlash2-*` draft GGUFs come from elsewhere (not in that repo) and only load
+via `-md` next to a target — run standalone they fail with
+`dflash requires ctx_other to be set`. `mmproj-F16.gguf` is the vision projector,
+wired per-recipe via the `mmproj` key in `models.ini`.
+
+### Dynamic Quant v3.0 — `UD-Q6_K_M`: compatible alternative, not the default
 
 Unsloth's v3.0 `Qwen3.8-27B-UD-Q6_K_M.gguf` (23,088,409,504 bytes, sha256
-`493301830a59…`) was compared head-to-head with the v2 `UD-Q6_K_XL` through
-the router (fresh-slot temp-0 probes) and via KL-divergence against the
-`UD-Q8_K_XL` reference (200×512-token chunks of local docs,
-`llama-perplexity --kl-divergence`):
+`493301830a59…`) loads cleanly on this stack (same tensor warnings as v2, identical
+arch/vocab/params) and serves with DFlash2:
 
-| | Q6_K_XL (v2.0) | Q6_K_M (v3.0) | delta |
-|---|---:|---:|---|
-| file size | 24.1 GiB | 21.5 GiB | **−2.8 GiB** |
-| decode tg (served config, fresh slot) | 29.0–29.1 t/s | 30.4–31.1 t/s | **+4–7%** |
-| prefill pp4k | 306 t/s | 293 t/s | −4% |
-| DFlash2 acceptance (std probe) | 0.64744 | 0.64744 | identical |
-| GTT resident / `free` available | 37.7 G / 69.0 G | 35.0 G / 71.7 G | −2.7 G / +2.7 G |
-| perplexity (local corpus) | 4.7062 ± 0.068 | 4.7051 ± 0.068 | statistically tied |
-| KL div vs Q8 ref | **0.00734** | 0.00984 | +34% rel. |
-| same top-p as ref | **96.48%** | 96.07% | −0.4 pp |
+| | Q6_K_XL (v2.0, default) | Q6_K_M (v3.0) |
+|---|---:|---:|
+| file size | 24.1 GiB | 21.5 GiB |
+| decode tg / prefill pp4k | 29.0 t/s / 306 | 30.8 t/s / 293 |
+| DFlash2 acceptance | 0.64744 | 0.64744 |
+| GTT resident | 37.7 G | 35.0 G |
+| perplexity (local corpus) | 4.7062 | 4.7051 (tied) |
+| KL div vs Q8 ref / top-p agreement | 0.00734 / 96.5% | 0.00984 / 96.1% |
 
-**Verdict: compatible and a legitimate alternative, not adopted.** It loads
-cleanly (same `blk.64` nextn tensor warnings as v2, identical arch/vocab/
-params), serves with DFlash2 at identical acceptance, and is statistically
-tied on perplexity — but its token distribution sits measurably further from
-the Q8 reference (KLD +0.0025, top-p agreement −0.4 pp). This repo's stance is
-quality first, so the v2 XL stays the default (also faster at prefill); pick
-v3.0 _M_ when 2.8 GiB of RAM or decode t/s matter more. To adopt: add a
-models.ini section pointing `model =` at the _M_ file (the temporary
-`Q6M-test` section used for this comparison was the template; removed after
-the tests).
+Quality-first verdict: the v2 XL stays the default — v3.0's token distribution sits
+measurably further from the Q8 reference, and it loses at prefill. Pick v3.0 when
+2.8 GiB of RAM or decode t/s matter more; to adopt it, add a `models.ini` section
+pointing `model =` at the _M_ file (copy any Q6 section and edit).
 
-Local set at the time of the config research: `UD-Q4/Q5/Q6/Q8_K_XL` targets,
-`DFlash2-Q8_0` draft (the slightly faster `DFlash2-Q4_K_M` was removed to make
-room; it remains fetchable from the pinned commit above).
-The `mmproj-F16.gguf` vision projector serves the `Q6-65K-vision` recipe
-(per-section `mmproj` key in models.ini).
-
-## Quick Start: just run the prebuilt release (time-saving)
+## Quick start: run the prebuilt release (time-saving)
 
 Skip the build entirely — the toolbox releases ship a portable, self-contained stack
 (latest `v0.6.6`, `strix-halo-llamacpp-vulkan-portable.tar.gz`) that bundles its own
@@ -231,15 +208,14 @@ curl -L https://github.com/Nathanw1014/strix-halo-llamacpp/releases/download/v0.
 #       -c 65536 -b 4096 -ub 4096 --spec-type draft-dflash --spec-draft-n-max 6 --host 0.0.0.0
 ```
 
-**Verified on this box**: the tarball pins commit `7b6c613`; the local build now
-tracks the fork tip (`9b9ac3e38` at last sync — chat-parser-only delta, perf
-identical within 1%), Vulkan backend confirmed, tg8 = 7.55 t/s on Q5_K_XL. Read on
-only if you want to build from source to test improvements.
+Verified on this box: the tarball pins commit `7b6c613`; the fork tip is
+perf-identical within 1% (chat-parser-only delta since). Read on only if you want
+to build from source.
 
-## What BUILD.md actually describes (full toolbox)
+## The toolbox behind it (BUILD.md)
 
-For context — the upstream repo assembles a portable *toolbox* from 3 (4 with HIP) build outputs via
-`build-from-source.sh`:
+The upstream repo assembles a portable *toolbox* from 3 (4 with HIP) build outputs
+via `build-from-source.sh`:
 
 1. **libdrm ≥ 2.4.133** — meson build, `--prefix=/usr` (the `amdgpu.ids` path is baked
    in at build time), staged with `DESTDIR`.
@@ -249,34 +225,24 @@ For context — the upstream repo assembles a portable *toolbox* from 3 (4 with 
    (dequant-once + all-quant transpose + full mmid stack).
 4. **llama.cpp HIP (optional decode fix)** — branch `fa-tile-dequant-on-load`,
    built in a ROCm 7.2.4 container targeting gfx1151.
-5–7. Package / publish / CI — portable tarball, Docker images, ghcr push, 2-hourly
-   dev-build watcher.
 
 Steps 1–2 only matter for *portability to other machines*. On this box, with working
 system RADV, you only need **step 3**.
 
-> **Upstreaming outlook.** The fixes measured here are riding llama.cpp PRs
-> (e.g. [ggml-org/llama.cpp#25494](https://github.com/ggml-org/llama.cpp/pull/25494),
-> the FA dequant-once work). Hopefully they land in mainline — unless surpassed by
-> an even better method — at which point stock llama.cpp inherits these wins and
-> the fork becomes redundant. Until then: pin the fork (`strix-halo-vulkan`).
->
-> **Stock-vs-fork, measured 2026-08-21** (mainline tip `cd26896` with #25494 already
-> merged; same-day back-to-back `llama-bench`, quiet box, f16 KV, `-r 1`):
->
-> | Metric | fork `7b6c61330` | stock `cd26896` | fork Δ |
-> |---|---:|---:|---:|
-> | Q6 pp512 / @d8192 | 355.8 / 314.8 | 301.0 / 263.7 | **+18% / +19%** |
-> | Q8 pp512 / @d8192 | 371.6 / 326.1 | 302.9 / 267.0 | **+23% / +22%** |
-> | tg32 (Q6 / Q8) | 8.60 / 7.30 | 8.55 / 7.27 | parity |
->
-> Stock also has no DFlash2 spec-decode at all (the 20→28 t/s layer). **Fork stays
-> mandatory** until the remaining prefill PRs land.
+**Why the fork, measured** (back-to-back `llama-bench` vs mainline, quiet box):
 
-## Full local build — for testing improvements
+| Metric | fork | stock mainline | fork Δ |
+|---|---:|---:|---:|
+| Q6 pp512 / @d8192 | 355.8 / 314.8 | 301.0 / 263.7 | **+18% / +19%** |
+| Q8 pp512 / @d8192 | 371.6 / 326.1 | 302.9 / 267.0 | **+23% / +22%** |
+| tg32 (Q6 / Q8) | 8.60 / 7.30 | 8.55 / 7.27 | parity |
 
-Build the fork yourself when you want to try new commits, patches or flag tweaks
-(the update script automates this). Straight from BUILD.md, simplified for this box:
+Stock also has no DFlash2 spec-decode at all — the 20→29 t/s layer. **The fork stays
+mandatory** until the prefill PRs land upstream
+([ggml-org/llama.cpp#25494](https://github.com/ggml-org/llama.cpp/pull/25494) and
+follow-ups); when they do, stock inherits the wins and the fork becomes redundant.
+
+## Build from source — for testing improvements
 
 ```bash
 git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp
@@ -299,65 +265,18 @@ Not an issue with the system RADV, but always confirm the backend:
 
 ```bash
 # backend must read GPU/Vulkan (AMD Radeon 8060S), not CPU
-./build-vk/bin/llama-bench -m <model.gguf>
-
-# or serve it:
-./build-vk/bin/llama-server --host 127.0.0.1 --port 8080 -m <model.gguf> -ngl 99
+./build-vk/bin/llama-cli --list-devices
+./build-vk/bin/llama-bench -m <model.gguf> -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
 ```
 
-## Baseline performance (Q5-era measurements — superseded by the config research)
+Quiet-box reference for that bench command (f16 KV): Q6 pp512 **~346** / tg32
+**~8.6**; Q8 pp512 **~366** / tg32 **~7.3**; shallow pp512 varies ±10% run-to-run at
+85 W. Note `llama-bench` measures bare decode only — it takes most server flags but
+not `-md`/`--spec-*` (no draft support), so spec-decode gains don't show here.
 
-> **Read the numbers below as a floor, not a ceiling.** They were taken on 2026-08-20
-> with the box under day-long load churn (zram-swapped weight pages — see
-> [Lessons learned](#lessons-learned)). On a quiet box the same stack reaches
-> **~223 GB/s effective** (Q6: pp512 **345.8**, tg32 **8.58**; Q8: pp512 **365.7**,
-> tg32 **7.28**, f16 KV) — i.e. the Q5-era tg32 of 6.7 was ~60% of achievable.
-> Current recommended configs: [per-goal table](#recommended-configs-per-goal).
+## Running it
 
-Qwen3.8-27B-UD-Q5_K_XL (18.8 GiB), Vulkan backend confirmed, `AMD_VULKAN_ICD=RADV`:
-
-| Workload | t/s | Notes |
-|---|---:|---|
-| pp512 prefill | **249.8** | `-fa on -ctk/ctv q8_0 -ub 2048`; healthy — beats issue #86's ported 215 t/s @d32k (70 W box) |
-| pp512 @ d8192 | 228.6 | depth costs ~8% — normal head-dim effect |
-| pp512 @ d32k | 190.8 | deep prefill, q8_0 KV, `-ub 4096` |
-| pp512 @ d64k | 146.0 | deep prefill, q8_0 KV, `-ub 4096` |
-| pp512 @ ≥128k | **crash** | `vk::DeviceLostError` at d131072 — same crash class issue #86 hit on stock builds (there f16 KV @64k); 64k is the measured working ceiling for prefill on this Vulkan stack |
-| tg32 decode, no draft | **6.7** | bandwidth-bound (drift-era floor; quiet-box Q6 reaches 8.6, Q8 7.3); even at ~223 GB/s effective, ~31 t/s *without* a draft remains impossible for a 27B dense-weight stream |
-| tg with DFlash2 draft (n-max 4) | 14.5–15.5 | Q4_K_M draft ≥ Q8_0 draft (15.4 vs 14.55); n-max 16 ≈ n-max 4 (block_size 8 caps it) |
-| tg, full server config (Q5-era settings) | **16.8** | adds `-ub 4096` — the +5% the author measured on Q4/Q5 targets |
-
-**The Reddit "31 t/s" headline is a burst/best-case number, not steady state.** The
-thread itself reports 16–23 t/s interactive (Q8 target, draft 4) and describes
-21.6→30 t/s as the *burst* of the MTP→DFlash2 bump at Q5. This box at 16.8 t/s is
-in-band, not at 50% — the remaining gap is measurement methodology plus the author's
-sustained power envelope (this one holds a flat 85 W).
-
-### llama-bench with the server's flags (reproducible verification)
-
-`llama-bench` takes most of `run_llama-server.sh`'s tunables — but **not** `-md`/
-`--spec-*` (no draft support: it measures bare decode only), nor `-ctkd/-ctvd`,
-`-tb`, `-c`/`-np`. The transferable set, with the `-ub` A/B folded in:
-
-```bash
-./build-vk/bin/llama-bench -m ../Qwen3.8-27B-UD-Q6_K_XL.gguf \
-  -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 1
-```
-
-OBSERVED quiet-box, f16 KV, build `7b6c61330`: Q6 pp512 **345.8** / pp512@d8192
-**315.2** / tg32 **8.58**; Q8 pp512 **365.7** / d8192 **327.7** / tg32 **7.28**.
-(Earlier Q5-era runs at q8_0 KV measured 220–250 pp / 6.7 tg under load churn — the
-difference is box state, not KV type.) Shallow pp512 still varies ±10% run-to-run
-at 85 W.
-
-> The `DFlash2` GGUFs are **draft models** (1.9B, `dflash` arch): running one standalone
-> fails with `dflash requires ctx_other to be set` — they only load via `-md` next to a
-> target model.
-
-## Running it: speculative decoding
-
-Use the unified launcher — presets from the [per-goal table](#recommended-configs-per-goal),
-any field overridable:
+Single model with a preset (any field overridable, `--help` for all):
 
 ```bash
 ./run_llama-server.sh --goal balanced-speed            # Q6 @ 64k — daily driver
@@ -366,10 +285,25 @@ any field overridable:
 ./run_llama-server.sh --model q8 --kv q8_0 --nmax 4   # fully custom
 ```
 
-All presets: DFlash2-Q8_0 draft, **f16 KV**, n-max 6, `-b/-ub 4096`, `-t 16 -tb 32`,
-`-lm mmap+mlock` (zram-immune weights; needs the memlock limit raised — see
-[Lessons learned](#lessons-learned)), sharp.jinja template, metrics on.
-Live-verified: bare `balanced-speed` on a quiet box → **27.7 t/s**.
+### Serving all recipes (the router)
+
+One port, every recipe from the table, loaded on demand:
+
+```bash
+./run_llama-server.sh --router --port 8080              # foreground
+# or as a boot-persistent user service:
+cp llama-router.service ~/.config/systemd/user/ && systemctl --user daemon-reload
+systemctl --user enable --now llama-router
+
+curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
+     -d '{"model":"Qwen38-27B-Q6-65K-balanced-speed","max_tokens":64,
+          "messages":[{"role":"user","content":"hi"}]}'
+```
+
+Recipe names are `Qwen38-27B-<QUANT>-<CTX>-<ROLE>`; the short names
+(`Qwen38-27B-turbo`, `-fast`, …) still work as aliases. Recipe-specific keys
+(weights, ctx, spec config, mmproj) live in `models.ini` sections — see the header
+of that file for the key reference and the CLI-vs-section precedence rule (lessons #8).
 
 ## Optional: HIP variant (decode fix)
 
@@ -388,10 +322,10 @@ cmake --build build-hip --target llama-server llama-cli llama-bench -j
 
 A staged, one-axis-at-a-time search for the optimal server config per target quant
 (winners carried forward; every result appended to `results/sweep.csv`, one log per
-config under `results/`):
+config under `results/`). Results: [findings at a glance](#sweep-findings-at-a-glance).
 
 ```bash
-./sweep_llama_configs.sh 0                                # capacity probe (done, below)
+./sweep_llama_configs.sh 0                                # capacity probe
 ./sweep_llama_configs.sh 1                                # --spec-draft-n-max 3-9, both models
 ./sweep_llama_configs.sh 2 <best-n6> <best-n8>            # KV types 2x2 (target x draft)
 ./sweep_llama_configs.sh 3 "Q6 - - 6" "Q8 - - 6"   # ctx ladder 64k(control)→128k→192k→256k
@@ -404,37 +338,21 @@ config under `results/`):
 Guards built in: per-server wait ceiling, fail-fast on dead loads, process-group
 cleanup (no orphans), crash-tolerant CSV (status column).
 
-### Findings on this gfx1151 (full sweep, 2026-08-20)
-
-**Methodology lesson first:** absolute t/s drifts ±25% across the day — GTT weight
-pages are shmem-backed and land in **zram** under memory churn, and decode then pays
-per-token decompression. All rankings below come from back-to-back (interleaved)
-runs inside tight windows; fresh-load peaks: **Q6 28.6 / Q8 24.7 t/s**. For an
-inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit).
-
-| Axis | Winner | Evidence (back-to-back pairs) |
-|---|---|---|
-| KV types (target × draft) | **f16 / f16, both models** | Q6: 20.8 vs 19.2 (q8/q8); Q8: 16.6 vs 15.6 — with 128 GB unified, quality KV is also the faster choice here |
-| `--spec-draft-n-max` | **6** (6–7 plateau; 4 clearly worse) | Q6: n6 28.6 > n5 27.4 > n4 24.8 (fresh window); n7 ≈ n6 elsewhere |
-| `-c` (allocated ctx) | **65536 default; allocation is free up to 256k** | Quiet-box re-measure (2026-08-21, fresh boot, zram 0 B used, two passes + an order-controlled third): **flat** — Q6 20.2 ±0.2 t/s and Q8 ~17.6 t/s from 64k straight through 256k. The earlier "ALLOCATED ctx costs decode" decay (Q6 19.8→16.7, Q8 17.8→13.9) was drift-era zram noise and does **not** reproduce. Only real quirk: Q8 dips ~1.4 t/s at 64k vs ≥128k (confirmed not a run-order artifact; mechanism unknown). The ≥128k crash is deep-prefill-specific (bench filling the ctx), not an allocation limit |
-| `-b/-ub` | **4096** | tg flat (±2%, 2048/4096/8192); llama-bench already showed 4096 = +6% deep prefill over 2048; 8192 doubles compute buffers for nothing |
-| `-tb` | **32** (parity) | tb16 within ~1% of tb32 — GPU-bound, as expected |
-| dflash `n_min` / `p_min` | **no effect (inert)** | verified 2026-08-21 via the router: n_min 2/3 and p_min 0.3/0.9 reached the child (init line confirms) yet every decode was bit-identical — acceptance 0.647, mean run 4.81 unchanged. Draft quality (the DFlash2 distillate), not a parameter, sets acceptance; `n_max` is the only knob that moves it (and 6 is optimal). Stacking `ngram-map-k` on dflash *hurt* (29.0 → 27.4 t/s, acceptance 0.647 → 0.573) |
+**Methodology:** absolute t/s drifts up to ±25% across a day on this box (zram under
+memory churn — lessons #1–2), so every ranking comes from back-to-back runs inside
+tight windows, with reversed-order passes to break run-order confounds. Trust only
+interleaved comparisons, never numbers from different sessions.
 
 ## Lessons learned
 
-1. **Measure back-to-back or not at all.** Absolute t/s drifted ±25% during a day of
-   stage sweeps; only interleaved pairs gave trustworthy rankings. The first
-   stage-2 block was drift-corrupted and was re-run. Mind **run order** too: the
-   first server after a cold start pays page-cache warm-up, so sequential ladders
-   lean toward whatever ran last (a 16k/32k/64k ctx ladder inverted until we saw
-   the bias). The 2026-08-21 ctx re-measure took it further: two full passes
-   (identical results) plus one reversed-order pass to prove the lone anomaly
-   (Q8's 64k dip) was real, not a first-in-sequence artifact.
+1. **Measure back-to-back or not at all.** Absolute t/s drifts with box state; only
+   interleaved pairs give trustworthy rankings. Mind **run order** too: the first
+   server after a cold start pays page-cache warm-up, so sequential ladders lean
+   toward whatever ran last. Reversed-order passes are how you catch both biases.
 2. **zram eats inference.** GTT weight pages are shmem-backed → swappable → they
    compress into zram under load churn, and decode then pays per-token
    decompression (up to ~30%). Fixes, best first: (a) `-lm mmap+mlock` so the
-   weights can never be swapped (needs `memlock` unlimited — see below);
+   weights can never be swapped (needs `memlock` unlimited — see next);
    (b) tune the pressure that triggers swapping instead of disabling it:
    `vm.swappiness` (default 60 biases toward swapping anon pages; 1–10 makes zram
    a last resort) and `vm.watermark_scale_factor` (how early kswapd wakes);
@@ -445,69 +363,55 @@ inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit
    `ulimit -l` here was 8192 KB (8 MB-class) and multi-GB buffers then fail with
    `Cannot allocate memory`. One-time, then re-login:
    `echo -e 'piero soft memlock unlimited\npiero hard memlock unlimited' | sudo tee /etc/security/limits.d/99-llama-mlock.conf`
-   ⚠️ **Observed 2026-08-21:** the server only *warns* on mlock ENOMEM and keeps
-   serving **unprotected** — it does not abort. `/etc/security/limits.d/` didn't
-   even exist on this box (the step above had never been applied), so every
-   "mlock'd" run until then ran without actual protection. After re-login verify:
-   `ulimit -l` must print `unlimited`.
-4. **Power is a throttling detector, not a cost metric.** We logged PPT only to
-   confirm the box held a flat 85 W (no throttle). A Strix Halo's max draw is more
+   ⚠️ The server only *warns* on mlock ENOMEM and keeps serving **unprotected** —
+   it does not abort. After re-login verify: `ulimit -l` must print `unlimited`.
+4. **Power is a throttling detector, not a cost metric.** We log PPT only to
+   confirm the box holds a flat 85 W (no throttle). A Strix Halo's max draw is more
    than an order of magnitude below a pre-Blackwell NVIDIA desktop part — the
    interesting wattage story is elsewhere.
-5. **A clean box is part of the benchmark.** All tests ran on a "clean" Strix Halo
-   with no other heavy processes sharing RAM/GTT/bandwidth. You don't need to
-   dedicate the machine to inference — but if you want SOTA-at-home, privilege
-   inference quality over co-located niceties (a SQL server, several heavy LLMs
-   on the same box). One model, mlocked, on quiet unified memory.
+5. **A clean box is part of the benchmark.** You don't need to dedicate the machine
+   to inference — but if you want SOTA-at-home, privilege inference quality over
+   co-located niceties (a SQL server, several heavy LLMs on the same box). One
+   model, mlocked, on quiet unified memory.
 6. **Trust but verify the fork's failure modes.** The `vk::DeviceLostError` ceiling
    (deep prefill ≥128k) and the one-off KV core dump were found by sweeping —
    neither appears in casual use. Allocation ≠ prefill: 256k ctx loads in 20 s.
 7. **Vision is cheap — until an image actually arrives.** Attaching `mmproj-F16`
    to a spec recipe costs almost nothing statically (+~1.2 GB GTT, +~0.6 s load;
-   text decode measured neutral) and the recipe serves text at full speed — but
-   the first real image request dies with `decode() failed: failed to process
-   speculative batch`: image embeddings are incompatible with the DFlash2 spec
-   path in this fork (2026-08-21). Hence vision is its own `Q6-65K-vision`
-   recipe with `spec-type = none` — it pays the no-spec decode tax (8.4 t/s vs
-   21–29 t/s for the same weights with spec; image encode itself is fast,
-   <0.5 s warm for 512 px) so every text recipe keeps its speed, and it's the
-   lightest resident recipe (no draft model, ~32 GiB). Lesson within the lesson:
-   **"it loads" ≠ "it works"** — a vision setup that was never probed with a
-   real image is unverified. Note `--mmproj` on the router CLI is stripped by
-   design (`unset_reserved_args`, server-models.cpp): mmproj is a per-section
-   ini key, each recipe opts in.
+   text decode neutral) and the recipe serves text at full speed — but the first
+   real image request dies with `decode() failed: failed to process speculative
+   batch`: image embeddings are incompatible with the DFlash2 spec path in this
+   fork. Hence vision is its own `Q6-65K-vision` recipe with `spec-type = none` —
+   it pays the no-spec decode tax (8.4 t/s vs 21–29 for the same weights with
+   spec; image encode itself is fast, <0.5 s warm for 512 px) so every text recipe
+   keeps its speed, and it's the lightest resident recipe (~32 GiB, no draft
+   model). **"It loads" ≠ "it works"** — a vision setup that was never probed with
+   a real image is unverified. (`--mmproj` is a per-section ini key by design; the
+   router strips it from the shared CLI.)
 8. **Router CLI args silently override per-recipe ini keys.** The router overlays
-   its own command line onto every `models.ini` section (fork's `server_models`
-   merge): a key present in both is always won by the CLI and the section key is
-   dead — no warning is logged. Found 2026-08-21: turbo's
-   `spec-draft-n-max = 5` had never applied (every child booted n_max = 6 from
-   the shared CLI); the per-child `n_max=` journal line is the ground truth.
-   Rule: shared flags ride the router CLI, divergent keys (`spec-type`,
-   `spec-draft-n-max`, `model-draft`, `mmproj`) live *only* in the sections.
-9. **Sampling penalties are poison for speculative decode.** Serving
-   `--repeat-penalty 1.05` (2026-08-21, since reverted) collapsed DFlash2 draft
-   acceptance from 0.647 to 0.450 (mean accepted run 4.8 → 3.4 tokens) — the
-   penalized logits stop agreeing with the draft's continuations, so most
-   drafted tokens get rejected and decode reverts toward no-spec speed.
-   Measured cost, same loaded model, temp 0, A/B ±0.1 t/s: Q6 29.0 → 21.0
-   (−28%), Q5-turbo 32.3 → 24.2 (−25%), Q8 24.7 → 19.1 (−23%). Prefill is
-   immune (no sampling) and no-spec recipes (vision) are unaffected. The
-   penalty was briefly a served default and silently cost a quarter of the
-   box's decode throughput — per-request only, when repetition actually bites.
+   its own command line onto every `models.ini` section: a key present in both is
+   always won by the CLI and the section key is dead — no warning is logged. The
+   per-child `n_max=` journal line is the ground truth. Rule: shared flags ride the
+   router CLI, divergent keys (`spec-type`, `spec-draft-n-max`, `model-draft`,
+   `mmproj`) live *only* in the sections.
+9. **Sampling penalties are poison for speculative decode.** `repeat_penalty 1.05`
+   collapses DFlash2 draft acceptance from 0.647 to 0.450 (mean accepted run
+   4.8 → 3.4 tokens) — the penalized logits stop agreeing with the draft's
+   continuations, so most drafted tokens get rejected and decode reverts toward
+   no-spec speed. Measured cost (same loaded model, temp 0): Q6 29.0 → 21.0 (−28%),
+   Q5-turbo 32.3 → 24.2 (−25%), Q8 24.7 → 19.1 (−23%). Prefill is immune (no
+   sampling) and no-spec recipes (vision) are unaffected. Per-request only, when
+   repetition actually bites.
 10. **Re-sending an identical prompt after a long-prompt task serves garbage
-    (slot-KV contamination).** Repro (2026-08-21, any quant, single-slot
-    router): send prompt A (short) → send prompt B (~5k tokens) → send A again.
-    The third request's prefix-match trusts a KV that no longer holds A,
-    evaluates only ~3–4 of A's 12 tokens, and decodes from a corrupted context:
-    with Q6_K_XL it degenerated (`"\n\nI\n\n\n\nI…"`, DFlash2 acceptance
-    0.02, 6.6 t/s); with Q6_K_M it echoed prior content deterministically
-    (acceptance 0.95, 42–44 t/s — fast *and* wrong). A different prompt
-    recovers immediately. **Workaround (verified): per-request
-    `"cache_prompt": false` on re-sent identical prompts** — the same request
-    then answers correctly. Benchmarking corollary: identical repeated probes
-    can silently enter either regime and produce wildly wrong t/s — fresh-slot
-    (first task after load) numbers are the honest ones; every number in this
-    README's tables is fresh-slot.
+    (slot-KV contamination).** Repro (any quant, single-slot router): send prompt
+    A (short) → send prompt B (~5k tokens) → send A again. The third request's
+    prefix-match trusts a KV that no longer holds A, evaluates only ~3–4 of A's
+    12 tokens, and decodes from a corrupted context: one quant degenerates to
+    garbage (acceptance 0.02), another echoes prior content deterministically
+    (acceptance 0.95 — fast *and* wrong). A different prompt recovers immediately.
+    **Workaround (verified): per-request `"cache_prompt": false` on re-sent
+    identical prompts.** Benchmarking corollary: only fresh-slot (first task after
+    load) numbers are honest.
 
 ## 🙏 Thanks to the authors of this software stack
 
