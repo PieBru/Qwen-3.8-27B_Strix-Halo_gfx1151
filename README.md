@@ -313,6 +313,9 @@ mkdir -p ~/.config/systemd/user
 sed "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" llama-router.service \
     > ~/.config/systemd/user/llama-router.service
 systemctl --user daemon-reload && systemctl --user enable --now llama-router
+sudo loginctl enable-linger $USER   # run the user manager (and the router) at
+                                    # BOOT, with nobody logged in — without this
+                                    # a headless box starts no router
 
 curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
      -d '{"model":"Qwen38-27B-balanced","max_tokens":64,
