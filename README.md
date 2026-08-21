@@ -307,12 +307,12 @@ One port, every recipe from the table, loaded on demand:
 
 ```bash
 ./run_llama-server.sh --router --port 8080              # foreground
-# or as a boot-persistent user service (substitute YOUR clone path first —
-# the shipped unit carries a REPLACE placeholder and greps loud if unfixed):
-sed -i "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" llama-router.service
-grep -q "ExecStart=/REPLACE" llama-router.service && echo "path not substituted!" && exit 1
-cp llama-router.service ~/.config/systemd/user/ && systemctl --user daemon-reload
-systemctl --user enable --now llama-router
+# or as a boot-persistent user service — substitute in the pipe (keeps your
+# clone clean for future git pulls; run from the repo root):
+mkdir -p ~/.config/systemd/user
+sed "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" llama-router.service \
+    > ~/.config/systemd/user/llama-router.service
+systemctl --user daemon-reload && systemctl --user enable --now llama-router
 
 curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
      -d '{"model":"Qwen38-27B-balanced","max_tokens":64,
