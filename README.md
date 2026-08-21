@@ -366,10 +366,11 @@ becomes a one-line move — no client reconfiguration:
    `[Qwen38-27B-balanced]` to your preferred section (e.g. `[Qwen38-27B-speed]`).
 2. Move the `load-on-startup = true` line with it, so the boot-preloaded
    recipe stays your default (only ONE recipe may carry it: `--models-max 1`).
-3. Hot-apply without a restart: `curl 'localhost:8080/v1/models?reload=1'` —
-   alias-only changes never unload the running model (the router exempts
-   `LLAMA_ARG_ALIAS` from its preset-change comparison). A service restart
-   works too (and re-preloads the default at boot).
+3. Restart the router (`systemctl --user restart llama-router`) — the alias
+   re-registers at startup and the new default re-preloads at boot. A
+   `?reload=1` is NOT enough: the router re-reads presets only for recipes
+   that aren't running, so moving an alias off a loaded recipe needs the
+   restart.
 
 Everything pinned to the alias — pi's `local` provider (`models.json`), the
 WebUI's saved model, cron/curl scripts, other boxes on the LAN — silently
