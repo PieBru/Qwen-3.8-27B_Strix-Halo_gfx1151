@@ -413,6 +413,28 @@ note above the table; if that penalty isn't buying you quality, dropping it
 6. **Trust but verify the fork's failure modes.** The `vk::DeviceLostError` ceiling
    (deep prefill ≥128k) and the one-off KV core dump were found by sweeping —
    neither appears in casual use. Allocation ≠ prefill: 256k ctx loads in 20 s.
+7. **Vision is cheap — until an image actually arrives.** Attaching `mmproj-F16`
+   to a spec recipe costs almost nothing statically (+~1.2 GB GTT, +~0.6 s load;
+   text decode measured neutral) and the recipe serves text at full speed — but
+   the first real image request dies with `decode() failed: failed to process
+   speculative batch`: image embeddings are incompatible with the DFlash2 spec
+   path in this fork (2026-08-21). Hence vision is its own `Q6-65K-vision`
+   recipe with `spec-type = none` — it pays the no-spec decode tax (8.4 t/s vs
+   21–29 t/s for the same weights with spec; image encode itself is fast,
+   <0.5 s warm for 512 px) so every text recipe keeps its speed, and it's the
+   lightest resident recipe (no draft model, ~32 GiB). Lesson within the lesson:
+   **"it loads" ≠ "it works"** — a vision setup that was never probed with a
+   real image is unverified. Note `--mmproj` on the router CLI is stripped by
+   design (`unset_reserved_args`, server-models.cpp): mmproj is a per-section
+   ini key, each recipe opts in.
+8. **Router CLI args silently override per-recipe ini keys.** The router overlays
+   its own command line onto every `models.ini` section (fork's `server_models`
+   merge): a key present in both is always won by the CLI and the section key is
+   dead — no warning is logged. Found 2026-08-21: turbo's
+   `spec-draft-n-max = 5` had never applied (every child booted n_max = 6 from
+   the shared CLI); the per-child `n_max=` journal line is the ground truth.
+   Rule: shared flags ride the router CLI, divergent keys (`spec-type`,
+   `spec-draft-n-max`, `model-draft`, `mmproj`) live *only* in the sections.
 
 ## 🙏 Thanks to the authors of this software stack
 
