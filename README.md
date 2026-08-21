@@ -35,7 +35,7 @@ for ours, and this repo links only to its own content.
 The recipes, the numbers, and every trap we hit (there were many) are
 documented below — so your agent can run 24/7 on hardware you own outright.
 
-## Sub-motto
+## How this was made: humans architected, AI built
 
 > *Humans architected, verified, sealed. AI assistants built and wrote all the
 delivered stuff.*
