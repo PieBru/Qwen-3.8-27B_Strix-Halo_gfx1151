@@ -129,7 +129,12 @@ models exhausted memory and hard-hung the box, so 1 stays the default; raise onl
 with verified headroom. Note there is **no weight sharing between recipes**: two
 recipes pointing at the same GGUF (e.g. balanced + vision, both Q6) each upload
 their own copy — measured 41.0 → 71.5 GiB RAM and 37.2 → 67.1 GiB GTT when the
-second one loaded. Nothing loads at boot: each recipe's **first request pays a
+second one loaded. The duplicate is the per-process Vulkan GTT allocation, not
+the file cache — mmap already shares the file pages (the RAM delta ≈ the GTT
+delta; no second file copy appears), and no llama-server flag or Linux knob
+(KSM can't see driver shmem) dedups device memory across processes. Concurrent
+same-weights recipes therefore always cost a full extra copy; the alternative
+is the current `--models-max 1` serialization (~6–13 s reload on switch). Nothing loads at boot: each recipe's **first request pays a
 one-time load** (~6 s warm, up to ~13 s from cold page cache), and switching recipe
 names under `--models-max 1` unloads the previous one first, paying the same load
 again — steady-state serving after that is instant.
