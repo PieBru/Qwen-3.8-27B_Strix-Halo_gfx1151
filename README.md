@@ -192,7 +192,6 @@ LFS hashes), so download the v2 set from the pinned commit, not `main`:
 | `Qwen3.8-27B-UD-Q8_K_XL.gguf` | quality recipes | 31,457,991,680 | `af36ecb6b5db` (identical at `main`) |
 | `Qwen3.8-27B-UD-Q6_K_XL.gguf` | speed recipes + vision | 25,924,152,384 | `739202186fd9` (tip differs!) |
 | `Qwen3.8-27B-UD-Q5_K_XL.gguf` | turbo recipe | 20,218,178,624 | `176a6a3f034e` (tip differs!) |
-| `Qwen3.8-27B-UD-Q4_K_XL.gguf` | unused by recipes | 17,923,394,624 | `bee238bbeb3d` (tip differs!) |
 
 Verify a download against the table (`ls -l` size, or `sha256sum` prefix) — a
 same-named file of a different size is the newer revision, not the one measured here.
@@ -242,6 +241,18 @@ Quality-first verdict: the v2 XL stays the default — v3.0's token distribution
 measurably further from the Q8 reference, and it loses at prefill. Pick v3.0 when
 2.8 GiB of RAM or decode t/s matter more; to adopt it, add a `models.ini` section
 pointing `model =` at the _M_ file (copy any Q6 section and edit).
+
+### `UD-Q4_K_XL`: evaluated and dropped (2026-08-21) — GGUF deleted locally
+
+The natural "warp speed" candidate (16.7 GiB weights, lightest possible target)
+loses in practice: DFlash2 acceptance collapses with the extra quant noise
+(0.41–0.59 vs 0.647 on Q5/Q6), so best-case decode is **28.2 t/s (n-max 4)** vs
+Q5-turbo's **32.3** — the bandwidth advantage is eaten by rejected drafts. Quality
+is the set's floor (KLD 0.0266 vs Q8 ref — 2× Q5's 0.0137; top-p agreement
+94.7%). It also can't unlock 1M context: that's blocked by the slot cap and
+prefill ceiling (see above), both quant-independent, and KV dominates the
+memory budget anyway. All Q4 references are removed from the recipes/launcher;
+the quant remains fetchable from the pinned HF commit if ever re-needed.
 
 ## Environment
 
@@ -463,7 +474,7 @@ This experiment stands entirely on other people's work:
   teams** — the open Vulkan and compute stacks that make gfx1151 a first-class
   citizen, and the driver-level compute work this fork's kernels assume.
 - **[Unsloth](https://unsloth.ai/)** — the UD (Unsloth Dynamic 1.2 2-quant v2)
-  Q4–Q8_K_XL quantizations used as targets across these experiments
+  Q5–Q8_K_XL quantizations used as targets across these experiments
   ([pinned revision](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab)),
   and the community's quant tooling.
 - **The Qwen team (Alibaba)** — the Qwen 3.8 model family these configs run.

@@ -14,7 +14,8 @@
 #   ./run_llama-server.sh --goal balanced-speed    # Q6 @ 64k   — daily driver (default)
 #   ./run_llama-server.sh --goal max-speed         # Q6 @ 64k, trim --ctx for more t/s
 # Overrides (any preset field can be overridden individually):
-#   --model q4|q5|q6|q8   target UD quant (q6/q8 recommended; q5 legacy, q4 fetchable)
+#   --model q5|q6|q8    target UD quant (q6/q8 recommended, q5 = turbo;
+#                         q4 evaluated 2026-08-21 and dropped — see README Models)
 #   --ctx N               context size (SSM state is tiny; allocation measured flat 64k-256k on a quiet box)
 #   --nmax N              --spec-draft-n-max (6-7 plateau; 4 clearly worse);
 #                         single-model mode only — with --router it's an error:
