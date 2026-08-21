@@ -168,6 +168,22 @@ likewise: ~218 → ~113 t/s from 32k to 96k depth) — and content beyond
 fully usable presets; `@192k`/`@256k` are allocation headroom until deep
 positions are fixed — plan sessions around ~128k of real content.
 
+Measured decode vs fill (`quality@256k`, Q8, temp 0; both reference frames
+shown — of the 262,144-token window, and of the ~128k usable-content ceiling):
+
+| Positions filled | % of 256k window | % of ~128k usable | decode tg (t/s) |
+|---:|---:|---:|---:|
+| 12 (fresh) | 0% | 0% | 24.7 |
+| 2,622 | 1% | 2% | ~21 |
+| 26,394 | 10% | 20% | 16.8 |
+| 65,536 | 25% | 50% | 13.1 |
+| 118,212 | 45% | 90% | 13.7 |
+| 128,209 | 49% | 98% | 9.8 |
+| ~160,000 | 61% | — (past ceiling) | 💥 `vk::DeviceLostError` |
+
+Not linear: fast decay in the first quarter, a ~13–14 t/s plateau through
+the middle band, a further drop approaching the ceiling, then the hard wall.
+
 When to pick which:
 
 - **Quality @256k** — the flagship window: the servable ceiling, for many/long
