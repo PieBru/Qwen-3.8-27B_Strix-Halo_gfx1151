@@ -167,10 +167,41 @@ same-named file of a different size is the newer revision, not the one measured 
 The `DFlash2-*` draft GGUFs come from elsewhere (not in that repo) and are loaded via
 `-md`, never standalone.
 
+### Dynamic Quant v3.0 — `UD-Q6_K_M` evaluated (2026-08-21), not adopted
+
+Unsloth's v3.0 `Qwen3.8-27B-UD-Q6_K_M.gguf` (23,088,409,504 bytes, sha256
+`493301830a59…`) was compared head-to-head with the v2 `UD-Q6_K_XL` through
+the router (fresh-slot temp-0 probes) and via KL-divergence against the
+`UD-Q8_K_XL` reference (200×512-token chunks of local docs,
+`llama-perplexity --kl-divergence`):
+
+| | Q6_K_XL (v2.0) | Q6_K_M (v3.0) | delta |
+|---|---:|---:|---|
+| file size | 24.1 GiB | 21.5 GiB | **−2.8 GiB** |
+| decode tg (served config, fresh slot) | 29.0–29.1 t/s | 30.4–31.1 t/s | **+4–7%** |
+| prefill pp4k | 306 t/s | 293 t/s | −4% |
+| DFlash2 acceptance (std probe) | 0.64744 | 0.64744 | identical |
+| GTT resident / `free` available | 37.7 G / 69.0 G | 35.0 G / 71.7 G | −2.7 G / +2.7 G |
+| perplexity (local corpus) | 4.7062 ± 0.068 | 4.7051 ± 0.068 | statistically tied |
+| KL div vs Q8 ref | **0.00734** | 0.00984 | +34% rel. |
+| same top-p as ref | **96.48%** | 96.07% | −0.4 pp |
+
+**Verdict: compatible and a legitimate alternative, not adopted.** It loads
+cleanly (same `blk.64` nextn tensor warnings as v2, identical arch/vocab/
+params), serves with DFlash2 at identical acceptance, and is statistically
+tied on perplexity — but its token distribution sits measurably further from
+the Q8 reference (KLD +0.0025, top-p agreement −0.4 pp). This repo's stance is
+quality first, so the v2 XL stays the default (also faster at prefill); pick
+v3.0 _M_ when 2.8 GiB of RAM or decode t/s matter more. To adopt: add a
+models.ini section pointing `model =` at the _M_ file (the temporary
+`Q6M-test` section used for this comparison was the template; removed after
+the tests).
+
 Local set at the time of the config research: `UD-Q4/Q5/Q6/Q8_K_XL` targets,
 `DFlash2-Q8_0` draft (the slightly faster `DFlash2-Q4_K_M` was removed to make
 room; it remains fetchable from the pinned commit above).
-A stray `mmproj-F16.gguf` (vision projector) is unused by these configs.
+The `mmproj-F16.gguf` vision projector serves the `Q6-65K-vision` recipe
+(per-section `mmproj` key in models.ini).
 
 ## Quick Start: just run the prebuilt release (time-saving)
 
@@ -449,6 +480,20 @@ inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit
    immune (no sampling) and no-spec recipes (vision) are unaffected. The
    penalty was briefly a served default and silently cost a quarter of the
    box's decode throughput — per-request only, when repetition actually bites.
+10. **Re-sending an identical prompt after a long-prompt task serves garbage
+    (slot-KV contamination).** Repro (2026-08-21, any quant, single-slot
+    router): send prompt A (short) → send prompt B (~5k tokens) → send A again.
+    The third request's prefix-match trusts a KV that no longer holds A,
+    evaluates only ~3–4 of A's 12 tokens, and decodes from a corrupted context:
+    with Q6_K_XL it degenerated (`"\n\nI\n\n\n\nI…"`, DFlash2 acceptance
+    0.02, 6.6 t/s); with Q6_K_M it echoed prior content deterministically
+    (acceptance 0.95, 42–44 t/s — fast *and* wrong). A different prompt
+    recovers immediately. **Workaround (verified): per-request
+    `"cache_prompt": false` on re-sent identical prompts** — the same request
+    then answers correctly. Benchmarking corollary: identical repeated probes
+    can silently enter either regime and produce wildly wrong t/s — fresh-slot
+    (first task after load) numbers are the honest ones; every number in this
+    README's tables is fresh-slot.
 
 ## 🙏 Thanks to the authors of this software stack
 
