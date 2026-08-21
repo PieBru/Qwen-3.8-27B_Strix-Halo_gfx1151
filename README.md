@@ -37,6 +37,45 @@ Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. Deep prefill
 Once verified, pick your workload recipe from the
 [**Recommended configs (per goal)**](#recommended-configs-per-goal) table.
 
+## Headline findings (the counterintuitive ones)
+
+Six results from this setup that invert what most LLM users expect — each
+measured, each linked to its evidence:
+
+1. **Context allocation is free; filling it is not.** Decode speed does not
+   scale with the *allocated* window on this hybrid-SSM model — 28–30 t/s
+   whether `c` is 32k or 256k (Q8: 24.7 vs 24.9). Most layers carry a
+   constant-size recurrent state; only fill depth costs
+   (~29 t/s at 8k filled → ~16–18 at 64–96k). Details in the
+   [findings](#sweep-findings-at-a-glance) and the recipes-table notes.
+2. **A lighter quant is *slower* here, not faster.** With speculative decode,
+   Q4 (16.7 GiB of weights) decodes at 28 t/s vs Q5's 32 — quant noise
+   collapses DFlash2 draft acceptance (0.647 → 0.41) and rejected drafts eat
+   the bandwidth win whole. [Why Q4 was dropped](#ud-q4_k_xl-evaluated-and-dropped-2026-08-21--gguf-deleted-locally)
+3. **Sampling penalties are poison for speculative decode.** A mild
+   `repeat_penalty 1.05` costs **23–28% decode t/s** on every spec recipe —
+   penalized logits stop agreeing with the draft (acceptance 0.647 → 0.450).
+   Prefill is immune; use it per-request only. [Lesson #9](#lessons-learned)
+4. **f16 KV is both faster *and* higher-fidelity here.** 128 GiB of unified
+   memory inverts the usual trade: q8_0 KV measured slower than f16 (Q6 19.2
+   vs 20.8 t/s) — so the quality choice is also the speed choice. And if you
+   do need to shrink a window: retrieval survives KV quantization down to q4_0
+   (40/40 needles, f16→q4_0, up to 96k). [Findings](#sweep-findings-at-a-glance)
+5. **Two recipes = two full weight copies, even for the same GGUF file.**
+   mmap shares the file pages, but each recipe's process uploads its own GTT
+   weights copy — measured 41.0 → 71.5 GiB RAM when vision loaded next to
+   balanced (same Q6 file). No flag or Linux trick dedups device memory
+   across processes. (Concurrency note, [recipes](#recommended-configs-per-goal))
+6. **Vision is free until the first image arrives.** Attaching mmproj costs
+   ~nothing statically and text runs at full speed — but image tokens crash
+   the DFlash2 speculative batch, so the vision recipe rides without spec
+   decode (8.4 t/s vs 29 for the same weights). "It loads" ≠ "it works".
+   [Lesson #7](#lessons-learned)
+
+Also big, but limitation-shaped rather than surprise-shaped: the 1M-context
+story (262k servable ceiling, measured RAM budget, three routes to 1M) has
+[its own chapter](#the-1m-token-context-what-works-what-doesnt-and-what-it-costs).
+
 ## Quick start: run the prebuilt release (time-saving)
 
 Skip the build entirely — the toolbox releases ship a portable, self-contained stack
