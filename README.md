@@ -47,7 +47,11 @@ models/activities. Run-to-run variance ±1–2 GiB.
 
 tg column re-verified 2026-08-21 through the router (256-token temp-0 probes,
 reversed-order double pass), **served defaults are sampling-penalty-free**
-(`repeat_penalty 1.0`). ⚠️ If you opt into `repeat_penalty 1.05` — per request
+(`repeat_penalty 1.0`). Each recipe was probed with its own row's `-c` (the
+journal's `n_ctx_slot` line confirms 196608 vs 65536): the two Q8 rows tie at
+~24.7 t/s and the two Q6 rows at ~29 — same quant ⇒ same decode speed, ctx
+allocation is free (the sweep's flat-64k–256k finding, reconfirmed here at
+spec; the sweep's lone −1.4 t/s Q8@64k dip did not reproduce). ⚠️ If you opt into `repeat_penalty 1.05` — per request
 or as a served default — it collapses DFlash2 acceptance (0.647 → 0.450,
 accepted-run length 4.8 → 3.4) and costs **23–28% decode t/s on every spec
 recipe** (Q6 29.0 → 21.0, turbo 32.3 → 24.2, Q8 24.7 → 19.1); prefill is immune
