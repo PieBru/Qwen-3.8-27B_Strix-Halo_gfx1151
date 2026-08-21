@@ -367,6 +367,23 @@ context:
   moves the fence past the crash band, so a runaway request dies at the GPU
   instead of being rejected. The margin must live *below* the window.
 
+### How the primary author actually runs it (one operator's profile)
+
+Not a recommendation — an example of mapping the menu to a workflow:
+
+- **Interactive / keyboard-driven work → `balanced`.** The Q6 daily driver:
+  ~29 t/s sustained feels instant against typing speed, quality is plenty for
+  code review and editing loops, and the 128k window never gets in the way of
+  an interactive session (which rarely fills a quarter of it).
+- **Nightly / unattended agent batches → `quality@128k`, agent ceiling 100k.**
+  Q8 for max quality on long autonomous runs; the window at 128k and the
+  agent's own context budget at 100k implement the margin rule above — the
+  agent compacts well before the fence, and a buggy run that misses its
+  ceiling is rejected at 100k–128k and retries, never reaching the crash band.
+
+The split costs nothing to switch between: it's one model name in the client,
+with `--models-max 1` doing the load swap (~6–15 s) between request batches.
+
 Recipe names are plain roles — `Qwen38-27B-quality@64k…@256k | -balanced |
 -speed | -vision`; every historical name (`Qwen38-27B-quality`,
 `-max-context`, `-Q6-65K-balanced-speed`, `-turbo`, `-fast`, …) still works as
