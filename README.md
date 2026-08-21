@@ -120,7 +120,7 @@ the serving setup and notes:
 |---|---|---|---|---:|---:|---:|---:|---:|
 | **Quality @256k** | `Qwen38-27B-quality@256k` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 | ~63 | ~25 | ~330 | 4.692 / ref |
 | **Quality** ✅ quality default | `Qwen38-27B-quality@64k` (+`@128k`, `@192k`) | `--goal quality` (Q8) | 65536 default; presets to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
-| **Balanced** ✅ daily default | `Qwen38-27B-balanced` | `run_llama-server.sh` (Q6) | 65536 default; flat to 256k | ~40 | ~83 | **~29** | ~306 | 4.706 / 0.0073 |
+| **Balanced** ✅ daily default | `Qwen38-27B-balanced` | `run_llama-server.sh` (Q6) | 131072 default (agentic-sized); flat to 256k | ~42 | ~80 | **~29** | ~306 | 4.706 / 0.0073 |
 | **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 | ~88 | **~32** | ~297 | 4.722 / 0.0137 |
 | **Vision** | `Qwen38-27B-vision` | router-only (mmproj, no spec) | 65536 | ~32 | ~91 | ~8.4 | — | 4.706 / 0.0073 |
 
@@ -153,7 +153,11 @@ When to pick which:
   `@128k`/`@192k`/`@256k` presets are one model-field away when the window is
   needed.
 - **Balanced** (default) — the daily driver: best quality/speed balance
-  (28.1–29.6 t/s across the whole 32k–256k ladder).
+  (28.1–29.6 t/s across the whole 32k–256k ladder). Default window 128k: sized
+  for agentic coding sessions — the primary Qwen3.8-27B workload — at ~+4 GiB
+  RAM over 64k and zero decode cost, while staying inside the measured-safe
+  ~128k content ceiling (the window itself keeps sessions out of the crash
+  zone).
 - **Speed** — fastest decoder: +10% tg and ~5 GiB lighter than balanced, at the
   documented quality cost (see the PPL/KLD columns) — churn and prototyping.
 - **Vision** — the only image-capable recipe (mmproj, no spec decode — lessons
@@ -217,7 +221,7 @@ equal (~250–330 pp4k), decode favors Q5-turbo > Q6 > Q8 at every context size.
 Single model with a preset (any field overridable, `--help` for all):
 
 ```bash
-./run_llama-server.sh --goal balanced            # Q6 @ 64k — daily driver
+./run_llama-server.sh --goal balanced            # Q6 @ 128k — daily driver
 ./run_llama-server.sh --goal quality             # Q8 @ 64k — correctness first
 ./run_llama-server.sh --goal speed              # Q5 @ 64k — fastest decoder
 ./run_llama-server.sh --goal quality --ctx 196608  # Q8 with a bigger window
