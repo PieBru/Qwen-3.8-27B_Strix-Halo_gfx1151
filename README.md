@@ -252,9 +252,12 @@ We built and load-tested a `Q6-1M-yarn` recipe (`rope-scaling = yarn`,
 
 - **The allocation fits this box**: 100.9 of 122.1 GiB GTT with f16 KV (RAM
   avail 14.3 G — tight; q8_0 KV would land ~75 G, comfortable).
-- **But it can't serve**: the fork caps every slot to the model's training ctx
-  (262,144) with no YaRN exemption (server-context.cpp) — the KV is allocated,
-  then unusable beyond 262k.
+- **But it can't serve**: the slot cap that clamps every slot to the model's
+  training ctx (262,144) with no YaRN exemption is **inherited from mainline
+  llama.cpp itself** (identical code verified in a stock clone) — so the
+  fork→mainline merge won't lift it. The unlock is a separate upstream change:
+  a YaRN exemption for the cap (window) plus the deep-prefill fix (single
+  prompts).
 - **And prompts beyond ~128k hit the Vulkan deep-prefill crash** regardless
   (the known `vk::DeviceLostError` ceiling).
 
