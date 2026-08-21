@@ -134,6 +134,14 @@ recalled on @192k. For fully-local users this makes the context window a
 dial much like the reasoning-level switch (none/low/medium/high), trading
 free RAM for window on the fly; `--models-max 1` serializes the switch (the
 old preset unloads first — switch between requests, not during one).
+**Two measured realities temper the dial** (fill battery 2026-08-21, Q8,
+f16 KV, chunked incremental fill): decode falls with FILLED depth —
+**24.7 t/s fresh → 13.1 @64k → 9.8 @128k filled** (incremental prefill
+likewise: ~218 → ~113 t/s from 32k to 96k depth) — and content beyond
+**~128k positions crashes the Vulkan path even for incremental fills**
+(128,209-token fill OK; ~160k `vk::DeviceLostError`). So `@64k…@128k` are
+fully usable presets; `@192k`/`@256k` are allocation headroom until deep
+positions are fixed — plan sessions around ~128k of real content.
 
 When to pick which:
 
@@ -167,11 +175,12 @@ tg was measured fresh-slot (first task after load), temp-0. Decode is flat
 across ctx ALLOCATION for every recipe (Q6 ladder 32k→256k: 28.1–29.6 t/s;
 Q8: 24.7–24.9) — the hybrid-SSM architecture gives most layers a constant-size
 state, so an allocated-but-unfilled window costs nothing. What DOES cost
-decode is how much of the window is FILLED: the NIAH battery's journal measured
-~29 t/s at 8k filled → ~16–18 t/s at 64–96k filled (the few full-attention
-layers scan the filled KV per token). So `~25` is the short-prompt benchmark —
-a quality@256k session that actually fills its window decodes slower. Context
-buys RAM (+~10 GiB per 3×) and load time, not benchmark tg. Served defaults
+is how much of the window is FILLED — measured on Q8 (fill battery 2026-08-21):
+**24.7 t/s fresh → 13.1 @64k → 9.8 @128k filled** (the few full-attention
+layers scan the filled KV per token; incremental prefill decays similarly).
+So `~25` is the short-prompt benchmark — a filled long-window session decodes
+at roughly half speed or less. Context buys RAM (+~10 GiB per 3×) and load
+time, not sustained tg at depth. Served defaults
 are sampling-penalty-free.
 ⚠️ Opting into `repeat_penalty 1.05` costs **23–28% decode on every spec recipe**
 (it collapses DFlash2 acceptance 0.647 → 0.450); prefill and vision are immune.
@@ -293,10 +302,12 @@ with no YaRN exemption. We load-tested a full 1M recipe
 and the usable slot came back at 262,144 — full memory cost, zero extra window.
 The same test showed there is **no 512K middle ground**: the cap applies to any
 `c` above 262,144, so 512K would pay ~18 GiB more KV than 256k and still serve
-a capped slot. Separately, even inside a 262k window a **single prompt beyond
-~128k positions** hits the Vulkan deep-prefill `vk::DeviceLostError` — big
-windows are for many/long contexts and long multi-turn sessions, not one giant
-prompt.
+a capped slot. Separately, even inside a 262k window, content beyond **~128k positions**
+hits the Vulkan `vk::DeviceLostError` — and this is an **absolute-position**
+limit, not a per-batch one: chunked/incremental fills crash at the same depth
+(measured: 128,209-token fill OK, ~160k crash). Big windows are for many
+medium contexts, not one giant prompt — and on this fork not for more than
+~128k of content at all.
 
 **What 1M costs in memory** (Q6 targets; f16 measured on a real 1M load, the
 rest derived from GTT deltas at 110k ctx scaled linearly — the derivation
