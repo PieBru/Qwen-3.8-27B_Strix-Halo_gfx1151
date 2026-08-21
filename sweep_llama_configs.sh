@@ -8,6 +8,9 @@
 set -u
 cd "$(dirname "$0")"
 BIN=./llama.cpp/build-vk/bin/llama-server
+# build-vk's RUNPATH is a stale pre-move path (trailing ':' = CWD fallback); without
+# this export the server fails to dlopen libggml-vulkan.so.0 outside its bin dir.
+export LD_LIBRARY_PATH="$PWD/llama.cpp/build-vk/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 PORT=8099
 RES=results; mkdir -p "$RES"
 CSV=$RES/sweep.csv
@@ -40,8 +43,10 @@ try: print(round(json.load(sys.stdin)['timings']['$1'],2))
 except Exception: print('')"; }
 
 # run_config <tag> <model> <ctk> <ctv> <ctkd> <ctvd> <ctx> <b> <ub> <tb> <nmax> <tests>
+# SWEEP_TAG_PREFIX env var prefixes the tag (e.g. r2- for a repeat pass) so CSV
+# rows from re-runs stay distinguishable.
 run_config(){
-  local tag=$1 model=$2 ctk=$3 ctv=$4 ctkd=$5 ctvd=$6 ctx=$7 b=$8 ub=$9 tb=${10} nmax=${11} tests=${12}
+  local tag="${SWEEP_TAG_PREFIX:-}$1" model=$2 ctk=$3 ctv=$4 ctkd=$5 ctvd=$6 ctx=$7 b=$8 ub=$9 tb=${10} nmax=${11} tests=${12}
   local kvargs=() dkvargs=()
   [ "$ctk" != "-" ] && kvargs=(-ctk "$ctk" -ctv "$ctv")
   [ "$ctkd" != "-" ] && dkvargs=(-ctkd "$ctkd" -ctvd "$ctvd")
@@ -126,10 +131,12 @@ stage2(){  # KV types 2x2 (target q8/f16 x draft q8/f16) — pass best n-max per
   done
 }
 
-stage3(){  # context 128k/192k/256k at per-model winner (pass "model ctk ctkd nmax" rows on argv)
+stage3(){  # context ladder INCLUDING a 64k in-window control (pass "model ctk ctkd nmax" rows on argv;
+  # optional 6th+ fields override the ctx ladder itself — use to break run-order confounds)
   for cfg in "$@"; do set -- $cfg; local m=$1 ctk=$2 ctkd=$3 n=$4 b=${5:-4096}
     local f=Qwen3.8-27B-UD-${m}_K_XL.gguf
-    for ctx in 131072 196608 262144; do
+    local ctxs="65536 131072 196608 262144"; [ $# -gt 5 ] && ctxs="${*:6}"
+    for ctx in $ctxs; do
       run_config "s3-${m}-c$((ctx/1024))k" "$f" "$ctk" "$ctk" "$ctkd" "$ctkd" "$ctx" "$b" "$b" 32 "$n" tg
     done
   done

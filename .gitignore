@@ -8,3 +8,4 @@ llama.cpp/
 *.log
 nohup.out
 results/
+llama.cpp-stock/

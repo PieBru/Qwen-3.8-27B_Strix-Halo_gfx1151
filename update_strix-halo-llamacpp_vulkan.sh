@@ -19,6 +19,14 @@ git pull --ff-only
 
 # Configure + build (system glslc 2026.3 and Vulkan/SPIRV headers already qualify,
 # so no -DVulkan_* overrides; GGML_NATIVE=ON is correct — this CPU is Strix Halo)
+# Cache-staleness guard: a CMakeCache.txt copied from a different clone location
+# aborts configure with a source-dir mismatch AND leaves binaries with a stale
+# RUNPATH (libggml-vulkan.so.0 unfindable outside bin/). Wipe and reconfigure.
+if [ -f "$BUILD_DIR/CMakeCache.txt" ] && \
+   ! grep -q "^CMAKE_HOME_DIRECTORY:INTERNAL=$PWD$" "$BUILD_DIR/CMakeCache.txt"; then
+    echo "stale CMake cache (different source dir) — wiping $BUILD_DIR"
+    rm -rf "$BUILD_DIR"
+fi
 cmake -B "$BUILD_DIR" -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release \
     -DGGML_NATIVE=ON -DLLAMA_CURL=OFF
 cmake --build "$BUILD_DIR" --target llama-server llama-cli llama-bench -j"$(nproc)"

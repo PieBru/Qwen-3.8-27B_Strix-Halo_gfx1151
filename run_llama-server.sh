@@ -11,7 +11,7 @@
 #   ./run_llama-server.sh --goal max-speed         # Q6 @ 64k, trim --ctx for more t/s
 # Overrides (any preset field can be overridden individually):
 #   --model q4|q5|q6|q8   target UD quant (q6/q8 recommended; q5 legacy, q4 fetchable)
-#   --ctx N               context size (SSM state is tiny; decode cost grows with it)
+#   --ctx N               context size (SSM state is tiny; allocation measured flat 64k-256k on a quiet box)
 #   --nmax N              --spec-draft-n-max (6-7 plateau; 4 clearly worse)
 #   --kv f16|q8_0         target+draft KV type (f16 measured FASTER and is higher fidelity)
 #   --port N              listen port (default 8081)
@@ -69,6 +69,9 @@ CMD=(./llama.cpp/build-vk/bin/llama-server
 echo ">> goal=${GOAL:-custom} model=$MODEL ctx=$CTX kv=$KV nmax=$NMAX mlock=$MLOCK port=$PORT"
 [ "$DRY" = 1 ] && { printf '   %q' "${CMD[@]}"; echo; exit 0; }
 
+# build-vk's RUNPATH is a stale pre-move path; without this export the server
+# fails to dlopen libggml-vulkan.so.0 when invoked outside its own bin dir.
+export LD_LIBRARY_PATH="$PWD/llama.cpp/build-vk/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 ulimit -l unlimited 2>/dev/null || true   # no-op until limits.d allows (README lessons)
 export AMD_VULKAN_ICD=RADV
 exec "${CMD[@]}"
