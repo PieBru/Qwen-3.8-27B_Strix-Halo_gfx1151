@@ -185,8 +185,9 @@ The target GGUFs are the Unsloth Dynamic **K_XL** quants, aligned with the
 unsloth repo **tip** (v3.0 re-quant run) as of 2026-08-21. A full tie-battery
 (fresh-slot decode, prefill, perplexity, KL-vs-Q8) showed the tip K_XL files
 tie the previous pinned v2 set within noise on every axis, so we track the tip;
-the v2 files are kept locally as `*-v2.gguf` backups (v2 fingerprints remain in
-git history). `Q8_K_XL` was byte-identical between the two revisions.
+the v2 files were verified equivalent and then removed locally (their
+fingerprints remain in git history for refetching). `Q8_K_XL` was byte-identical
+between the two revisions.
 
 **<https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/main>**
 
