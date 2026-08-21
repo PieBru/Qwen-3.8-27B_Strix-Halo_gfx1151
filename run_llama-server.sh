@@ -18,16 +18,26 @@
 #   --draft FILE          draft GGUF (default Qwen3.8-27B-DFlash2-Q8_0.gguf)
 #   --no-mlock            don't pin weights in RAM (mlock needs memlock unlimited,
 #                         see README "Lessons learned"; without it zram can eat ~30% tg)
+#   --models-max N        router: max models resident at once (default 1; every
+#                         recipe is 20-31 GB of weights + draft mlock'd — 2+
+#                         resident exhausted memory and hard-hung the whole box,
+#                         ssh included; 2026-08-21, models-max 5 → 1)
+#   --router               serve ALL recipes from models.ini via llama-server router
+#                         mode (names: Qwen38-27B-turbo|fast|balanced-speed|
+#                         balanced-quality|quality; recipe-specific keys live in
+#                         models.ini, shared flags below stay on the command line)
 #   --dry-run             print the resolved command, don't exec
 set -euo pipefail
 cd "$(dirname "$0")"
 
-GOAL=""; MODEL=""; CTX=65536; NMAX=6; KV=f16; PORT=8081
+GOAL=""; MODEL=""; CTX=65536; NMAX=6; KV=f16; PORT=8081; ROUTER=0; MMAX=1
 DRAFT=Qwen3.8-27B-DFlash2-Q8_0.gguf; MLOCK=1; DRY=0
 CTX_SET=0; MODEL_SET=0
 
 while [ $# -gt 0 ]; do case "$1" in
   --goal) GOAL=$2; shift 2;;
+  --router) ROUTER=1; shift;;
+  --models-max) MMAX=$2; shift 2;;
   --model) MODEL=$2; MODEL_SET=1; shift 2;;
   --ctx) CTX=$2; CTX_SET=1; shift 2;;
   --nmax) NMAX=$2; shift 2;;
@@ -44,18 +54,43 @@ case "$GOAL" in
   max-quality)      MODEL=q8; [ "$CTX_SET" = 0 ] && CTX=196608;;
   balanced-quality) MODEL=q8; [ "$CTX_SET" = 0 ] && CTX=65536;;
   balanced-speed)   MODEL=q6; [ "$CTX_SET" = 0 ] && CTX=65536;;
-  max-speed)        MODEL=q6; [ "$CTX_SET" = 0 ] && CTX=65536;;   # same config: 16k-64k measured flat; trim --ctx only to fit the task
+  max-speed)        MODEL=q6; [ "$CTX_SET" = 0 ] && CTX=65536;;   # same config: 64k-256k measured flat; trim --ctx only to fit the task
   "") MODEL=${MODEL:-q6};;                       # bare invocation = balanced-speed
   *) echo "error: --goal must be max-quality|balanced-quality|balanced-speed|max-speed" >&2; exit 1;;
 esac
 
-TARGET=Qwen3.8-27B-UD-${MODEL^^}_K_XL.gguf
-[ -f "$TARGET" ] || { echo "error: target $TARGET not found (see README Models for the pinned download)" >&2; exit 1; }
-[ -f "$DRAFT"  ] || { echo "error: draft $DRAFT not found" >&2; exit 1; }
-
 KVARGS=()
 [ "$KV" = q8_0 ] && KVARGS=(-ctk q8_0 -ctv q8_0 -ctkd q8_0 -ctvd q8_0)
 MLOCKARGS=(); [ "$MLOCK" = 1 ] && MLOCKARGS=(-lm mmap+mlock)
+
+if [ "$ROUTER" = 1 ]; then
+  # Router mode: every recipe's shared flags on the CLI; models.ini sections carry
+  # ONLY per-recipe keys (weights file + ctx + Q5's own n-max). Names clients use:
+  # Qwen38-27B-turbo|fast|balanced-speed|balanced-quality|quality.
+  [ -f models.ini ] || { echo "error: models.ini not found next to this script" >&2; exit 1; }
+  # Router mode also scans the HF cache (~/.cache/huggingface) for servable models;
+  # pin LLAMA_CACHE to an empty dir so ONLY the models.ini recipes are served.
+  mkdir -p .llama-cache
+  export LLAMA_CACHE="$PWD/.llama-cache"
+  CMD=(./llama.cpp/build-vk/bin/llama-server
+    --models-preset models.ini --models-max "$MMAX"
+    -md "$DRAFT"
+    -ngl all -ngld all -fa on "${MLOCKARGS[@]}" "${KVARGS[@]}"
+    -b 4096 -ub 4096 -np 1 -t 16 -tb 32
+    --spec-type draft-dflash --spec-draft-n-max "$NMAX"
+    --chat-template-file sharp.jinja
+    --jinja --host 0.0.0.0 --port "$PORT" --metrics)
+  echo ">> router: 5 recipes from models.ini on :$PORT (mmax=$MMAX nmax=$NMAX kv=$KV mlock=$MLOCK)"
+  [ "$DRY" = 1 ] && { printf '   %q' "${CMD[@]}"; echo; exit 0; }
+  # build-vk's RUNPATH is a stale pre-move path; this export keeps libs resolvable.
+  export LD_LIBRARY_PATH="$PWD/llama.cpp/build-vk/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+  export AMD_VULKAN_ICD=RADV
+  exec "${CMD[@]}"
+fi
+
+TARGET=Qwen3.8-27B-UD-${MODEL^^}_K_XL.gguf
+[ -f "$TARGET" ] || { echo "error: target $TARGET not found (see README Models for the pinned download)" >&2; exit 1; }
+[ -f "$DRAFT"  ] || { echo "error: draft $DRAFT not found" >&2; exit 1; }
 
 CMD=(./llama.cpp/build-vk/bin/llama-server
   -m "$TARGET" -md "$DRAFT"
