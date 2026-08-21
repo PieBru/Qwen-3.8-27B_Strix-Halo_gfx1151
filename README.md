@@ -46,7 +46,9 @@ measured, each linked to its evidence:
    scale with the *allocated* window on this hybrid-SSM model — 28–30 t/s
    whether `c` is 32k or 256k (Q8: 24.7 vs 24.9). Most layers carry a
    constant-size recurrent state; only fill depth costs
-   (~29 t/s at 8k filled → ~16–18 at 64–96k). Details in the
+   (~29 t/s at 8k filled → ~16–18 at 64–96k). Consequence: the
+   `quality@64k…@256k` presets turn the window into a per-request dial that
+   costs only RAM. Details in the
    [findings](#sweep-findings-at-a-glance) and the recipes-table notes.
 2. **A lighter quant is *slower* here, not faster.** With speculative decode,
    Q4 (16.7 GiB of weights) decodes at 28 t/s vs Q5's 32 — quant noise
@@ -116,32 +118,41 @@ the serving setup and notes:
 
 | Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | context | RAM (GiB) | left (GiB) | tg (t/s) | pp4k (t/s) | PPL / KLD↑ |
 |---|---|---|---|---:|---:|---:|---:|---:|
-| **Quality** | `Qwen38-27B-quality` | `--goal quality` (Q8) | 65536 default; up to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
-| **Balanced** ✅ default | `Qwen38-27B-balanced` | `run_llama-server.sh` (Q6) | 65536 default; flat to 256k | ~40 | ~83 | **~29** | ~306 | 4.706 / 0.0073 |
+| **Quality @256k** | `Qwen38-27B-quality@256k` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 | ~63 | ~25 | ~330 | 4.692 / ref |
+| **Quality** ✅ quality default | `Qwen38-27B-quality@64k` (+`@128k`, `@192k`) | `--goal quality` (Q8) | 65536 default; presets to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
+| **Balanced** ✅ daily default | `Qwen38-27B-balanced` | `run_llama-server.sh` (Q6) | 65536 default; flat to 256k | ~40 | ~83 | **~29** | ~306 | 4.706 / 0.0073 |
 | **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 | ~88 | **~32** | ~297 | 4.722 / 0.0137 |
 | **Vision** | `Qwen38-27B-vision` | router-only (mmproj, no spec) | 65536 | ~32 | ~91 | ~8.4 | — | 4.706 / 0.0073 |
-| **Max context** | `Qwen38-27B-max-context` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 | ~63 | ~25 | ~330 | 4.692 / ref |
+
+**The context dial.** All `quality@NNk` presets are the same weights, quality
+and decode speed — allocation is free (headline #1), so `NN` buys only the
+window and its RAM price (~45 → ~61 GiB from @64k to @256k). Switch presets
+per **request**, even mid-session: standard clients resend the full history
+every call, so the new preset's first request rebuilds ("renews") the context
+after one ~6–15 s on-demand load — verified with a needle set on @64k and
+recalled on @192k. For fully-local users this makes the context window a
+dial much like the reasoning-level switch (none/low/medium/high), trading
+free RAM for window on the fly; `--models-max 1` serializes the switch (the
+old preset unloads first — switch between requests, not during one).
 
 When to pick which:
 
-- **Quality** — correctness-first answers, code, synthesis. Raise `c` in
-  models.ini for a bigger window: decode is ctx-flat, only RAM (+~10 GiB per 3×
-  ctx) and load time grow.
+- **Quality @256k** — the flagship window: the servable ceiling, for many/long
+  contexts (NOT one ≥128k-position prompt — Vulkan prefill ceiling); loads can
+  be slow on an uptimed box. Same weights/quality/speed as Quality @64k — the
+  difference is purely RAM for window (see the context-dial note above).
+- **Quality (@64k default)** — correctness-first answers, code, synthesis; the
+  `@128k`/`@192k`/`@256k` presets are one model-field away when the window is
+  needed.
 - **Balanced** (default) — the daily driver: best quality/speed balance
   (28.1–29.6 t/s across the whole 32k–256k ladder).
 - **Speed** — fastest decoder: +10% tg and ~5 GiB lighter than balanced, at the
   documented quality cost (see the PPL/KLD columns) — churn and prototyping.
 - **Vision** — the only image-capable recipe (mmproj, no spec decode — lessons
   #7); lightest resident footprint.
-- **Max context** — the biggest window this stack can serve: for many/long
-  contexts, NOT one ≥128k-position prompt (Vulkan prefill ceiling); loads can
-  be slow on an uptimed box. Same weights/quality/speed as Quality — the point
-  of the separate recipe is that llama-server has no per-request ctx parameter:
-  this makes the window a per-`"model"`-field choice (paying ~61 GiB + a slower
-  on-demand load only when used), instead of an edit-models.ini-plus-restart
-  admin action. If you never switch windows, delete it and raise `c` on Quality
-  once. Chasing the full 1M? See
-  [The 1M-token context](#the-1m-token-context-what-works-what-doesnt-and-what-it-costs).
+- **Max context** — superseded by **Quality @256k** (same recipe, clearer
+  name); the separate-recipe rationale — per-request window choice — is now
+  the whole `quality@NNk` dial.
 
 Notes on the columns:
 
@@ -159,7 +170,7 @@ state, so an allocated-but-unfilled window costs nothing. What DOES cost
 decode is how much of the window is FILLED: the NIAH battery's journal measured
 ~29 t/s at 8k filled → ~16–18 t/s at 64–96k filled (the few full-attention
 layers scan the filled KV per token). So `~25` is the short-prompt benchmark —
-a max-context session that actually fills its window decodes slower. Context
+a quality@256k session that actually fills its window decodes slower. Context
 buys RAM (+~10 GiB per 3×) and load time, not benchmark tg. Served defaults
 are sampling-penalty-free.
 ⚠️ Opting into `repeat_penalty 1.05` costs **23–28% decode on every spec recipe**
@@ -219,9 +230,10 @@ curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
           "messages":[{"role":"user","content":"hi"}]}'
 ```
 
-Recipe names are plain roles — `Qwen38-27B-quality | -balanced | -speed | -vision
-| -max-context`; every historical name (`Qwen38-27B-Q6-65K-balanced-speed`,
-`-turbo`, `-fast`, `-Q8-192K-quality`, …) still works as an alias.
+Recipe names are plain roles — `Qwen38-27B-quality@64k…@256k | -balanced |
+-speed | -vision`; every historical name (`Qwen38-27B-quality`,
+`-max-context`, `-Q6-65K-balanced-speed`, `-turbo`, `-fast`, …) still works as
+an alias.
 Recipe-specific keys
 (weights, ctx, spec config, mmproj) live in `models.ini` sections — see the header
 of that file for the key reference and the CLI-vs-section precedence rule (lessons #8).
@@ -272,7 +284,7 @@ and the publisher's long-horizon guidance budgets 262k reasoning + 131k output
 YaRN-extrapolated, not trained — endorsed by the publisher, but expect gradual
 quality decay as you climb past 256k, on every server.
 
-**What this stack serves today: `max-context` at 262,144.** That number is the
+**What this stack serves today: `quality@256k` at 262,144.** That number is the
 model's `n_ctx_train`, and llama-server caps every slot to it — a cap inherited
 from **mainline llama.cpp itself** (identical code verified in a stock clone),
 with no YaRN exemption. We load-tested a full 1M recipe

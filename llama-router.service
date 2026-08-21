@@ -1,7 +1,7 @@
 [Unit]
 Description=llama-server router — Qwen3.8-27B presets (models.ini) on :8080
 # Serves the recipes from the repo's models.ini:
-#   Qwen38-27B-quality | -balanced | -speed | -vision | -max-context
+#   Qwen38-27B-quality@64k..@256k | -balanced | -speed | -vision
 # (all historical names — Qwen38-27B-turbo, -fast, -Q8-192K-quality, … —
 # still work as aliases)
 # Port 8080 is this box's canonical local-LLM endpoint (~/.pi/agent/models.json
