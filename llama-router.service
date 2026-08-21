@@ -11,13 +11,20 @@ Description=llama-server router — Qwen3.8-27B recipes (models.ini) on :8080
 # the old one first (same ~6-13 s load again). Each recipe mlocks 20-31 GB of
 # weights, so 2+ resident models exhausted memory and hard-hung the box
 # (2026-08-21). Raise only with verified headroom.
+#
+# --agent: WebUI agent surface — ALL built-in tools (read_file, file_glob_search,
+# grep_search, exec_shell_command, write_file, edit_file, get_datetime, get_info)
+# + the WebUI MCP/CORS proxy. Upstream pins the WebUI's CORS to localhost, but
+# the plain API on 0.0.0.0 answers tool calls from ANY LAN host — treat the
+# network as trusted or drop --agent (tools/MCP can also be scoped per-run via
+# run_llama-server.sh --tools/--mcp-config/--tools-runtime instead).
 
 [Service]
 Type=simple
 # !! SUBSTITUTE THIS PATH with YOUR clone location before enabling !!
 #   sed -i "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" llama-router.service
 # (the README install step greps for "ExecStart=/REPLACE" to catch a forgotten substitution)
-ExecStart=/REPLACE/WITH/YOUR/REPO/PATH/run_llama-server.sh --router --port 8080 --models-max 1
+ExecStart=/REPLACE/WITH/YOUR/REPO/PATH/run_llama-server.sh --router --port 8080 --models-max 1 --agent
 # The linger-started user manager does NOT go through PAM, so limits.d's
 # "memlock unlimited" never reaches this unit — raise it here or -lm mmap+mlock
 # silently warns and runs unprotected (README "Lessons learned").
