@@ -33,20 +33,22 @@ documented below — so your agent can run 24/7 on hardware you own outright.
 
 ## TL;DR — reproduce on any gfx1151 (Strix Halo) box
 
-Five steps, ~30 min, no desktop environment needed (Arch minimal headless verified;
-Ubuntu may work, untested):
+Six steps, ~45 min, no desktop environment needed (Arch minimal headless verified
+end-to-end on a second box, 2026-08-21; Ubuntu may work, untested):
 
 ```bash
+# 0. this repo (launchers, recipes, systemd unit, model downloader)
+git clone https://github.com/PieBru/Qwen-3.8-27B_Strix-Halo_gfx1151 && cd Qwen-3.8-27B_Strix-Halo_gfx1151
 # 1. deps (Arch; versions OBSERVED working: shaderc 2026.3, libdrm 2.4.134)
 sudo pacman -S --needed base-devel cmake ninja git shaderc vulkan-headers \
   spirv-headers vulkan-icd-loader vulkan-radeon vulkan-tools libdrm
-# 2. build the fork (or skip: prebuilt v0.6.6 tarball — same commit, see Quick Start)
+# 2. build the fork INSIDE the repo (llama.cpp/ is gitignored; or skip the
+#    build: prebuilt v0.6.6 tarball — same commit, see Quick Start)
 git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp && git checkout strix-halo-vulkan
 cmake -B build-vk -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=ON -DLLAMA_CURL=OFF
-cmake --build build-vk --target llama-server llama-cli llama-bench -j
-# 3. models: UD K_XL quants from the unsloth repo tip (fingerprints in Models)
-#    https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/main
-#    plus a Qwen3.8-27B-DFlash2 draft GGUF
+cmake --build build-vk --target llama-server llama-cli llama-bench -j && cd ..
+# 3. models — everything (targets + DFlash2 draft + vision mmproj), verified:
+./download_models.sh            # ~73 GiB total; or pick: q6 q8 q5 draft mmproj
 # 4. verify backend + bare perf (expect: Vulkan0 AMD 8060S; quiet box, f16 KV:
 #    Q6 pp512 ~346 / tg32 ~8.6; Q8 pp512 ~366 / tg32 ~7.3 — zram churn can halve tg)
 ./build-vk/bin/llama-cli --list-devices
@@ -449,10 +451,14 @@ against it is below.
 
 Verify a download against the table (`ls -l` size, or `sha256sum` prefix).
 
-The `DFlash2-*` draft GGUFs come from elsewhere (not in that repo) and only load
-via `-md` next to a target — run standalone they fail with
-`dflash requires ctx_other to be set`. `mmproj-F16.gguf` is the vision projector,
-wired per-recipe via the `mmproj` key in `models.ini`.
+The `DFlash2-*` draft GGUFs live in
+[z-lab/Qwen3.8-27B-DFlash2-GGUF](https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF)
+(the `Q4_K_M` variant there measured ~+5% acceptance but needs re-fetching) and
+only load via `-md` next to a target — run standalone they fail with
+`dflash requires ctx_other to be set`. `mmproj-F16.gguf` is the vision projector
+(unsloth repo, sha `cbb841a9ee06…`), wired per-recipe via the `mmproj` key in
+`models.ini`. `download_models.sh` fetches and verifies all five files —
+targets, draft, mmproj — against the fingerprints above.
 
 ### Context beyond 192k?
 
