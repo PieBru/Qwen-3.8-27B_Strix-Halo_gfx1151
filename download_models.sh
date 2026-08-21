@@ -50,7 +50,10 @@ verify_one(){  # <key>
 }
 
 download_one(){  # <key>
-  local q=$1 f=${FNAME[$1]} tmp=".part-$f" url="${SRC[$1]}/$f"
+  local q=$1
+  local f=${FNAME[$1]}
+  local tmp=".part-$f"
+  local url="${SRC[$1]}/$f"
 
   # tip-drift check for unsloth-hosted files
   if [ "${SRC[$q]}" = "$UNSLOTH" ]; then
