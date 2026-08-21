@@ -316,6 +316,23 @@ curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
           "messages":[{"role":"user","content":"hi"}]}'
 ```
 
+### Running 24/7 agents: the margin rule
+
+The window (`c`) is a **fence**, not a target. A prompt larger than the window
+is rejected with a clean HTTP error — agent frameworks compact and retry, the
+service never notices. A prompt *under* the window gets prefilled — and past
+~128k–160k positions prefill crashes the GPU child and wedges the router
+(observed; manual restart needed). So for a coding agent that manages its own
+context:
+
+- **agent soft ceiling ≈ 96k** (keeps sustained decode in the ≥13 t/s band and
+  leaves burst room for one huge tool output),
+- **window stays 128k** — the hard fence that converts "agent missed its
+  ceiling" into a graceful compact-and-retry,
+- **never** widen the window to "give the agent margin" (e.g. 192k): that
+  moves the fence past the crash band, so a runaway request dies at the GPU
+  instead of being rejected. The margin must live *below* the window.
+
 Recipe names are plain roles — `Qwen38-27B-quality@64k…@256k | -balanced |
 -speed | -vision`; every historical name (`Qwen38-27B-quality`,
 `-max-context`, `-Q6-65K-balanced-speed`, `-turbo`, `-fast`, …) still works as
