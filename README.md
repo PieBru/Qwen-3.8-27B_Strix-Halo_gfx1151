@@ -202,22 +202,26 @@ penalties don't enter.
 **Everything relative to the `quality@64k` baseline** (UD-Q8_K_XL v3.0,
 64k window — pick your own reference frame; values are % of that row):
 
-| Recipe | RAM | RAM left | tg | pp4k | PPL |
-|---|---:|---:|---:|---:|---:|
-| `quality@64k` (baseline) | 100% | 100% | 100% | 100% | 100% |
-| `quality@128k` | ~111% | ~94% | 100% | 100% | 100% |
-| `quality@192k` | ~120% | ~88% | 100% | 100% | 100% |
-| `quality@256k` | ~136% | ~81% | 100% | 100% | 100% |
-| `balanced` (Q6 @ 128k) | ~93% | ~103% | 116% | 93% | 100.3% |
-| `speed` (Q5) | ~78% | ~113% | 128% | 90% | 100.6% |
-| `vision` (Q6, no spec) | ~71% | ~117% | 34% | — | 100.3% |
+| Recipe | context | RAM occupied | tg | pp4k | PPL | KLD (absolute¹) |
+|---|---:|---:|---:|---:|---:|---:|
+| `quality@64k` (baseline) | 100% | 100% | 100% | 100% | 100% | 0 (reference) |
+| `quality@128k` | 200% | ~111% | 100% | 100% | 100% | 0 |
+| `quality@192k` | 300% | ~120% | 100% | 100% | 100% | 0 |
+| `quality@256k` | 400% | ~136% | 100% | 100% | 100% | 0 |
+| `balanced` (Q6 @ 128k) | 200% | ~93% | 116% | 93% | 100.3% | 0.0073 |
+| `speed` (Q5) | 100% | ~78% | 128% | 90% | 100.6% | 0.0137 |
+| `vision` (Q6, no spec) | 100% | ~71% | 34% | — | 100.3% | 0.0073 |
 
-Reads: the four quality presets differ **only** in RAM/left (the dial — speed
-and quality are untouched); balanced trades 7% RAM for +16% decode at a
-0.3% PPL cost; speed pushes to +28% decode and −22% RAM for 0.6% PPL; vision
-is the RAM featherweight at 34% decode. PPL: lower is better. KLD omitted
-(the baseline *is* the reference, 0). Fill-depth decay not included — these
-are short-prompt benchmarks (see the tg note above).
+¹ KLD (KL divergence vs the Q8 reference logits) is shown **absolute** — as a
+percentage of the baseline it is undefined: the baseline *is* the reference,
+so its own KLD is 0 by construction. Lower is better.
+
+Reads: the four quality presets trade only context↔RAM (speed and quality
+untouched — the dial); balanced buys 2× context at −7% RAM and +16% decode
+for a 0.3% PPL cost; speed stays at the baseline window and pushes +28%
+decode / −22% RAM for 0.6% PPL; vision is the RAM featherweight at 34%
+decode. Fill-depth decay not included — these are short-prompt benchmarks
+(see the tg note above).
 
 Heads-up for concurrency: `--models-max 1` is policy, not a hard memory limit —
 two small recipes would *fit* (e.g. speed + balanced ≈ 75 GiB), but three resident
