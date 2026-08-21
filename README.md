@@ -332,6 +332,7 @@ inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit
 | `-c` (allocated ctx) | **65536 default; allocation is free up to 256k** | Quiet-box re-measure (2026-08-21, fresh boot, zram 0 B used, two passes + an order-controlled third): **flat** — Q6 20.2 ±0.2 t/s and Q8 ~17.6 t/s from 64k straight through 256k. The earlier "ALLOCATED ctx costs decode" decay (Q6 19.8→16.7, Q8 17.8→13.9) was drift-era zram noise and does **not** reproduce. Only real quirk: Q8 dips ~1.4 t/s at 64k vs ≥128k (confirmed not a run-order artifact; mechanism unknown). The ≥128k crash is deep-prefill-specific (bench filling the ctx), not an allocation limit |
 | `-b/-ub` | **4096** | tg flat (±2%, 2048/4096/8192); llama-bench already showed 4096 = +6% deep prefill over 2048; 8192 doubles compute buffers for nothing |
 | `-tb` | **32** (parity) | tb16 within ~1% of tb32 — GPU-bound, as expected |
+| dflash `n_min` / `p_min` | **no effect (inert)** | verified 2026-08-21 via the router: n_min 2/3 and p_min 0.3/0.9 reached the child (init line confirms) yet every decode was bit-identical — acceptance 0.647, mean run 4.81 unchanged. Draft quality (the DFlash2 distillate), not a parameter, sets acceptance; `n_max` is the only knob that moves it (and 6 is optimal). Stacking `ngram-map-k` on dflash *hurt* (29.0 → 27.4 t/s, acceptance 0.647 → 0.573) |
 
 ### Recommended configs (per goal)
 
