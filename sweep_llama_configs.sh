@@ -113,21 +113,21 @@ for m in ('Q6','Q8'):
 EOF
 }
 
-stage1(){  # spec-draft-n-max 3..9 (decode-dominant axis)
-  for m in Q6 Q8; do
-    f=Qwen3.8-27B-UD-${m}_K_XL.gguf
+stage1(){  # spec-draft-n-max 3..9 (decode-dominant axis); models on argv (default "Q6 Q8"; add Q5 etc.)
+  local models="${*:-Q6 Q8}"
+  for m in $models; do
+    local f=Qwen3.8-27B-UD-${m}_K_XL.gguf
     for n in 3 4 5 6 7 8 9; do run_config "s1-${m}-n${n}" "$f" q8_0 q8_0 q8_0 q8_0 65536 4096 4096 32 "$n" tg; done
   done
 }
 
-stage2(){  # KV types 2x2 (target q8/f16 x draft q8/f16) — pass best n-max per model as $1/$2
-  local n6=${1:-4} n8=${2:-4}
-  for spec in "q8_0 q8_0" "q8_0 -" "- -" ; do :; done
-  for m in "Q6 $n6" "Q8 $n8"; do set -- $m; local mm=$1 n=$2; local f=Qwen3.8-27B-UD-${mm}_K_XL.gguf
-    run_config "s2-${mm}-kvT-q8-dkv-q8"  "$f" q8_0 q8_0 q8_0 q8_0 65536 4096 4096 32 "$n" tgpp
-    run_config "s2-${mm}-kvT-q8-dkv-f16" "$f" q8_0 q8_0 -     -     65536 4096 4096 32 "$n" tgpp
-    run_config "s2-${mm}-kvT-f16-dkv-q8" "$f" -     -     q8_0 q8_0 65536 4096 4096 32 "$n" tgpp
-    run_config "s2-${mm}-kvT-f16-dkv-f16" "$f" -     -     -     -     65536 4096 4096 32 "$n" tgpp
+stage2(){  # KV types 2x2 (target q8/f16 x draft q8/f16) — pass "MODEL:NMAX" specs (default "Q6:4 Q8:4")
+  local specs=${*:-"Q6:4 Q8:4"}
+  for spec in $specs; do local m=${spec%%:*} n=${spec##*:}; local f=Qwen3.8-27B-UD-${m}_K_XL.gguf
+    run_config "s2-${m}-kvT-q8-dkv-q8"  "$f" q8_0 q8_0 q8_0 q8_0 65536 4096 4096 32 "$n" tgpp
+    run_config "s2-${m}-kvT-q8-dkv-f16" "$f" q8_0 q8_0 -     -     65536 4096 4096 32 "$n" tgpp
+    run_config "s2-${m}-kvT-f16-dkv-q8" "$f" -     -     q8_0 q8_0 65536 4096 4096 32 "$n" tgpp
+    run_config "s2-${m}-kvT-f16-dkv-f16" "$f" -     -     -     -     65536 4096 4096 32 "$n" tgpp
   done
 }
 
@@ -159,7 +159,7 @@ stage5(){  # -tb 16 vs 32 (expected parity): pass "model ctk ctkd nmax ctx bu" r
 
 case "${1:-all}" in
   0) stage0;;
-  1) stage1;;
+  1) stage1 "${@:2}";;
   2) stage2 "${@:2}";;
   3) stage3 "${@:2}";;
   4) stage4 "${@:2}";;
