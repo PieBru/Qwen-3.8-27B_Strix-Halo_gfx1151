@@ -96,7 +96,12 @@ When to pick which:
   #7); lightest resident footprint.
 - **Max context** — the biggest window this stack can serve: for many/long
   contexts, NOT one ≥128k-position prompt (Vulkan prefill ceiling); loads can
-  be slow on an uptimed box. Chasing the full 1M? See
+  be slow on an uptimed box. Same weights/quality/speed as Quality — the point
+  of the separate recipe is that llama-server has no per-request ctx parameter:
+  this makes the window a per-`"model"`-field choice (paying ~61 GiB + a slower
+  on-demand load only when used), instead of an edit-models.ini-plus-restart
+  admin action. If you never switch windows, delete it and raise `c` on Quality
+  once. Chasing the full 1M? See
   [The 1M-token context](#the-1m-token-context-what-works-what-doesnt-and-what-it-costs).
 
 Notes on the columns:
