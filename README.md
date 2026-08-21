@@ -3,6 +3,9 @@
 > *Speed is useful, but quality is fundamental — one subtle bug fewer or a better
 > codebase always pays for itself in wall-time gained.*
 
+Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/strix-halo-llamacpp)
+fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding.
+
 ## TL;DR — reproduce on any gfx1151 (Strix Halo) box
 
 Five steps, ~30 min, no desktop environment needed (Arch minimal headless verified;
@@ -34,12 +37,28 @@ Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. Deep prefill
 Once verified, pick your workload recipe from the
 [**Recommended configs (per goal)**](#recommended-configs-per-goal) table.
 
+## Quick start: run the prebuilt release (time-saving)
+
+Skip the build entirely — the toolbox releases ship a portable, self-contained stack
+(latest `v0.6.6`, `strix-halo-llamacpp-vulkan-portable.tar.gz`) that bundles its own
+RADV + libdrm, so it won't touch the system driver and needs no compile toolchain:
+
+```bash
+curl -L https://github.com/Nathanw1014/strix-halo-llamacpp/releases/download/v0.6.6/strix-halo-llamacpp-vulkan-portable.tar.gz | tar xz
+# the tarball's launcher self-sets the perf env; run its server directly with the
+# preset flags (the repo's run_llama-server.sh hardcodes the local build path):
+#   ./vulkan/llama-server -m <UD-Q6_K_XL.gguf> -md <DFlash2-Q8_0.gguf> -ngl all -fa on \
+#       -c 65536 -b 4096 -ub 4096 --spec-type draft-dflash --spec-draft-n-max 6 --host 0.0.0.0
+```
+
+Verified on this box: the tarball pins commit `7b6c613`; the fork tip is
+perf-identical within 1% (chat-parser-only delta since). Read on only if you want
+to build from source.
+
 ## What's in this repo
 
-Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/strix-halo-llamacpp)
-fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding. Model weights
-(`.gguf`) and the `llama.cpp/` clone are local-only; this repo holds the serving
-setup and notes:
+Model weights (`.gguf`) and the `llama.cpp/` clone are local-only; this repo holds
+the serving setup and notes:
 
 - `run_llama-server.sh` — **unified launcher**: `--goal max-quality|balanced-quality|balanced-speed|max-speed`
   single-model presets, or `--router` to serve every recipe; every field overridable
@@ -96,6 +115,54 @@ again — steady-state serving after that is instant.
 Decision rule: **Q8 when quality is the point, Q6 when tokens/s is** — prefill is
 equal (~250–330 pp4k), decode favors Q5-turbo > Q6 > Q8 at every context size.
 
+## Running it
+
+Single model with a preset (any field overridable, `--help` for all):
+
+```bash
+./run_llama-server.sh --goal balanced-speed            # Q6 @ 64k — daily driver
+./run_llama-server.sh --goal max-quality               # Q8 @ 192k — final answers
+./run_llama-server.sh --goal max-speed --ctx 32768     # trimmed ctx for pure t/s
+./run_llama-server.sh --model q8 --kv q8_0 --nmax 4   # fully custom
+```
+
+### Serving all recipes (the router)
+
+One port, every recipe from the table, loaded on demand:
+
+```bash
+./run_llama-server.sh --router --port 8080              # foreground
+# or as a boot-persistent user service:
+cp llama-router.service ~/.config/systemd/user/ && systemctl --user daemon-reload
+systemctl --user enable --now llama-router
+
+curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
+     -d '{"model":"Qwen38-27B-Q6-65K-balanced-speed","max_tokens":64,
+          "messages":[{"role":"user","content":"hi"}]}'
+```
+
+Recipe names are `Qwen38-27B-<QUANT>-<CTX>-<ROLE>`; the short names
+(`Qwen38-27B-turbo`, `-fast`, …) still work as aliases. Recipe-specific keys
+(weights, ctx, spec config, mmproj) live in `models.ini` sections — see the header
+of that file for the key reference and the CLI-vs-section precedence rule (lessons #8).
+
+## Test — verify GPU, not silent CPU fallback
+
+The headline failure mode in BUILD.md: a Vulkan ICD manifest without `api_version`
+gets skipped by the loader and llama.cpp **silently falls back to CPU** (~7x slower).
+Not an issue with the system RADV, but always confirm the backend:
+
+```bash
+# backend must read GPU/Vulkan (AMD Radeon 8060S), not CPU
+./build-vk/bin/llama-cli --list-devices
+./build-vk/bin/llama-bench -m <model.gguf> -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
+```
+
+Quiet-box reference for that bench command (f16 KV): Q6 pp512 **~346** / tg32
+**~8.6**; Q8 pp512 **~366** / tg32 **~7.3**; shallow pp512 varies ±10% run-to-run at
+85 W. Note `llama-bench` measures bare decode only — it takes most server flags but
+not `-md`/`--spec-*` (no draft support), so spec-decode gains don't show here.
+
 ## Sweep findings at a glance
 
 How these were measured: [config research](#config-research-sweep_llama_configssh).
@@ -110,46 +177,6 @@ How these were measured: [config research](#config-research-sweep_llama_configss
 | Model choice | **Q6 speed / Q8 quality** | decode favors Q6 at every ctx; Q8 prefill edges Q6 (pp512 366 vs 346 — Q8_0's symmetric blocks ride the fast kernel path) |
 | Host state | **`-lm mmap+mlock`** | zram-swapped weight pages cost up to ~30% decode; mlock makes weights unswappable |
 | dflash fine-tuning | **inert beyond n-max** | `spec-draft-n-min` 2/3 and `spec-draft-p-min` 0.3/0.9 change nothing (bit-identical decodes, acceptance 0.647); stacking `ngram-map-k` on dflash *hurts* (29.0 → 27.4 t/s). Draft quality sets acceptance — `n_max` is the only working knob |
-
-## Environment (read this first)
-
-Everything below was verified on **Arch Linux installed as a minimal headless
-server** — no desktop environment, GPU used purely as a compute device — and that
-is what we **use and recommend for serving LLM inference**: latest compilers and
-Mesa/RADV with zero desktop drag, and nothing competing with the GPU for memory
-bandwidth. **Ubuntu may work but we didn't test it**; the package names in the
-dependencies section are Arch's, so translate them (`apt`/universe, possibly newer
-upstream packages for shaderc/RADV) before assuming parity.
-
-Adapted from [BUILD.md](https://github.com/Nathanw1014/strix-halo-llamacpp/blob/master/BUILD.md)
-for a box where **ROCm and Vulkan (system RADV) are already installed and proven working**.
-
-Verified on this machine (Arch Linux, Ryzen AI MAX+ 395 / Radeon 8060S, gfx1151):
-
-- `rocminfo` → gfx1151 ✔
-- `vulkaninfo` → RADV, ICD `radeon_icd.json` ✔
-- `glslc 2026.3` — meets the "current shaderc" requirement ✔
-- Vulkan + SPIRV headers present in `/usr/include` ✔
-
-## Dependencies (Arch Linux — pacman / paru)
-
-Everything is in the official repos; no AUR needed (`paru -S` works identically if
-that's your habit). Package set verified against this working box (`pacman -Qo`):
-
-```bash
-# Vulkan build (required) — versions OBSERVED working:
-#   shaderc 2026.3-1 (glslc)  vulkan/spirv-headers 1.4.357  libdrm 2.4.134
-sudo pacman -S --needed base-devel cmake ninja git \
-  shaderc vulkan-headers spirv-headers vulkan-icd-loader vulkan-radeon \
-  vulkan-tools libdrm
-
-# ROCm / HIP (optional, for the decode-fix build) — OBSERVED set is 7.2.4:
-#   rocm-hip-sdk pulls hipcc + runtime, comgr, rocblas, rocm-llvm
-sudo pacman -S --needed rocm-hip-sdk rocm-cmake
-```
-
-`vulkan-radeon` (system RADV) is the driver llama.cpp actually runs on — no bundled
-Mesa needed on this box. `vulkan-tools` provides `vulkaninfo` for the checks above.
 
 ## Models — Unsloth Dynamic 1.2 2-quant **v2**, pinned revision
 
@@ -194,23 +221,60 @@ measurably further from the Q8 reference, and it loses at prefill. Pick v3.0 whe
 2.8 GiB of RAM or decode t/s matter more; to adopt it, add a `models.ini` section
 pointing `model =` at the _M_ file (copy any Q6 section and edit).
 
-## Quick start: run the prebuilt release (time-saving)
+## Environment
 
-Skip the build entirely — the toolbox releases ship a portable, self-contained stack
-(latest `v0.6.6`, `strix-halo-llamacpp-vulkan-portable.tar.gz`) that bundles its own
-RADV + libdrm, so it won't touch the system driver and needs no compile toolchain:
+Everything below was verified on **Arch Linux installed as a minimal headless
+server** — no desktop environment, GPU used purely as a compute device — and that
+is what we **use and recommend for serving LLM inference**: latest compilers and
+Mesa/RADV with zero desktop drag, and nothing competing with the GPU for memory
+bandwidth. **Ubuntu may work but we didn't test it**; the package names in the
+dependencies section are Arch's, so translate them (`apt`/universe, possibly newer
+upstream packages for shaderc/RADV) before assuming parity.
+
+Adapted from [BUILD.md](https://github.com/Nathanw1014/strix-halo-llamacpp/blob/master/BUILD.md)
+for a box where **ROCm and Vulkan (system RADV) are already installed and proven working**.
+
+Verified on this machine (Arch Linux, Ryzen AI MAX+ 395 / Radeon 8060S, gfx1151):
+
+- `rocminfo` → gfx1151 ✔
+- `vulkaninfo` → RADV, ICD `radeon_icd.json` ✔
+- `glslc 2026.3` — meets the "current shaderc" requirement ✔
+- Vulkan + SPIRV headers present in `/usr/include` ✔
+
+## Dependencies (Arch Linux — pacman / paru)
+
+Everything is in the official repos; no AUR needed (`paru -S` works identically if
+that's your habit). Package set verified against this working box (`pacman -Qo`):
 
 ```bash
-curl -L https://github.com/Nathanw1014/strix-halo-llamacpp/releases/download/v0.6.6/strix-halo-llamacpp-vulkan-portable.tar.gz | tar xz
-# the tarball's launcher self-sets the perf env; run its server directly with the
-# preset flags (the repo's run_llama-server.sh hardcodes the local build path):
-#   ./vulkan/llama-server -m <UD-Q6_K_XL.gguf> -md <DFlash2-Q8_0.gguf> -ngl all -fa on \
-#       -c 65536 -b 4096 -ub 4096 --spec-type draft-dflash --spec-draft-n-max 6 --host 0.0.0.0
+# Vulkan build (required) — versions OBSERVED working:
+#   shaderc 2026.3-1 (glslc)  vulkan/spirv-headers 1.4.357  libdrm 2.4.134
+sudo pacman -S --needed base-devel cmake ninja git \
+  shaderc vulkan-headers spirv-headers vulkan-icd-loader vulkan-radeon \
+  vulkan-tools libdrm
+
+# ROCm / HIP (optional, for the decode-fix build) — OBSERVED set is 7.2.4:
+#   rocm-hip-sdk pulls hipcc + runtime, comgr, rocblas, rocm-llvm
+sudo pacman -S --needed rocm-hip-sdk rocm-cmake
 ```
 
-Verified on this box: the tarball pins commit `7b6c613`; the fork tip is
-perf-identical within 1% (chat-parser-only delta since). Read on only if you want
-to build from source.
+`vulkan-radeon` (system RADV) is the driver llama.cpp actually runs on — no bundled
+Mesa needed on this box. `vulkan-tools` provides `vulkaninfo` for the checks above.
+
+## Build from source — for testing improvements
+
+```bash
+git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp
+git checkout strix-halo-vulkan
+cmake -B build-vk -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release \
+  -DGGML_NATIVE=ON -DLLAMA_CURL=OFF
+cmake --build build-vk --target llama-server llama-cli llama-bench -j
+```
+
+No `-DVulkan_*` overrides needed: the system glslc (2026.3) and headers already meet
+the toolchain requirements. `GGML_NATIVE=ON` is correct here because this CPU *is*
+Strix Halo (CI replaces it with explicit Zen 5 toggles only because GitHub runners
+aren't).
 
 ## The toolbox behind it (BUILD.md)
 
@@ -241,69 +305,6 @@ Stock also has no DFlash2 spec-decode at all — the 20→29 t/s layer. **The fo
 mandatory** until the prefill PRs land upstream
 ([ggml-org/llama.cpp#25494](https://github.com/ggml-org/llama.cpp/pull/25494) and
 follow-ups); when they do, stock inherits the wins and the fork becomes redundant.
-
-## Build from source — for testing improvements
-
-```bash
-git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp
-git checkout strix-halo-vulkan
-cmake -B build-vk -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release \
-  -DGGML_NATIVE=ON -DLLAMA_CURL=OFF
-cmake --build build-vk --target llama-server llama-cli llama-bench -j
-```
-
-No `-DVulkan_*` overrides needed: the system glslc (2026.3) and headers already meet
-the toolchain requirements. `GGML_NATIVE=ON` is correct here because this CPU *is*
-Strix Halo (CI replaces it with explicit Zen 5 toggles only because GitHub runners
-aren't).
-
-## Test — verify GPU, not silent CPU fallback
-
-The headline failure mode in BUILD.md: a Vulkan ICD manifest without `api_version`
-gets skipped by the loader and llama.cpp **silently falls back to CPU** (~7x slower).
-Not an issue with the system RADV, but always confirm the backend:
-
-```bash
-# backend must read GPU/Vulkan (AMD Radeon 8060S), not CPU
-./build-vk/bin/llama-cli --list-devices
-./build-vk/bin/llama-bench -m <model.gguf> -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
-```
-
-Quiet-box reference for that bench command (f16 KV): Q6 pp512 **~346** / tg32
-**~8.6**; Q8 pp512 **~366** / tg32 **~7.3**; shallow pp512 varies ±10% run-to-run at
-85 W. Note `llama-bench` measures bare decode only — it takes most server flags but
-not `-md`/`--spec-*` (no draft support), so spec-decode gains don't show here.
-
-## Running it
-
-Single model with a preset (any field overridable, `--help` for all):
-
-```bash
-./run_llama-server.sh --goal balanced-speed            # Q6 @ 64k — daily driver
-./run_llama-server.sh --goal max-quality               # Q8 @ 192k — final answers
-./run_llama-server.sh --goal max-speed --ctx 32768     # trimmed ctx for pure t/s
-./run_llama-server.sh --model q8 --kv q8_0 --nmax 4   # fully custom
-```
-
-### Serving all recipes (the router)
-
-One port, every recipe from the table, loaded on demand:
-
-```bash
-./run_llama-server.sh --router --port 8080              # foreground
-# or as a boot-persistent user service:
-cp llama-router.service ~/.config/systemd/user/ && systemctl --user daemon-reload
-systemctl --user enable --now llama-router
-
-curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
-     -d '{"model":"Qwen38-27B-Q6-65K-balanced-speed","max_tokens":64,
-          "messages":[{"role":"user","content":"hi"}]}'
-```
-
-Recipe names are `Qwen38-27B-<QUANT>-<CTX>-<ROLE>`; the short names
-(`Qwen38-27B-turbo`, `-fast`, …) still work as aliases. Recipe-specific keys
-(weights, ctx, spec config, mmproj) live in `models.ini` sections — see the header
-of that file for the key reference and the CLI-vs-section precedence rule (lessons #8).
 
 ## Optional: HIP variant (decode fix)
 
