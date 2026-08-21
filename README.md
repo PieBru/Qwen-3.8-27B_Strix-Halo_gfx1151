@@ -815,6 +815,17 @@ This experiment stands entirely on other people's work:
   that stock templates produce for this model family. Without it the server output
   would be garbage with tools enabled.
 
+## Sub-motto
+
+> *Humans architected, verified, sealed. AI assistants built and wrote all the
+> delivered stuff.*
+
+A note on provenance: the architecture decisions, every acceptance of a
+measurement, and the seal of each release were human; the builds, probes,
+batteries, tables, and most of this documentation were produced by AI
+assistants under that supervision — including this sentence. Every number in
+this README traces to a command you can re-run.
+
 ## License
 
 [MIT](LICENSE) © 2026 PieBru. The configs and notes here are MIT; the
