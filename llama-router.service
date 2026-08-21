@@ -17,7 +17,7 @@ Description=llama-server router — Qwen3.8-27B recipes (models.ini) on :8080
 Type=simple
 # !! SUBSTITUTE THIS PATH with YOUR clone location before enabling !!
 #   sed -i "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" llama-router.service
-# (grep REPLACE llama-router.service must find nothing before you install it)
+# (the README install step greps for "ExecStart=/REPLACE" to catch a forgotten substitution)
 ExecStart=/REPLACE/WITH/YOUR/REPO/PATH/run_llama-server.sh --router --port 8080 --models-max 1
 # The linger-started user manager does NOT go through PAM, so limits.d's
 # "memlock unlimited" never reaches this unit — raise it here or -lm mmap+mlock

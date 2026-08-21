@@ -310,7 +310,7 @@ One port, every recipe from the table, loaded on demand:
 # or as a boot-persistent user service (substitute YOUR clone path first —
 # the shipped unit carries a REPLACE placeholder and greps loud if unfixed):
 sed -i "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" llama-router.service
-grep -q REPLACE llama-router.service && echo "path not substituted!" && exit 1
+grep -q "ExecStart=/REPLACE" llama-router.service && echo "path not substituted!" && exit 1
 cp llama-router.service ~/.config/systemd/user/ && systemctl --user daemon-reload
 systemctl --user enable --now llama-router
 
