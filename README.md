@@ -67,6 +67,9 @@ the serving setup and notes:
 - `models.ini` — the router recipes (the names in the table below)
 - `llama-router.service` — systemd user unit (installs to `~/.config/systemd/user/`)
 - `sharp.jinja` — fixed chat template for this model family (see Thanks)
+- `download_models.sh` — **fetch the target GGUFs**: parallel-range downloads
+  (~8× faster), sha256-verified against the table below, atomic install,
+  tip-drift warning; `--check` re-verifies files already on disk
 - `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
 - `sweep_llama_configs.sh` — staged config search ([config research](#config-research-sweep_llama_configssh))
 
@@ -190,6 +193,10 @@ fingerprints remain in git history for refetching). `Q8_K_XL` was byte-identical
 between the two revisions.
 
 **<https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/main>**
+
+First-timers: `./download_models.sh` fetches all three (or pass `q5 q6 q8`),
+verifies each sha256, and warns if the repo tip has drifted from the
+fingerprints below; `./download_models.sh --check` re-verifies what's on disk.
 
 | File | Role | Exact size (bytes) | sha256 starts with |
 |---|---|---:|---|
