@@ -200,6 +200,7 @@ How these were measured: [config research](#config-research-sweep_llama_configss
 | Axis | Winner | Evidence |
 |---|---|---|
 | KV type (target & draft) | **f16 / f16** | f16 is faster than q8_0 on both models (Q6 20.8 vs 19.2, Q8 16.6 vs 15.6 t/s) and higher fidelity — 128 GB unified makes it free |
+| KV quantization for long windows | **f16 default; q8_0 when the window is the point** | NIAH battery 2026-08-21 (two random codes at 25%/75% depth, 8k/32k/64k/96k ctx, f16→q4_0): **40/40 retrieved** — positional retrieval survives q4_0 even at 96k. Decode flat across types (26.6–29.6 t/s); only memory drops (~3.3 GiB GTT per 110k ctx f16→q8_0, ~5.0 f16→q4_0, ×~9.5 at 1M) |
 | `--spec-draft-n-max` | **6** | 6–7 plateau, 4 clearly worse (DFlash2 `block_size=8, n_extract=5`); Q6: n6 28.6 > n5 27.4 > n4 24.8 |
 | `-c` allocated ctx | **65536 default; allocation is free up to 256k** | decode flat 64k–256k (Q6 20.2 ±0.2 t/s, Q8 ~17.6); the ≥128k crash is deep-prefill-only, not an allocation limit |
 | `-b/-ub` | **4096** | tg flat ±2% across 2048/4096/8192; 4096 = +6% deep prefill over 2048; 8192 doubles compute buffers for nothing |
@@ -262,11 +263,14 @@ We built and load-tested a `Q6-1M-yarn` recipe (`rope-scaling = yarn`,
 serve a capped 262,144 slot, the same measured trap as 1M. `max-context`
 (262,144) is the hard fork ceiling until the cap gains a yarn exemption.
 
-**1M RAM budget** (measured once, so nobody has to probe it again): Q6 @ 1M
-f16 KV **measured** 100.9 of 122.1 GiB GTT, RAM avail 14.3 GiB — the cliff
-edge. Q6 @ 1M q8_0 KV ≈ 65 GiB GTT (inferred — KV halves); Q8 @ 1M q8_0
-KV ≈ 95–105 GiB (inferred — weights +7 GiB over Q6), fits barely; Q8 f16 KV
-does not fit.
+**1M RAM budget, Q6 targets** (f16 measured on a real 1M load; the rest derived
+from GTT deltas at 110k ctx, scaled linearly — the derivation reproduces the
+f16 measurement within ~3%): f16 ≈ 104 GiB GTT (measured 100.9, RAM avail
+14.3 GiB — the cliff edge), **q8_0 ≈ 72, q5_1 ≈ 63, q4_1 ≈ 57, q4_0 ≈ 56 GiB**;
+a Q8 target adds ~7 GiB (q8_0 ≈ 80 — fits; f16 does not). Retrieval safety for
+quantized windows: the NIAH battery (findings table) measured **40/40 needles
+retrieved from f16 down to q4_0 at up to 96k ctx** — KV quantization does not
+break long-context retrieval on this stack.
 
 So `Qwen38-27B-max-context` (256k) is the practical maximum served recipe, and a
 ready-to-enable 1M recipe is kept commented at the bottom of `models.ini` for
