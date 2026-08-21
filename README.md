@@ -12,7 +12,11 @@ If you are a solo developer with an AI agent working around the clock, a
 privacy-sensitive operator, or any other entity that wants to be free from
 cloud chains — read on. An all-purpose computer that cost **less than €2,000**
 (launch offer) now serves a 27-billion-parameter reasoning model, entirely
-from your own desk:
+from your own desk. Which machine? We tested on a **GMKtec EVO-X2** (Ryzen
+AI MAX+ 395, 128 GiB) — [amazon.it/dp/B0F6X332N6](https://www.amazon.it/dp/B0F6X332N6/) —
+any mini-PC or desktop with the same AMD Strix Halo APU works the same. **Not
+affiliated**: no sponsorship, no free hardware, no affiliate links; we paid
+for ours, and this repo links only to its own content.
 
 - **No API keys, no quotas, no meters.** The model lives in your RAM
   (~122 GiB of it, mlock'd — the box's whole personality is inference).
