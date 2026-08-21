@@ -19,8 +19,8 @@ sudo pacman -S --needed base-devel cmake ninja git shaderc vulkan-headers \
 git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp && git checkout strix-halo-vulkan
 cmake -B build-vk -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=ON -DLLAMA_CURL=OFF
 cmake --build build-vk --target llama-server llama-cli llama-bench -j
-# 3. models: UD quants from the PINNED commit (tip files differ! fingerprints in Models)
-#    https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab
+# 3. models: UD K_XL quants from the unsloth repo tip (fingerprints in Models)
+#    https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/main
 #    plus a Qwen3.8-27B-DFlash2 draft GGUF
 # 4. verify backend + bare perf (expect: Vulkan0 AMD 8060S; quiet box, f16 KV:
 #    Q6 pp512 ~346 / tg32 ~8.6; Q8 pp512 ~366 / tg32 ~7.3 — zram churn can halve tg)
@@ -179,22 +179,24 @@ How these were measured: [config research](#config-research-sweep_llama_configss
 | dflash fine-tuning | **inert beyond n-max** | `spec-draft-n-min` 2/3 and `spec-draft-p-min` 0.3/0.9 change nothing (bit-identical decodes, acceptance 0.647); stacking `ngram-map-k` on dflash *hurts* (29.0 → 27.4 t/s). Draft quality sets acceptance — `n_max` is the only working knob |
 | `--kv-unified` | **no effect at `-np 1`** | measured 2026-08-21 on Q6@64k and Q8@192k (journal-confirmed `kv_unified='true'`): tg and RAM identical within noise. Its purpose is sharing one KV buffer across parallel slots; with a single slot (and the hybrid SSM's tiny KV) there is nothing to unify. It flips on by itself if slots ever go auto |
 
-## Models — Unsloth Dynamic 1.2 2-quant **v2**, pinned revision
+## Models — Unsloth Dynamic GGUFs, aligned with the repo tip
 
-The target GGUFs are **Unsloth Dynamic 1.2 2-quant v2**. ⚠️ The unsloth repo tip
-carries **different files under the same names** (re-quantized — different sizes and
-LFS hashes), so download the v2 set from the pinned commit, not `main`:
+The target GGUFs are the Unsloth Dynamic **K_XL** quants, aligned with the
+unsloth repo **tip** (v3.0 re-quant run) as of 2026-08-21. A full tie-battery
+(fresh-slot decode, prefill, perplexity, KL-vs-Q8) showed the tip K_XL files
+tie the previous pinned v2 set within noise on every axis, so we track the tip;
+the v2 files are kept locally as `*-v2.gguf` backups (v2 fingerprints remain in
+git history). `Q8_K_XL` was byte-identical between the two revisions.
 
-**<https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab>**
+**<https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/main>**
 
 | File | Role | Exact size (bytes) | sha256 starts with |
 |---|---|---:|---|
-| `Qwen3.8-27B-UD-Q8_K_XL.gguf` | quality recipes | 31,457,991,680 | `af36ecb6b5db` (identical at `main`) |
-| `Qwen3.8-27B-UD-Q6_K_XL.gguf` | speed recipes + vision | 25,924,152,384 | `739202186fd9` (tip differs!) |
-| `Qwen3.8-27B-UD-Q5_K_XL.gguf` | turbo recipe | 20,218,178,624 | `176a6a3f034e` (tip differs!) |
+| `Qwen3.8-27B-UD-Q8_K_XL.gguf` | quality recipes | 31,457,991,680 | `af36ecb6b5db` |
+| `Qwen3.8-27B-UD-Q6_K_XL.gguf` | speed recipes + vision | 25,299,061,664 | `701d8fa9ed21` |
+| `Qwen3.8-27B-UD-Q5_K_XL.gguf` | turbo recipe | 20,876,938,144 | `8601193d3d57` |
 
-Verify a download against the table (`ls -l` size, or `sha256sum` prefix) — a
-same-named file of a different size is the newer revision, not the one measured here.
+Verify a download against the table (`ls -l` size, or `sha256sum` prefix).
 
 The `DFlash2-*` draft GGUFs come from elsewhere (not in that repo) and only load
 via `-md` next to a target — run standalone they fail with
@@ -252,7 +254,7 @@ is the set's floor (KLD 0.0266 vs Q8 ref — 2× Q5's 0.0137; top-p agreement
 94.7%). It also can't unlock 1M context: that's blocked by the slot cap and
 prefill ceiling (see above), both quant-independent, and KV dominates the
 memory budget anyway. All Q4 references are removed from the recipes/launcher;
-the quant remains fetchable from the pinned HF commit if ever re-needed.
+the quant remains fetchable from the unsloth repo history if ever re-needed.
 
 ## Environment
 
@@ -475,7 +477,7 @@ This experiment stands entirely on other people's work:
   citizen, and the driver-level compute work this fork's kernels assume.
 - **[Unsloth](https://unsloth.ai/)** — the UD (Unsloth Dynamic 1.2 2-quant v2)
   Q5–Q8_K_XL quantizations used as targets across these experiments
-  ([pinned revision](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/408fcc1807ab)),
+  ([repo](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF)),
   and the community's quant tooling.
 - **The Qwen team (Alibaba)** — the Qwen 3.8 model family these configs run.
 - **[u/froggeric](https://www.reddit.com/user/froggeric)** — author of
