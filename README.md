@@ -35,6 +35,17 @@ for ours, and this repo links only to its own content.
 The recipes, the numbers, and every trap we hit (there were many) are
 documented below — so your agent can run 24/7 on hardware you own outright.
 
+## Sub-motto
+
+> *Humans architected, verified, sealed. AI assistants built and wrote all the
+delivered stuff.*
+
+A note on provenance: the architecture decisions, every acceptance of a
+measurement, and the seal of each release were human; the builds, probes,
+batteries, tables, and most of this documentation were produced by AI
+assistants under that supervision — including this sentence. Every number in
+this README traces to a command you can re-run.
+
 ## TL;DR — reproduce on any gfx1151 (Strix Halo) box
 
 Six steps, ~45 min, no desktop environment needed (Arch minimal headless verified
@@ -842,17 +853,6 @@ This experiment stands entirely on other people's work:
   (`qwen3.8-froggeric-v22.1.1`) — it fixed the broken tool-call/thinking formatting
   that stock templates produce for this model family. Without it the server output
   would be garbage with tools enabled.
-
-## Sub-motto
-
-> *Humans architected, verified, sealed. AI assistants built and wrote all the
-> delivered stuff.*
-
-A note on provenance: the architecture decisions, every acceptance of a
-measurement, and the seal of each release were human; the builds, probes,
-batteries, tables, and most of this documentation were produced by AI
-assistants under that supervision — including this sentence. Every number in
-this README traces to a command you can re-run.
 
 ## License
 
