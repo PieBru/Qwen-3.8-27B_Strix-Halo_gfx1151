@@ -96,7 +96,8 @@ When to pick which:
   #7); lightest resident footprint.
 - **Max context** — the biggest window this stack can serve: for many/long
   contexts, NOT one ≥128k-position prompt (Vulkan prefill ceiling); loads can
-  be slow on an uptimed box.
+  be slow on an uptimed box. Chasing the full 1M? See
+  [The 1M-token context](#the-1m-token-context-what-works-what-doesnt-and-what-it-costs).
 
 Notes on the columns:
 
@@ -210,6 +211,74 @@ How these were measured: [config research](#config-research-sweep_llama_configss
 | dflash fine-tuning | **inert beyond n-max** | `spec-draft-n-min` 2/3 and `spec-draft-p-min` 0.3/0.9 change nothing (bit-identical decodes, acceptance 0.647); stacking `ngram-map-k` on dflash *hurts* (29.0 → 27.4 t/s). Draft quality sets acceptance — `n_max` is the only working knob |
 | `--kv-unified` | **no effect at `-np 1`** | measured 2026-08-21 on Q6@64k and Q8@192k (journal-confirmed `kv_unified='true'`): tg and RAM identical within noise. Its purpose is sharing one KV buffer across parallel slots; with a single slot (and the hybrid SSM's tiny KV) there is nothing to unify. It flips on by itself if slots ever go auto |
 
+## The 1M-token context: what works, what doesn't, and what it costs
+
+Qwen3.8-27B's 1M-token window is a headline feature — here is everything this
+repo measured about it on a Strix Halo (gfx1151) box, in one place.
+
+**The promise.** The model card declares 262,144 native context, "extensible
+up to 1,000,000 tokens" via YaRN (factor 4.0 from the 262,144 training ctx),
+and the publisher's long-horizon guidance budgets 262k reasoning + 131k output
+*inside* the 1M window. Important framing: positions beyond 262k are
+YaRN-extrapolated, not trained — endorsed by the publisher, but expect gradual
+quality decay as you climb past 256k, on every server.
+
+**What this stack serves today: `max-context` at 262,144.** That number is the
+model's `n_ctx_train`, and llama-server caps every slot to it — a cap inherited
+from **mainline llama.cpp itself** (identical code verified in a stock clone),
+with no YaRN exemption. We load-tested a full 1M recipe
+(`rope-scaling = yarn`, `rope-scale = 4`, `yarn-orig-ctx = 262144`,
+`c = 1048576`): the KV allocated fine, then the journal printed the cap warning
+and the usable slot came back at 262,144 — full memory cost, zero extra window.
+The same test showed there is **no 512K middle ground**: the cap applies to any
+`c` above 262,144, so 512K would pay ~18 GiB more KV than 256k and still serve
+a capped slot. Separately, even inside a 262k window a **single prompt beyond
+~128k positions** hits the Vulkan deep-prefill `vk::DeviceLostError` — big
+windows are for many/long contexts and long multi-turn sessions, not one giant
+prompt.
+
+**What 1M costs in memory** (Q6 targets; f16 measured on a real 1M load, the
+rest derived from GTT deltas at 110k ctx scaled linearly — the derivation
+reproduces the f16 measurement within ~3%):
+
+| KV type | GTT at 1M ctx | verdict on this 124 GiB box |
+|---|---:|---|
+| f16 | ~104 GiB (measured 100.9; RAM avail 14.3 GiB) | cliff edge — barely |
+| q8_0 | ~72 GiB | comfortable ✅ |
+| q5_1 | ~63 GiB | comfortable |
+| q4_1 / q4_0 | ~57 / ~56 GiB | comfortable |
+
+A Q8 target adds ~7 GiB (q8_0 ≈ 80 — fits; f16 does not). Is quantized KV safe
+at long range? Yes: the NIAH battery ([findings](#sweep-findings-at-a-glance))
+retrieved **40/40 needles from f16 down to q4_0 at up to 96k ctx** — KV
+quantization does not break positional retrieval on this stack. That is why
+the parked 1M recipe pins q8_0.
+
+**How to actually get 1M today:**
+
+1. **vLLM on this very APU** — officially supported: vLLM's install docs list
+   `Ryzen AI MAX / AI 300 Series (gfx1151/1150)` (ROCm 7.0.2+), and vLLM serves
+   YaRN with PagedAttention. Costs: no GGUF support (separate HF/AWQ weights,
+   new fingerprints), DFlash2 spec decode is llama.cpp-only (the model's trained
+   MTP head may recover speed via vLLM's own spec paths — unverified), and the
+   memory budget above still applies.
+2. **A local cap-exemption patch** — we build the fork from source; skipping
+   the clamp when YaRN is active is a few lines and would make the parked
+   `Q6-1M-yarn` recipe live (single prompts still capped ~128k by the prefill
+   ceiling; the *window* would work).
+3. **Wait for upstream** — a llama.cpp PR exempting YaRN from the slot cap,
+   plus the deep-prefill fix. Note the fork→mainline merge does **not** lift
+   the cap (mainline has the same code); detection after any rebuild is a
+   5-second journal grep: load the parked recipe and check that the
+   `exceeds the training context - capping` warning is absent and
+   `n_ctx_slot = 1048576`.
+
+Everything needed for the day it unlocks is parked and ready at the bottom of
+`models.ini`: the full 1M recipe (q8_0 KV — NIAH-validated), the RAM budget
+above, and the two blockers documented inline.
+
+
+
 ## Models — Unsloth Dynamic GGUFs, aligned with the repo tip
 
 The target GGUFs are the Unsloth Dynamic **K_XL** quants, aligned with the
@@ -242,59 +311,12 @@ via `-md` next to a target — run standalone they fail with
 `dflash requires ctx_other to be set`. `mmproj-F16.gguf` is the vision projector,
 wired per-recipe via the `mmproj` key in `models.ini`.
 
-### Context beyond 192k: the 1M question (researched, not servable yet)
+### Context beyond 192k?
 
-The model card declares 262,144 native context, "extensible up to 1,000,000
-tokens" via YaRN (factor 4.0 from the 262,144 training ctx), and budgets
-262k reasoning + 131k output for long-horizon agentic work inside that window.
-We built and load-tested a `Q6-1M-yarn` recipe (`rope-scaling = yarn`,
-`rope-scale = 4`, `yarn-orig-ctx = 262144`, `c = 1048576`):
-
-- **The allocation fits this box**: 100.9 of 122.1 GiB GTT with f16 KV (RAM
-  avail 14.3 G — tight; q8_0 KV would land ~75 G, comfortable).
-- **But it can't serve**: the slot cap that clamps every slot to the model's
-  training ctx (262,144) with no YaRN exemption is **inherited from mainline
-  llama.cpp itself** (identical code verified in a stock clone) — so the
-  fork→mainline merge won't lift it. The unlock is a separate upstream change:
-  a YaRN exemption for the cap (window) plus the deep-prefill fix (single
-  prompts).
-
-**Other servers *can* serve 1M — including on this box.** vLLM's install docs
-officially list `Ryzen AI MAX / AI 300 Series (gfx1151/1150)` as supported
-hardware (ROCm 7.0.2+), and vLLM supports YaRN rope scaling with PagedAttention
-— so a 1M window on this very APU is a vLLM-on-ROCm install away. Caveats:
-vLLM does not read GGUF (needs HF/AWQ-format weights — a separate download),
-DFlash2 spec decode is llama.cpp-fork-only (vLLM has its own spec-decode
-paths; the model's trained MTP head may recover speed there — unverified),
-and the 1M KV budget still applies (fp16 ≈ 75–104 GiB — needs quantized
-KV/weights to fit alongside the weights in 122 GiB GTT). `transformers` also
-supports YaRN (`rope_scaling` in config) but is a demo, not a server, at this
-scale on this box. The >262k region is YaRN-extrapolated on **every** server —
-the publisher endorses it for long-horizon work (budgeting 262k reasoning +
-131k output inside 1M) but it is not trained territory.
-- **And prompts beyond ~128k hit the Vulkan deep-prefill crash** regardless
-  (the known `vk::DeviceLostError` ceiling).
-
-**Why not 512K as a middle ground?** The slot cap applies to *any* `c` above
-262,144 — a 512K recipe would allocate ~18 GiB more KV than 256k and still
-serve a capped 262,144 slot, the same measured trap as 1M. `max-context`
-(262,144) is the hard fork ceiling until the cap gains a yarn exemption.
-
-**1M RAM budget, Q6 targets** (f16 measured on a real 1M load; the rest derived
-from GTT deltas at 110k ctx, scaled linearly — the derivation reproduces the
-f16 measurement within ~3%): f16 ≈ 104 GiB GTT (measured 100.9, RAM avail
-14.3 GiB — the cliff edge), **q8_0 ≈ 72, q5_1 ≈ 63, q4_1 ≈ 57, q4_0 ≈ 56 GiB**;
-a Q8 target adds ~7 GiB (q8_0 ≈ 80 — fits; f16 does not). Retrieval safety for
-quantized windows: the NIAH battery (findings table) measured **40/40 needles
-retrieved from f16 down to q4_0 at up to 96k ctx** — KV quantization does not
-break long-context retrieval on this stack.
-
-So `Qwen38-27B-max-context` (256k) is the practical maximum served recipe, and a
-ready-to-enable 1M recipe is kept commented at the bottom of `models.ini` for
-when
-the fork lifts both blockers. `Qwen38-27B-max-context` (256k) is the practical
-maximum served recipe. No quality claim is made either way: positions
-beyond 262k are extrapolated (YaRN-interpolated RoPE), not trained.
+Everything 1M — the cap (mainline-inherited), the measured RAM budget, the
+NIAH-validated quantized KV, the 512K verdict, and the vLLM/local-patch/
+upstream routes to a real 1M window — lives in
+[The 1M-token context](#the-1m-token-context-what-works-what-doesnt-and-what-it-costs).
 
 ### Dynamic Quant v3.0 — `UD-Q6_K_M`: compatible alternative, not the default
 
