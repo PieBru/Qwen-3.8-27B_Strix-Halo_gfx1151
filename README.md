@@ -335,7 +335,7 @@ inference box: keep it quiet, or disable swap (`swapoff -a` / mask the zram unit
 
 ### Recommended configs (per goal)
 
-All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6, `-b/-ub 4096`, `-t 16 -tb 32`,
+All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6 (turbo: 5), `-b/-ub 4096`, `-t 16 -tb 32`,
 `-lm mmap+mlock`. tg = typical sustained; **fresh quiet box peaks ≈ +50%**.
 RAM columns (measured 2026-08-21, 124 GiB box, recipe resident via the router,
 sequentially, `--models-max 1`): **RAM** = resident footprint vs idle router
@@ -343,14 +343,23 @@ sequentially, `--models-max 1`): **RAM** = resident footprint vs idle router
 **left** = `free` "available" with that recipe live — headroom for concurrent
 models/activities. Run-to-run variance ±1–2 GiB.
 
-| Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | `-c` | RAM | left | sustained tg (quiet box) | pp4k | When to pick |
-|---|---|---|---|---:|---:|---:|---:|---|
-| **Max quality** | `Qwen38-27B-Q8-192K-quality` | `--goal max-quality` (Q8) | 196608 (sane ceiling) | ~54 GiB | ~68 GiB | ~25 | ~365 | final answers, code, synthesis — quality over everything |
-| **Balanced → quality** | `Qwen38-27B-Q8-65K-balanced-quality` | `--goal balanced-quality` (Q8) | 65536 (default) | ~45 GiB | ~78 GiB | ~25 | ~365 | default when correctness matters more than latency |
-| **Balanced → speed** ✅ default | `Qwen38-27B-Q6-65K-balanced-speed` | `run_llama-server.sh` (Q6) | 65536 | ~40 GiB | ~83 GiB | **~28** | ~346 | daily driver — Q6 quality is good anyway; best sustained t/s measured |
-| **Max speed** | `Qwen38-27B-Q6-65K-fast` | `--goal max-speed` (Q6) | 65536 (16k–256k flat on a quiet box; trim to the task) | ~40 GiB | ~83 GiB | **~28** | ~346 | interactive churn |
-| **Fast churn** | `Qwen38-27B-Q5-65K-turbo` | `--model q5` (Q5) | 65536 | ~35 GiB | ~88 GiB | ~23 | — | fast throwaway prototyping |
-| **Vision** | `Qwen38-27B-Q6-65K-vision` | router-only (mmproj, no spec) | 65536 | ~32 GiB | ~91 GiB | ~8.6 (no spec) | — | the only image-capable recipe — image tokens crash the dflash spec batch, so it runs `spec-type = none` (2026-08-21); lightest resident footprint (no draft model) |
+tg columns re-verified 2026-08-21 through the router (256-token temp-0 probes,
+reversed-order double pass): **rp 1.0** = penalty-free baseline (request-level
+`repeat_penalty`), **rp 1.05** = the served sampling default. The repeat penalty
+collapses DFlash2 acceptance (0.647 → 0.450, accepted-run length 4.8 → 3.4) and
+costs **23–28% decode t/s on every spec recipe; prefill is immune** (no sampling).
+Under rp 1.05, Q5-turbo is the fastest decoder on this box (n-max re-checked:
+n4 23.6 < **n5 24.2** < n6 22.1) — the Q6-first decode ordering above was
+measured penalty-free and flips once rp 1.05 is served.
+
+| Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | `-c` | RAM | left | tg rp 1.0 | tg rp 1.05 (served) | pp4k | When to pick |
+|---|---|---|---|---:|---:|---:|---:|---:|---|
+| **Max quality** | `Qwen38-27B-Q8-192K-quality` | `--goal max-quality` (Q8) | 196608 (sane ceiling) | ~54 GiB | ~68 GiB | ~25 | 19.1 | ~330 | final answers, code, synthesis — quality over everything |
+| **Balanced → quality** | `Qwen38-27B-Q8-65K-balanced-quality` | `--goal balanced-quality` (Q8) | 65536 (default) | ~45 GiB | ~78 GiB | ~25 | 19.1 | ~331 | default when correctness matters more than latency |
+| **Balanced → speed** ✅ default | `Qwen38-27B-Q6-65K-balanced-speed` | `run_llama-server.sh` (Q6) | 65536 | ~40 GiB | ~83 GiB | **~29** | 21.1 | ~306 | daily driver — Q6 quality is good anyway; best sustained t/s measured |
+| **Max speed** | `Qwen38-27B-Q6-65K-fast` | `--goal max-speed` (Q6) | 65536 (16k–256k flat on a quiet box; trim to the task) | ~40 GiB | ~83 GiB | **~29** | 21.1 | ~306 | interactive churn |
+| **Fast churn** | `Qwen38-27B-Q5-65K-turbo` | `--model q5` (Q5) | 65536 | ~35 GiB | ~88 GiB | ~32 | **24.2** | ~297 | fastest decoder under the served rp 1.05; lightest spec footprint |
+| **Vision** | `Qwen38-27B-Q6-65K-vision` | router-only (mmproj, no spec) | 65536 | ~32 GiB | ~91 GiB | ~8.4 | ~8.4 | — | the only image-capable recipe — image tokens crash the dflash spec batch, so it runs `spec-type = none` (2026-08-21); penalties don't apply to speed here (no spec); lightest resident footprint (no draft model) |
 
 Heads-up for concurrency: `--models-max 1` is policy, not a hard memory limit —
 two small recipes would *fit* (e.g. turbo + fast ≈ 75 GiB), but three resident
@@ -358,7 +367,10 @@ models exhausted memory and hard-hung the box (2026-08-21), so 1 stays the
 default; raise only with verified headroom.
 
 Decision rule between them: **Q8 when quality is the point, Q6 when tokens/s is** —
-prefill is equal (~250–260 pp4k), decode favors Q6 at every context size.
+prefill is equal (~250–260 pp4k), decode favors Q6 at every context size
+(penalty-free). With rp 1.05 served, decode favors Q5-turbo instead — see the
+note above the table; if that penalty isn't buying you quality, dropping it
+(request-level `"repeat_penalty": 1.0`) buys back ~25–30% t/s.
 
 ## Lessons learned
 
