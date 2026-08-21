@@ -65,7 +65,11 @@ recipe** (Q6 29.0 → 21.0, turbo 32.3 → 24.2, Q8 24.7 → 19.1); prefill is i
 Heads-up for concurrency: `--models-max 1` is policy, not a hard memory limit —
 two small recipes would *fit* (e.g. turbo + fast ≈ 75 GiB), but three resident
 models exhausted memory and hard-hung the box (2026-08-21), so 1 stays the
-default; raise only with verified headroom.
+default; raise only with verified headroom. Nothing loads at boot: each
+recipe's **first request pays a one-time load** (measured 2026-08-21: ~6 s
+warm, up to ~13 s from cold page cache), and switching recipe names under
+`--models-max 1` unloads the previous one first, paying the same load again —
+steady-state serving after that is instant.
 
 Decision rule between them: **Q8 when quality is the point, Q6 when tokens/s is** —
 prefill is equal (~250–260 pp4k penalty-free), decode favors Q5-turbo > Q6 > Q8
