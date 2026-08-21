@@ -355,6 +355,27 @@ curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
           "messages":[{"role":"user","content":"hi"}]}'
 ```
 
+#### Tip: `Qwen38-27B` — the movable "default model" alias
+
+`models.ini` pins one stable client-facing name, `Qwen38-27B`, on the balanced
+recipe (`LLAMA_ARG_ALIAS = Qwen38-27B`). Point clients at **that** name instead
+of a recipe name, and changing your mind about which recipe is "the default"
+becomes a one-line move — no client reconfiguration:
+
+1. In `models.ini`, move the `LLAMA_ARG_ALIAS = Qwen38-27B` line from
+   `[Qwen38-27B-balanced]` to your preferred section (e.g. `[Qwen38-27B-speed]`).
+2. Move the `load-on-startup = true` line with it, so the boot-preloaded
+   recipe stays your default (only ONE recipe may carry it: `--models-max 1`).
+3. Hot-apply without a restart: `curl 'localhost:8080/v1/models?reload=1'` —
+   alias-only changes never unload the running model (the router exempts
+   `LLAMA_ARG_ALIAS` from its preset-change comparison). A service restart
+   works too (and re-preloads the default at boot).
+
+Everything pinned to the alias — pi's `local` provider (`models.json`), the
+WebUI's saved model, cron/curl scripts, other boxes on the LAN — silently
+follows the move; the recipe names stay available for when you explicitly
+want a different tradeoff.
+
 ### Running 24/7 agents: the margin rule
 
 The window (`c`) is a **fence**, not a target. A prompt larger than the window
