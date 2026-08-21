@@ -105,7 +105,7 @@ if [ "$ROUTER" = 1 ]; then
 fi
 
 TARGET=Qwen3.8-27B-UD-${MODEL^^}_K_XL.gguf
-[ -f "$TARGET" ] || { echo "error: target $TARGET not found (see README Models for the pinned download)" >&2; exit 1; }
+[ -f "$TARGET" ] || { echo "error: target $TARGET not found (see README Models for the unsloth repo download)" >&2; exit 1; }
 [ -f "$DRAFT"  ] || { echo "error: draft $DRAFT not found" >&2; exit 1; }
 
 CMD=(./llama.cpp/build-vk/bin/llama-server
