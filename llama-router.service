@@ -1,21 +1,24 @@
 [Unit]
-Description=llama-server router — Qwen3.8-27B presets (models.ini) on :8080
+Description=llama-server router — Qwen3.8-27B recipes (models.ini) on :8080
 # Serves the recipes from the repo's models.ini:
 #   Qwen38-27B-quality@64k..@256k | -balanced | -speed | -vision
 # (all historical names — Qwen38-27B-turbo, -fast, -Q8-192K-quality, … —
 # still work as aliases)
-# Port 8080 is this box's canonical local-LLM endpoint (~/.pi/agent/models.json
-# provider "local"; the nightly pi-dream.service pins it). No model is loaded at
+#
+# Port 8080 is this box's canonical local-LLM endpoint. No model loads at
 # boot — the first request to each name pays the on-demand load (~6 s warm,
 # up to ~13 s cold page cache).
 # --models-max 1: only ONE recipe resident at a time; switching names unloads
-# the old one first (same ~6-13 s load again). Each recipe mlocks 20-31 GB of weights, so
-# 2+ resident models exhausted memory and hard-hung the box (ssh drops,
-# 2026-08-21). Raise only if you have verified headroom for it.
+# the old one first (same ~6-13 s load again). Each recipe mlocks 20-31 GB of
+# weights, so 2+ resident models exhausted memory and hard-hung the box
+# (2026-08-21). Raise only with verified headroom.
 
 [Service]
 Type=simple
-ExecStart=/home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/run_llama-server.sh --router --port 8080 --models-max 1
+# !! SUBSTITUTE THIS PATH with YOUR clone location before enabling !!
+#   sed -i "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" llama-router.service
+# (grep REPLACE llama-router.service must find nothing before you install it)
+ExecStart=/REPLACE/WITH/YOUR/REPO/PATH/run_llama-server.sh --router --port 8080 --models-max 1
 # The linger-started user manager does NOT go through PAM, so limits.d's
 # "memlock unlimited" never reaches this unit — raise it here or -lm mmap+mlock
 # silently warns and runs unprotected (README "Lessons learned").
