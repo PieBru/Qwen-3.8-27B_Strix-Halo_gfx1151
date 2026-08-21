@@ -233,7 +233,11 @@ full-attention layers scan the filled KV per token; incremental prefill
 decays similarly).
 So `~25` is the short-prompt benchmark — a filled long-window session decodes
 at roughly half speed or less. Context buys RAM (+~10 GiB per 3×) and load
-time, not sustained tg at depth. Served defaults
+time, not sustained tg at depth. And spec-decode t/s is **content-dependent**:
+the same model spans ~16–38 t/s across prompt styles (DFlash2 acceptance
+0.28–0.91 — narrative continuation drafts well, structured enumeration less);
+table values use one standard probe for comparability. Cross-verified on two
+identical APUs (dev 37.4/16.4 vs clean box 37.7/20.4 on the same prompts). Served defaults
 are sampling-penalty-free.
 ⚠️ Opting into `repeat_penalty 1.05` costs **23–28% decode on every spec recipe**
 (it collapses DFlash2 acceptance 0.647 → 0.450); prefill and vision are immune.
