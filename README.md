@@ -257,6 +257,17 @@ We built and load-tested a `Q6-1M-yarn` recipe (`rope-scaling = yarn`,
 - **And prompts beyond ~128k hit the Vulkan deep-prefill crash** regardless
   (the known `vk::DeviceLostError` ceiling).
 
+**Why not 512K as a middle ground?** The slot cap applies to *any* `c` above
+262,144 — a 512K recipe would allocate ~18 GiB more KV than 256k and still
+serve a capped 262,144 slot, the same measured trap as 1M. `max-context`
+(262,144) is the hard fork ceiling until the cap gains a yarn exemption.
+
+**1M RAM budget** (measured once, so nobody has to probe it again): Q6 @ 1M
+f16 KV **measured** 100.9 of 122.1 GiB GTT, RAM avail 14.3 GiB — the cliff
+edge. Q6 @ 1M q8_0 KV ≈ 65 GiB GTT (inferred — KV halves); Q8 @ 1M q8_0
+KV ≈ 95–105 GiB (inferred — weights +7 GiB over Q6), fits barely; Q8 f16 KV
+does not fit.
+
 So `Qwen38-27B-max-context` (256k) is the practical maximum served recipe, and a
 ready-to-enable 1M recipe is kept commented at the bottom of `models.ini` for
 when
