@@ -3,13 +3,17 @@
 # Reproduces the 2026-08-21 Vulkan ~160k vk::DeviceLost crash shape:
 #   Q8 target + DFlash2 draft, f16 KV, -c 262144, -b/-ub 4096, fa on, 16t/32tb.
 # Usage: ./fill_battery.sh <label> <llama-server-binary> [port]
+# Env: SPEC=dflash2|none|mtp  (draft path; default dflash2 — our production shape)
+#      TARGET=positions       (stop early; default 176000)
+#      UB=microbatch           (default 4096; fork issue #9's 491k run used 1024)
 # Drives llama-server /completion with 16k-token chunks, KV-prefix cached
 # (incremental prefill), logging cum positions + prefill t/s per chunk.
-# Stops at TARGET positions, on server death, or on iteration cap.
 set -u
 LABEL=${1:?label}
 BIN=${2:?llama-server binary}
 PORT=${3:-8098}
+SPEC=${SPEC:-dflash2}
+UB=${UB:-4096}
 REPO=$(cd "$(dirname "$0")" && pwd)
 CHUNK="$REPO/results/prompt_16k.txt"
 TARGET=${TARGET:-176000}
@@ -19,12 +23,20 @@ CSV="$REPO/results/hip-$LABEL-fill.csv"
 # guard: chunk file must exist and be big enough (~16k tokens)
 [ -s "$CHUNK" ] || { echo "FATAL: missing $CHUNK"; exit 1; }
 
+SPECARGS=()
+case "$SPEC" in
+  dflash2) SPECARGS=( -md "$REPO/Qwen3.8-27B-DFlash2-Q8_0.gguf" \
+                      --spec-type draft-dflash --spec-draft-n-max 6 ) ;;
+  mtp)     SPECARGS=( --spec-type draft-mtp --spec-draft-n-max 6 ) ;;
+  none)    SPECARGS=() ;;
+  *) echo "FATAL: unknown SPEC=$SPEC"; exit 1 ;;
+esac
+
 "$BIN" \
   -m "$REPO/Qwen3.8-27B-UD-Q8_K_XL.gguf" \
-  -md "$REPO/Qwen3.8-27B-DFlash2-Q8_0.gguf" \
-  --spec-type draft-dflash --spec-draft-n-max 6 \
+  "${SPECARGS[@]}" \
   -ngl all -ngld all -fa on \
-  -c 262144 -np 1 -b 4096 -ub 4096 -t 16 -tb 32 \
+  -c 262144 -np 1 -b 4096 -ub "$UB" -t 16 -tb 32 \
   --jinja --host 127.0.0.1 --port "$PORT" >"$LOG" 2>&1 &
 SRV=$!
 trap 'kill $SRV 2>/dev/null; wait $SRV 2>/dev/null' EXIT
@@ -62,7 +74,7 @@ with open(csv_path, 'w') as f:
         req = urllib.request.Request(url, data=body,
                                      headers={"Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=900) as r:
+            with urllib.request.urlopen(req, timeout=2400) as r:
                 d = json.loads(r.read())
         except Exception as e:
             print(f"REQUEST FAILED at filled={filled}: {e}")

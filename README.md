@@ -79,7 +79,8 @@ Vulkan build, *filling* a window deep does not survive: prefill past ~128k
 total positions **crashes** (`vk::DeviceLostError`; verified OK at 128,209
 filled, dead at ~137k–160k) — plan ~128k of real content per session on
 Vulkan. (ROCm/TheRock 7.15 build of the same commit: same-day A/B survived
-176,100 filled positions — see
+215,228 filled positions — see
+[Vulkan vs ROCm](#vulkan-vs-rocm-which-and-why) and
 [the deep-positions A/B](#deep-positions-the-vulkan-wall-vs-rocm-survival).)
 Once verified, pick your workload recipe from the
 [**Recommended configs (per goal)**](#recommended-configs-per-goal) table.
@@ -508,7 +509,7 @@ same battery (`fill_battery.sh`: Q8 target + DFlash2 draft, f16 KV,
 | Backend | bare bench (Q6 / Q8) | fill fate |
 |---|---|---|
 | Vulkan (production build) | pp512 360.6 / 365.0 · tg32 8.78 / 7.27 | 💥 died at **136,965** filled (`vk::Queue::submit: ErrorDeviceLost`, RADV "CS cancelled") |
-| ROCm — TheRock 7.15.0a nightly | pp512 352.5 / 370.8 · tg32 8.57 / 7.18 | ✅ **survived 176,100** filled, zero errors |
+| ROCm — TheRock 7.15.0a nightly | pp512 352.5 / 370.8 · tg32 8.57 / 7.18 | ✅ **survived 215,228** filled, zero errors |
 
 Reading it straight:
 
@@ -594,6 +595,163 @@ Everything needed for the day it unlocks is parked and ready at the bottom of
 above, and the two blockers documented inline.
 
 
+
+## Vulkan vs ROCm, which and why?
+
+Two GPU backends can drive the 8060S on Linux: **Vulkan** (via Mesa RADV — what
+this repo ships by default) and **ROCm/HIP** (AMD's compute stack). On Strix
+Halo the internet folklore says "ROCm is way slower than Vulkan" — that was
+true for the *official* ROCm releases (7.2.x era) but is **no longer true for
+the 7.14+/TheRock line**, and we measured it. This chapter is the plain-language
+tour of what we ran, what died, and what we now run for which job.
+
+### What we actually compared (all on this box, same models)
+
+Every number below comes from the same experiment rig: identical fork commit
+(`9b9ac3e38` unless noted), identical models (Q8 target + DFlash2 draft, f16 KV,
+`-c 262144 -b/-ub 4096 -fa on`), identical battery
+([`fill_battery.sh`](fill_battery.sh) — grows the context in 16k-token chunks
+through cached prefixes, i.e. true incremental fill). Only the backend — or the
+build — changes between rows. Raw CSVs and server logs are in `results/`.
+
+**The four builds we tested:**
+
+1. **Fork, Vulkan** — our production build (the strix-halo-vulkan fork's tuned
+   Vulkan path: coopmat matmuls, wave32, LDS pad tuning).
+2. **Fork, ROCm** — same fork commit, HIP backend, built against **TheRock
+   7.15.0a nightly** (AMD's rolling source releases; userspace-only, no root).
+3. **Stock upstream master, Vulkan** — plain `ggml-org/llama.cpp` at `2115b73`
+   (2026-08-22), to answer "maybe the newest upstream already fixed it?"
+4. **Fork HEAD, Vulkan** — the fork's newest commits (incl. a fresh Vulkan
+   coopmat-pad gating fix), to answer the same for the fork.
+
+### The speed picture
+
+Bare bench (`llama-bench`, pp512 = prompt processing, tg32 = generation):
+
+| Build | Q6 pp512 | Q6 tg32 | Q8 pp512 | Q8 tg32 |
+|---|---:|---:|---:|---:|
+| Fork Vulkan (production) | 360.6 | 8.78 | 365.0 | 7.27 |
+| Fork ROCm TheRock 7.15 | 352.5 | 8.57 | **370.8** | 7.18 |
+| Stock master Vulkan | 316.9 | 8.78 | — | — |
+
+Decode with speculative decoding (Q6 @ 128k, fresh context):
+
+| Combination | sustained decode | draft acceptance |
+|---|---:|---:|
+| Vulkan + DFlash2 | **16.9 t/s** | 0.29 |
+| ROCm + DFlash2 | 14.5 t/s | 0.34 |
+| Vulkan + MTP | 13.1 t/s | 0.35 |
+| ROCm + MTP | 14.7 t/s | 0.32 |
+
+Read it straight: **on the TheRock 7.15 line, ROCm reaches parity** (Q8 prefill
+even ahead) — the "way slower" folklore belongs to the official 7.2.x releases
+(upstream tracks those gaps: [#21284](https://github.com/ggml-org/llama.cpp/issues/21284),
+[#24437](https://github.com/ggml-org/llama.cpp/issues/24437)). With
+speculation armed, Vulkan+DFlash2 stays the fastest combination; MTP is viable
+everywhere and actually *prefers* ROCm here. (halofpx's much higher MTP numbers
+come from a 13.5 GiB FP4 quant — half our weights; see the comparison below.)
+
+### The stability picture — where the ~128–160k wall actually lives
+
+Same battery, deep fill, fate of the server:
+
+| Build | filled positions at death | signature |
+|---|---:|---|
+| Fork Vulkan (production pin) | **died at 136,965** | `vk::Queue::submit: ErrorDeviceLost` |
+| Fork HEAD Vulkan | died in the 117k–137k band | same |
+| Stock master Vulkan (`-ub 4096`) | **died at 19,571** (!) | same |
+| Stock master Vulkan (`-ub 1024`) | died in the 39k–58k band | same |
+| Fork ROCm TheRock 7.15 | **survived 215,228 filled — zero errors** (stopped by us mid-chunk-12, server healthy at ~230k) | — |
+
+Three findings worth internalizing:
+
+- **The wall is a Vulkan-path bug, not the model or the hardware** — same
+  weights, same flags, same commit; only the backend flips death into survival.
+- **Bleeding edge does not fix it (yet)**: neither upstream master nor the
+  fork's newest commits move the needle. In fact **stock master is 7× worse**
+  than our fork build — the fork's tuned Vulkan path is what carries you from
+  ~20k to ~137k. Do not swap our build for stock on this APU.
+- **The crash is config-shaped, not absolute**: `-ub 1024` stretched stock's
+  life 2–3× (and a fork user prefilled 491,520 tokens on Vulkan with q8_0 KV +
+  `-ub 1024` on DeepSeek-V4 — [fork issue #9](https://github.com/Nathanw1014/strix-halo-llamacpp/issues/9)).
+  Suspects: f16 KV at depth, the 4096 microbatch, and this model's few
+  full-attention layers. Upstream still has the class open
+  ([#27076](https://github.com/ggml-org/llama.cpp/issues/27076),
+  [#27458](https://github.com/ggml-org/llama.cpp/issues/27458)).
+
+### The chart: context-filling decay, deep into the 256k window
+
+Prompt-processing speed while the context fills (the same 16k chunks, same
+flags; Q8 + DFlash2 + f16 KV). **Vulkan is ~2× faster at every depth — until it
+isn't** (it dies mid-band). ROCm decays faster but keeps going to the window's
+end:
+
+```mermaid
+xychart-beta
+    title "Incremental prefill speed vs FILLED context — Vulkan (dies ~137k) vs ROCm TheRock 7.15"
+    x-axis "positions filled" ["19.5k", "39k", "58.7k", "78k", "97.8k", "117k", "137k", "156.5k", "176k", "195.7k", "215.3k"]
+    y-axis "prefill tok/s" 0 --> 350
+    line [327, 265, 218, 177, 144, 119, null, null, null, null, null]
+    line [262, 165, 102, 71, 55, 44, 37, 32, 28, 25, 22]
+```
+
+*(upper line = Vulkan — the gap after 117k is where it died, at 136,965 filled;
+lower line = ROCm TheRock 7.15, measured to 215,228 with zero errors and still
+decaying smoothly — chunk 12 (~234k) was in flight when we stopped the run.
+Two independent runs reproduced the ROCm curve within ±3% at every depth.
+Decode speed decays with filled depth on both backends the same way — see the
+fill-decay table in the 1M chapter.)*
+
+### So which one, and why?
+
+- **Daily driving (≤ ~100k of content): stay on Vulkan.** Faster decode with
+  DFlash2 (16.9 vs 14.5 t/s), ~2× faster deep prefill, one build, zero extra
+  setup — that's what `run_llama-server.sh` and the recipes assume.
+- **Deep-context escape hatch: the ROCm build.** When a session genuinely
+  needs > ~128k of *filled* context today, swap the binary — same models, same
+  flags, same recipe file — and it does not die. Slower per token past ~60k
+  filled, but alive. Build recipe in
+  [the deep-positions A/B](#deep-positions-the-vulkan-wall-vs-rocm-survival).
+- **Watch, don't switch, on stock upstream** — its Vulkan path is strictly
+  worse on this APU today (and its `draft-dflash` loader can't even read the
+  DFlash2 draft: "wrong number of tensors; expected 81, got 58" — the selector
+  format is fork-specific).
+- **MTP is the portable speculation option** (works on both backends, no
+  separate draft weights), but on Vulkan DFlash2 beats it 16.9 vs 13.1 t/s —
+  keep DFlash2 where it works, MTP where it doesn't.
+
+### How this compares with halofpx
+
+[halofpx](https://github.com/julianmb/halofpx) is the speed-first cousin of
+this repo: a slick model-zoo server for Strix Halo built around hand-tuned
+**ROCmFP4/FP8 quants**, MTP, and a Vulkan-decode + ROCm-prefill split. We
+measured nothing against it on this box (its weights are a separate download);
+this is a methodology comparison from their published numbers:
+
+- **Their speed is real but bought with quantization.** Their Qwen3.8-27B
+  default (`ROCmFP4_FAST`, 13.55 GiB, 4.26 bpw) decodes at 14.0 t/s bare /
+  30.6–36.0 t/s with MTP. Half-size weights on a bandwidth-bound APU *should*
+  be ~2× faster — that's the trade, not magic. Our Q6/Q8 recipes trade that
+  speed away for fidelity.
+- **Quality verification is thin where it matters.** Their published
+  perplexity is one number for *Ornith* (5.95 vs Q4_K_M's 5.64 — and the ±0.3
+  error bars nearly touch), measured on **9 chunks of wikitext-2 at n_ctx=512**
+  (~4.6k tokens). No perplexity is published for the Qwen FP4_FAST default at
+  all, and **no KLD-vs-reference anywhere** — the metric that catches the
+  drifts perplexity misses. Our spread (Q8 4.692 → Q6 4.706 on 200×512-token
+  chunks of a real corpus, KLD-checked) is an order of magnitude tighter than
+  the gap their own table shows for FP4.
+- **"Validated 262K" is the MoE sibling, not this model.** Their 262,144-token
+  validation load is Ornith 1.5 35B; their Qwen context table stops at 32k.
+- **Fork-format lock-in**: ROCmFP4/FAST GGUFs load only on their fork lineage —
+  a self-published format with one implementation. Standard K-quants (ours)
+  load everywhere, forever.
+
+Nothing wrong with choosing that point on the speed/quality curve *knowing
+you chose it* — but this repo's contract is measured-quality-first: every
+recipe we ship carries its PPL/KLD price tag, and we don't deliver formats
+whose fidelity we haven't measured ourselves.
 
 ## Models — Unsloth Dynamic GGUFs, aligned with the repo tip
 
@@ -755,16 +913,27 @@ mandatory** until the prefill PRs land upstream
 ([ggml-org/llama.cpp#25494](https://github.com/ggml-org/llama.cpp/pull/25494) and
 follow-ups); when they do, stock inherits the wins and the fork becomes redundant.
 
-## Optional: HIP variant (decode fix)
+## Optional: HIP variant (ROCm build)
 
-Branch `fa-tile-dequant-on-load`, built natively since local ROCm works — the ROCm
-container in BUILD.md is only for reproducible CI-style builds:
+Two ways to get a ROCm/HIP binary — for when you need the deep-context escape
+hatch (see [Vulkan vs ROCm](#vulkan-vs-rocm-which-and-why)):
+
+- **TheRock nightly (recommended, 2026-08-22 measured)** — userspace-only,
+  no root, sits in `~/opt`; reaches Vulkan bench parity and survives fills
+  past 176k where Vulkan dies. Full recipe in
+  [the deep-positions A/B](#deep-positions-the-vulkan-wall-vs-rocm-survival).
+  ⚠️ Avoid the `v2/gfx1151` wheel feed's 7.14.0a20260609..0612 builds — they
+  segfault in `hsa_init` on gfx1151 (TheRock issue #5763); use
+  `tarball-multi-arch/` builds (7.15.0a20260728 verified here).
+- **Official ROCm 7.2.4** (pacman `rocm-hip-sdk`) + the fork's
+  `fa-tile-dequant-on-load` branch — the older path, kept for reference; expect
+  the "way slower than Vulkan" behavior of pre-7.14 ROCm:
 
 ```bash
 git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp
 git checkout fa-tile-dequant-on-load
 cmake -B build-hip -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 \
-  -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF
+      -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF
 cmake --build build-hip --target llama-server llama-cli llama-bench -j
 ```
 

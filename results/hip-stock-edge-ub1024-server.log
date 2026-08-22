@@ -1,0 +1,133 @@
+0.00.018.664 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.019.473 W srv  llama_server: -----------------
+0.00.019.483 W srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+0.00.019.484 W srv  llama_server: this can be a security risk (cross-origin attacks)
+0.00.019.484 W srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+0.00.019.484 W srv  llama_server: -----------------
+0.00.020.773 I srv    load_model: loading model '/home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/Qwen3.8-27B-UD-Q8_K_XL.gguf'
+0.01.004.624 W model has unused tensor blk.64.attn_norm.weight (size = 20480 bytes) -- ignoring
+0.01.004.640 W model has unused tensor blk.64.post_attention_norm.weight (size = 20480 bytes) -- ignoring
+0.01.004.645 W model has unused tensor blk.64.attn_q.weight (size = 125829120 bytes) -- ignoring
+0.01.004.646 W model has unused tensor blk.64.attn_k.weight (size = 10485760 bytes) -- ignoring
+0.01.004.648 W model has unused tensor blk.64.attn_v.weight (size = 10485760 bytes) -- ignoring
+0.01.004.653 W model has unused tensor blk.64.attn_output.weight (size = 33423360 bytes) -- ignoring
+0.01.004.655 W model has unused tensor blk.64.attn_q_norm.weight (size = 1024 bytes) -- ignoring
+0.01.004.657 W model has unused tensor blk.64.attn_k_norm.weight (size = 1024 bytes) -- ignoring
+0.01.004.658 W model has unused tensor blk.64.ffn_gate.weight (size = 94699520 bytes) -- ignoring
+0.01.004.660 W model has unused tensor blk.64.ffn_down.weight (size = 94699520 bytes) -- ignoring
+0.01.004.661 W model has unused tensor blk.64.ffn_up.weight (size = 94699520 bytes) -- ignoring
+0.01.004.665 W model has unused tensor blk.64.nextn.eh_proj.weight (size = 104857600 bytes) -- ignoring
+0.01.004.667 W model has unused tensor blk.64.nextn.enorm.weight (size = 20480 bytes) -- ignoring
+0.01.004.668 W model has unused tensor blk.64.nextn.hnorm.weight (size = 20480 bytes) -- ignoring
+0.01.004.673 W model has unused tensor blk.64.nextn.shared_head_norm.weight (size = 20480 bytes) -- ignoring
+0.05.735.071 I cmn          init: llama threadpool init, n_threads = 16
+0.06.498.398 I srv    load_model: initializing, n_slots = 1, n_ctx_slot = 262144, kv_unified = 'false'
+0.06.501.788 I srv          init: chat template supports preserving reasoning, consider enabling it via --reasoning-preserve
+0.06.501.836 I srv  llama_server: model loaded
+0.06.501.844 I srv  llama_server: listening on http://127.0.0.1:8096
+0.10.090.828 I slot get_availabl: id  0 | task -1 | selected slot by LRU, t_last = -1
+0.10.090.888 I slot launch_slot_: id  0 | task 0 | processing task, is_child = 0
+0.26.734.643 I slot print_timing: id  0 | task 0 | prompt processing, n_tokens =   4096, progress = 0.21, t =  16.64 s / 246.10 tokens per second
+0.44.619.420 I slot print_timing: id  0 | task 0 | prompt processing, n_tokens =   8192, progress = 0.42, t =  34.53 s / 237.25 tokens per second
+1.02.494.383 I slot print_timing: id  0 | task 0 | prompt processing, n_tokens =  12288, progress = 0.63, t =  52.40 s / 234.49 tokens per second
+1.22.829.386 I slot print_timing: id  0 | task 0 | prompt processing, n_tokens =  16384, progress = 0.84, t =  72.74 s / 225.25 tokens per second
+1.39.544.251 I slot print_timing: id  0 | task 0 | prompt processing, n_tokens =  18539, progress = 0.95, t =  89.45 s / 207.25 tokens per second
+1.43.576.649 I slot print_timing: id  0 | task 0 | prompt processing, n_tokens =  19563, progress = 1.00, t =  93.49 s / 209.26 tokens per second
+1.48.475.645 I slot print_timing: id  0 | task 0 | prompt eval time =   97943.42 ms / 19567 tokens (    5.01 ms per token,   199.78 tokens per second)
+1.48.475.649 I slot print_timing: id  0 | task 0 |        eval time =     441.30 ms /     4 tokens (  147.10 ms per token,     6.80 tokens per second)
+1.48.475.650 I slot print_timing: id  0 | task 0 |       total time =   98384.72 ms / 19571 tokens
+1.48.475.656 I slot print_timing: id  0 | task 0 |    graphs reused =          3
+1.48.475.946 I slot      release: id  0 | task 0 | stop processing: n_tokens = 19570, truncated = 0
+1.48.531.748 I slot get_availabl: id  0 | task -1 | selected slot by LCP similarity, f_sim_best = 0.500 (> 0.100 thold), f_keep = 1.000
+1.48.531.854 I slot launch_slot_: id  0 | task 11 | processing task, is_child = 0
+2.10.843.120 I slot print_timing: id  0 | task 11 | prompt processing, n_tokens =   4096, progress = 0.60, t =  22.31 s / 183.58 tokens per second
+2.42.718.328 I slot print_timing: id  0 | task 11 | prompt processing, n_tokens =   8192, progress = 0.71, t =  54.19 s / 151.18 tokens per second
+3.19.476.383 I slot print_timing: id  0 | task 11 | prompt processing, n_tokens =  12288, progress = 0.81, t =  90.94 s / 135.12 tokens per second
+4.03.004.885 I slot print_timing: id  0 | task 11 | prompt processing, n_tokens =  16384, progress = 0.92, t = 134.47 s / 121.84 tokens per second
+4.33.944.331 I slot print_timing: id  0 | task 11 | prompt processing, n_tokens =  18543, progress = 0.97, t = 165.41 s / 112.10 tokens per second
+4.39.346.814 I slot print_timing: id  0 | task 11 | prompt processing, n_tokens =  19567, progress = 1.00, t = 170.81 s / 114.55 tokens per second
+4.48.917.614 I slot print_timing: id  0 | task 11 | prompt eval time =  179926.79 ms / 19571 tokens (    9.19 ms per token,   108.77 tokens per second)
+4.48.917.618 I slot print_timing: id  0 | task 11 |        eval time =     458.94 ms /     4 tokens (  152.98 ms per token,     6.54 tokens per second)
+4.48.917.619 I slot print_timing: id  0 | task 11 |       total time =  180385.73 ms / 19575 tokens
+4.48.917.621 I slot print_timing: id  0 | task 11 |    graphs reused =          5
+4.48.918.248 I slot      release: id  0 | task 11 | stop processing: n_tokens = 39137, truncated = 0
+4.49.011.514 I slot get_availabl: id  0 | task -1 | selected slot by LCP similarity, f_sim_best = 0.667 (> 0.100 thold), f_keep = 1.000
+4.49.011.627 I slot launch_slot_: id  0 | task 22 | processing task, is_child = 0
+5.34.548.676 I slot print_timing: id  0 | task 22 | prompt processing, n_tokens =   4096, progress = 0.74, t =  45.54 s / 89.95 tokens per second
+6.33.427.711 I slot print_timing: id  0 | task 22 | prompt processing, n_tokens =   8192, progress = 0.81, t = 104.42 s / 78.46 tokens per second
+8.02.513.071 I slot print_timing: id  0 | task 22 | prompt processing, n_tokens =  12288, progress = 0.88, t = 193.50 s / 63.50 tokens per second
+radv/amdgpu: The CS has been cancelled because the context is lost. This context is innocent.
+9.52.903.546 E ggml_vulkan: device lost on Vulkan0
+9.52.903.878 E srv  update_slots: decode() failed: vk::Queue::submit: ErrorDeviceLost
+9.52.903.894 E srv    send_error: task id = 22, error: decode() failed: vk::Queue::submit: ErrorDeviceLost
+9.52.903.903 I slot      release: id  0 | task 22 | stop processing: n_tokens = 55514, truncated = 0
+9.52.903.934 W srv          stop: cancel task, id_task = 22
+9.52.903.948 E ggml_vulkan: device lost on Vulkan0
+[New LWP 24958]
+[New LWP 24796]
+[New LWP 24795]
+[New LWP 24794]
+[New LWP 24793]
+[New LWP 24792]
+[New LWP 24791]
+[New LWP 24790]
+[New LWP 24789]
+[New LWP 24788]
+[New LWP 24787]
+[New LWP 24786]
+[New LWP 24785]
+[New LWP 24784]
+[New LWP 24783]
+[New LWP 24782]
+[New LWP 24781]
+[New LWP 24780]
+[New LWP 24779]
+[New LWP 24778]
+[New LWP 24777]
+[New LWP 24776]
+[New LWP 24775]
+[New LWP 24774]
+[New LWP 24773]
+[New LWP 24772]
+[New LWP 24771]
+[New LWP 24770]
+[New LWP 24769]
+[New LWP 24768]
+[New LWP 24767]
+[New LWP 24766]
+[New LWP 24765]
+[New LWP 24764]
+[New LWP 24763]
+[New LWP 24762]
+[New LWP 24761]
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.archlinux.org>
+Enable debuginfod for this session? (y or [n]) [answered N; input not from terminal]
+Debuginfod has been disabled.
+To make this setting permanent, add 'set debuginfod enabled off' to .gdbinit.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/usr/lib/libthread_db.so.1".
+0x00007fd146ca0952 in ?? () from /usr/lib/libc.so.6
+#0  0x00007fd146ca0952 in ?? () from /usr/lib/libc.so.6
+#1  0x00007fd146d0550b in wait4 () from /usr/lib/libc.so.6
+#2  0x00007fd14c4c083b in ggml_print_backtrace () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libggml-base.so.0
+#3  0x00007fd14c4d4e59 in ggml_uncaught_exception() () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libggml-base.so.0
+#4  0x00007fd1470b581a in ?? () from /usr/lib/libstdc++.so.6
+#5  0x00007fd14709a5ed in std::terminate() () from /usr/lib/libstdc++.so.6
+#6  0x00007fd14709a60a in ?? () from /usr/lib/libstdc++.so.6
+#7  0x00007fd147d31eb6 in vk_queue_handle_unsynchronized::submit(vk::ArrayProxy<vk::SubmitInfo const>, vk::Fence) () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libggml-vulkan.so.0
+#8  0x00007fd147cc316f in ggml_vk_synchronize(ggml_backend_vk_context*) () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libggml-vulkan.so.0
+#9  0x00007fd147cc3230 in ggml_backend_vk_synchronize(ggml_backend*) () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libggml-vulkan.so.0
+#10 0x00007fd14c4db59e in ggml_backend_sched_synchronize () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libggml-base.so.0
+#11 0x00007fd14b2f0198 in llama_context::synchronize() () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libllama.so.0
+#12 0x00007fd14bfd30d8 in server_context_impl::update_slots() () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libllama-server-impl.so
+#13 0x00007fd14bf65e08 in server_queue::start_loop(long) () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libllama-server-impl.so
+#14 0x00007fd14befa5fc in llama_server(common_params&, int, char**) () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libllama-server-impl.so
+#15 0x00007fd14befcd69 in llama_server(int, char**) () from /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/llama.cpp-stock/build-vk/bin/libllama-server-impl.so
+#16 0x00007fd146c27781 in ?? () from /usr/lib/libc.so.6
+#17 0x00007fd146c278b9 in __libc_start_main () from /usr/lib/libc.so.6
+#18 0x0000565435942075 in _start ()
+[Inferior 1 (process 24757) detached]
+terminate called after throwing an instance of 'vk::DeviceLostError'
+  what():  vk::Queue::submit: ErrorDeviceLost
