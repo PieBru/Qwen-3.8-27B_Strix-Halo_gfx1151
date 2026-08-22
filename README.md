@@ -721,7 +721,15 @@ fill-decay table in the 1M chapter.)*
   separate draft weights), but on Vulkan DFlash2 beats it 16.9 vs 13.1 t/s —
   keep DFlash2 where it works, MTP where it doesn't.
 
-### How this compares with halofpx
+### How this compares with halofpx as of 2026-08-22
+
+Repos compared at this date: **halofpx** [`22dd3b54d`](https://github.com/julianmb/halofpx/commit/22dd3b54d)
+("feat(registry): mandatory quant provenance metadata" — they have started
+requiring quant provenance metadata, a step in the right direction) vs **this
+repo** [`5569eb2`](https://github.com/PieBru/Qwen-3.8-27B_Strix-Halo_gfx1151/commit/5569eb2)
+(the commit carrying the experiments above; you are reading its descendant).
+halofpx moves fast — re-check their numbers against their own current tip
+before relying on them.
 
 [halofpx](https://github.com/julianmb/halofpx) is the speed-first cousin of
 this repo: a slick model-zoo server for Strix Halo built around hand-tuned
