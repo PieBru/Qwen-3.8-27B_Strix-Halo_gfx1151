@@ -169,7 +169,7 @@ the serving setup and notes:
 |---|---|---|---|---:|---:|---:|---:|---:|
 | **Quality @256k** | `Qwen38-27B-quality@256k` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 | ~63 | ~25 | ~330 | 4.692 / ref |
 | **Quality** | `Qwen38-27B-quality@64k` (+`@96k`, `@128k`, `@192k`) | `--goal quality` (Q8) | 65536 window; presets to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
-| **Balanced** | `Qwen38-27B-balanced` | `run_llama-server.sh` (Q6) | 131072 window (agentic-sized); flat to 256k | ~42 | ~80 | **~29** | ~306 | 4.706 / 0.0073 |
+| **Balanced** | `Qwen38-27B-balanced` (+`@96k` fence variant) | `run_llama-server.sh` (Q6) | 131072 window (agentic-sized); flat to 256k | ~42 | ~80 | **~29** | ~306 | 4.706 / 0.0073 |
 | **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 | ~88 | **~32** | ~297 | 4.722 / 0.0137 |
 | **Vision** | `Qwen38-27B-vision` | router-only (mmproj, no spec) | 65536 | ~32 | ~91 | ~8.4 | — | 4.706 / 0.0073 |
 
@@ -253,8 +253,15 @@ When to pick which:
   RAM over 64k and zero decode cost, while staying under the crash zone
   (window caps at 131,072 filled: 5.9k under the measured death at 136,965,
   though 2.9k past the largest verified-OK fill of 128,209 — the last sliver
-  of a completely full window is unverified; `quality@96k` is the recipe that
-  keeps every fill in verified territory).
+  of a completely full window is unverified; the `@96k` fence recipes keep
+  every fill in verified territory).
+- **Balanced@96k** — the Q6 fence: same reasoning as `quality@96k` applied to
+  the daily driver — identical Q6 weights, quality and ~29 t/s decode (the
+  fastest decoder behind a physical window cap), max fill 98,304 entirely in
+  doubly-verified territory. For interactive agent sessions that mostly end
+  64–128k filled and want the crash band made unreachable by construction,
+  without dropping to the Q8 recipe's ~25 t/s. Pair with an agent compact
+  threshold ≤ ~90k; balanced (128k, alias, preload) stays the default.
 - **Speed** — fastest decoder: +10% tg and ~5 GiB lighter than balanced, at the
   documented quality cost (see the PPL/KLD columns) — churn and prototyping.
 - **Vision** — the only image-capable recipe (mmproj, no spec decode — lessons
