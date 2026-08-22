@@ -134,3 +134,33 @@ warranted); possibly per-recipe effort pins (speed→low, balanced→medium,
 quality→xhigh); v22.3 shipped with certification note; closure of the
 postponed `reasoning_format=none` item; and the Q6-vs-Q8 reasoning crossover
 answered with our own numbers.
+
+## Execution log (2026-08-22/23, night run)
+
+- **T0 — DONE, v22.3 shipped** (commit 385945c). Suite 100/100 + fuzz 500
+  clean (v22.1.1 failed prefix-invariant 4/500 — the adoption argument);
+  E0 matrix 16/16 after swap (was 13/16: ultracode/extreme no-ops + off-
+  renders-as-medium fixed); dedup + live tool round-trips green; render cost
+  flat 3.5 ms @8k.
+- **E1 — DONE.** 236 unique cells (restarts deduped, keep-last). Verdicts:
+  H1 CONFIRMED on hard only (P=0.50, easy 0.00, medium 0.17 → overlap, not
+  no-op); H2 CONFIRMED (budget arm 8/8 ≤262, graceful 6/8); H6 not
+  applicable-speed (render cost negligible both versions). Bonus: xhigh
+  lowest *total* tokens (shorter visible answers); off rambles 2–3× on hard.
+- **E2 tier1 — DONE, ceiling** (90–95% all cells → no measurable thinking
+  step at routine difficulty; H4 unfired).
+- **E2b hard — DONE, ceiling after grader fix** (100% everywhere; key
+  off-by-one caught post-hoc, model was right; one impossible E1 item caught
+  by selfcheck pre-launch).
+- **E2c frontier — DONE, headline inversion.** @4k budget: Q6@off 10/10 vs
+  Q8@medium 60% / Q8@xhigh 60% / Q6@xhigh 70% — failures are budget
+  exhaustion (`finish=length`, empty answers), not wrong answers. @16k
+  re-run of the 13 failures: 12/13 pass (think 631–12,460 tok, 125–541 s).
+  H4 as pre-registered NOT confirmed (thinking step ≤ 0 at bounded budget);
+  H5 crossover: formally PASS both clauses at frontier, driven by the same
+  truncation effect — reported as mechanism, not as "Q6 beats Q8".
+- **Decisions applied:** no recipe effort pins (rule not met);
+  `reasoning_budget_tokens` documented as the client-side hard cap;
+  README section + headline finding #7 added.
+- **E3 — NOT RUN** (multi-turn agentic realism; pre-registered rules resolved
+  without it; harness sketch deferred — new plan needed if revisited).
