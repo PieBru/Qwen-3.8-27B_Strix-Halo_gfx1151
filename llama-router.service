@@ -2,11 +2,12 @@
 Description=llama-server router — Qwen3.8-27B recipes (models.ini) on :8080
 # Serves the recipes from the repo's models.ini:
 #   Qwen38-27B-quality@64k..@256k | -balanced | -speed | -vision
-# (no aliases registered — keeps the WebUI model list clean)
+# plus ONE alias by design: Qwen38-27B -> balanced (the movable
+# default-model pointer; see models.ini)
 #
-# Port 8080 is this box's canonical local-LLM endpoint. No model loads at
-# boot — the first request to each name pays the on-demand load (~6 s warm,
-# up to ~13 s cold page cache).
+# Port 8080 is this box's canonical local-LLM endpoint. Balanced preloads at
+# boot (load-on-startup = true; models-max 1 caps it at one); every other
+# recipe loads on first request (~6 s warm, up to ~13 s cold page cache).
 # --models-max 1: only ONE recipe resident at a time; switching names unloads
 # the old one first (same ~6-13 s load again). Each recipe mlocks 20-31 GB of
 # weights, so 2+ resident models exhausted memory and hard-hung the box

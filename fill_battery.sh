@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # fill_battery.sh — incremental deep-fill battery, A/B backend-agnostic.
-# Reproduces the 2026-08-21 Vulkan ~160k vk::DeviceLost crash shape:
+# Reproduces the Vulkan deep-fill crash (same-shape measured deaths: fork
+# 136,965; stock master 19,571 @ub4096 / 39k-58k band @ub1024):
 #   Q8 target + DFlash2 draft, f16 KV, -c 262144, -b/-ub 4096, fa on, 16t/32tb.
 # Usage: ./fill_battery.sh <label> <llama-server-binary> [port]
 # Env: SPEC=dflash2|none|mtp  (draft path; default dflash2 — our production shape)

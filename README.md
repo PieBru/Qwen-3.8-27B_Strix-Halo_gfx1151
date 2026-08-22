@@ -77,7 +77,7 @@ curl -s localhost:8081/completion -H 'Content-Type: application/json' \
 Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. On the
 Vulkan build, *filling* a window deep does not survive: prefill past ~128k
 total positions **crashes** (`vk::DeviceLostError`; verified OK at 128,209
-filled, dead at ~137k–160k) — plan ~128k of real content per session on
+filled; death at 136,965 in the same-shape 2026-08-22 control) — plan ~128k of real content per session on
 Vulkan. (ROCm/TheRock 7.15 build of the same commit: same-day A/B survived
 215,228 filled positions — see
 [Vulkan vs ROCm](#vulkan-vs-rocm-which-and-why) and
@@ -217,7 +217,7 @@ shown — of the 262,144-token window, and of the ~128k usable-content ceiling):
 | 65,536 | 25% | 50% | 13.1 |
 | 118,212 | 45% | 90% | 13.7 |
 | 128,209 | 49% | 98% | 9.8 |
-| ~160,000 | 61% | — (past ceiling) | 💥 `vk::DeviceLostError` |
+| ~160,000 (fill target) | 61% | — (past ceiling) | 💥 died en route |
 
 Not linear: fast decay in the first quarter, a ~13–14 t/s plateau through
 the middle band, a further drop approaching the ceiling, then the hard wall.
@@ -230,8 +230,9 @@ xychart-beta
     bar [24.7, 21, 16.8, 13.1, 13.7, 9.8]
 ```
 
-The wall is not chartable: at ~160k positions prefill dies with `vk::DeviceLostError`
-(child crash, router wedge) — the table row above marks it.
+The wall is not chartable: the ~160k-target fill died en route with
+`vk::DeviceLostError` (child crash, router wedge; a same-shape 2026-08-22
+control pinned the death at 136,965) — the table row above marks it.
 
 When to pick which:
 
@@ -638,19 +639,21 @@ Bare bench (`llama-bench`, pp512 = prompt processing, tg32 = generation):
 | Fork ROCm TheRock 7.15 | 352.5 | 8.57 | **370.8** | 7.18 |
 | Stock master Vulkan | 316.9 | 8.78 | — | — |
 
-Decode with speculative decoding (Q6 @ 128k, fresh context):
+Decode with speculative decoding (Q6 @ 128k, fresh context, n=3 probes per
+cell, medians with min–max; raw rows in
+[`results/spec-battery-n3.csv`](results/spec-battery-n3.csv)):
 
 | Combination | sustained decode | draft acceptance |
 |---|---:|---:|
-| Vulkan + DFlash2 | **16.9 t/s** | 0.29 |
-| ROCm + DFlash2 | 14.5 t/s | 0.34 |
-| Vulkan + MTP | 13.1 t/s | 0.35 |
-| ROCm + MTP | 14.7 t/s | 0.32 |
+| Vulkan + DFlash2 | **16.7 t/s** (16.57–16.91) | 0.29 |
+| Vulkan + MTP | 15.1 t/s (14.85–15.12) | 0.32 |
+| ROCm + MTP | 14.5 t/s (14.48–14.59) | 0.33 |
+| ROCm + DFlash2 | 14.2 t/s (14.07–14.32) | 0.34 |
 
-*Single-probe numbers (fresh context, short prompt, 256-token generation) —
-draft acceptance sits ~0.3 on this probe shape vs ~0.38 on real router
-traffic, which is why the intro's 25–32 t/s production figures are higher.
-The backend ranking is the point of this table, not the absolutes.*
+*Probe shape: fresh context, short prompt, 256 generated tokens. Draft
+acceptance sits ~0.3 on this shape vs ~0.38 on real router traffic, which is
+why the intro's 25–32 t/s production figures are higher. The ranking is the
+point of this table, not the absolutes.*
 
 Read it straight: **on the TheRock 7.15 line, ROCm reaches parity** (Q8 prefill
 even ahead) — the "way slower" folklore belongs to the official 7.2.x releases
@@ -704,24 +707,25 @@ of the 262k window):
 
 ```mermaid
 xychart-beta
-    title "Incremental prefill speed vs FILLED context — Vulkan (dies ~137k) vs ROCm TheRock 7.15"
-    x-axis "positions filled" ["19.5k", "39k", "58.7k", "78k", "97.8k", "117k", "137k", "156.5k", "176k", "195.7k", "215.3k"]
+    title "Incremental prefill speed vs FILLED context — the duel while Vulkan lives"
+    x-axis "positions filled" ["19.5k", "39k", "58.7k", "78k", "97.8k", "117k"]
     y-axis "prefill tok/s" 0 --> 350
-    line [327, 265, 218, 177, 144, 119, null, null, null, null, null]
-    line [262, 165, 102, 71, 55, 44, 37, 32, 28, 25, 22]
+    line [327, 265, 218, 177, 144, 119]
+    line [262, 165, 102, 71, 55, 44]
 ```
 
-*(upper line = Vulkan — the gap after 117k is where it died, at 136,965 filled;
-lower line = ROCm TheRock 7.15, measured to 215,228 with zero errors and still
-decaying smoothly — chunk 12 (~234k) was in flight when we stopped the run.
-Two independent runs reproduced the ROCm curve within ±3% at every depth.
+*(upper line = Vulkan — it died one chunk past the last point shown, at
+136,965 filled; lower line = ROCm TheRock 7.15, which kept decaying smoothly
+through the death zone: 37 t/s @137k → 32 @156k → 28 @176k → 25 @196k →
+22 @215k — zero errors, measured to 215,228 = 82% of the window. Two
+independent runs reproduced the ROCm curve within ±3% at every depth.
 Decode speed decays with filled depth on both backends the same way — see the
 fill-decay table in the 1M chapter.)*
 
 ### So which one, and why?
 
 - **Daily driving (≤ ~100k of content): stay on Vulkan.** Faster decode with
-  DFlash2 (16.9 vs 14.5 t/s), ~2× faster deep prefill, one build, zero extra
+  DFlash2 (16.7 vs 14.2 t/s), 1.25–2.7× faster prefill by depth, one build, zero extra
   setup — that's what `run_llama-server.sh` and the recipes assume.
 - **Deep-context escape hatch: the ROCm build.** When a session genuinely
   needs > ~128k of *filled* context today, swap the binary — same models, same

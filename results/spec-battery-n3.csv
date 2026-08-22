@@ -1,0 +1,13 @@
+backend_spec,probe,predicted_tps,accepted,draft_n
+vk-dflash2,1,16.67,161,556
+vk-dflash2,2,16.57,161,556
+vk-dflash2,3,16.66,161,556
+vk-mtp,1,15.11,166,524
+vk-mtp,2,14.85,165,530
+vk-mtp,3,15.12,167,523
+hip-dflash2,1,14.32,170,502
+hip-dflash2,2,14.07,170,502
+hip-dflash2,3,14.10,170,502
+hip-mtp,1,14.59,168,519
+hip-mtp,2,14.48,169,513
+hip-mtp,3,14.48,169,513
