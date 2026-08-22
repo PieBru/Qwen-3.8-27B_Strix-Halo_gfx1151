@@ -1,0 +1,15 @@
+{
+ "label": "v223",
+ "checks": {
+  "dedup_one_think_block": true,
+  "_counts": {
+   "open": 1,
+   "close": 1,
+   "tail_stripped": 30
+  },
+  "explicit_field_wins": true,
+  "inline_copy_stripped": true,
+  "answer_kept": true,
+  "prefix_identity_live": true
+ }
+}

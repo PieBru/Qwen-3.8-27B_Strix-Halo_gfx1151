@@ -1,0 +1,4 @@
+FAIL case 1 [prefix]: generation prompt at turn 12 not prefix of history at turn 13
+  repro: {"messages": [{"role": "user", "content": [{"type": "image", "image": "x"}, {"type": "text", "text": "結果81 matrix77 gamma19 quartz97"}]}, {"role": "assistant", "content": "", "tool_calls": [{"name": "fn0", "arguments": {"k0": "結果39 gamma7 gamma72 bravo10"}}, {"name": "fn1", "arguments": [1, 2, 3]}], "reasoning_content": "lumen67 結果77 river27"}, {"role": "tool", "content": "result river85 naïve47 stone66 stone15"}, {"role": "tool", "content": "result vector70\ngamma75"}, {"role": "assistant", "content": "<think>\ngamma12 bravo84 river45 river52 stone93\n</think>\n\nmatrix16 café73 vector60", "tool_calls": [{"type": "function", "function": {"name": "fn0", "arguments": {"k0": "gamma8 alpha42"}}}]}, {"role": "tool", "content": "result river93 quartz13"}, {"role": "assistant", "content": "matri
+--
+FAIL case 2 [prefix]: generation prompt at turn 3 not prefix of history at turn 4

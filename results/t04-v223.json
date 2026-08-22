@@ -1,0 +1,16 @@
+{
+ "label": "v223",
+ "checks": {
+  "A1_mapping_args_xml": true,
+  "A2_json_string_args": true,
+  "A3_scalar_arg_rendered": true,
+  "A4_error_warns": true,
+  "A5_success_nowarn": true,
+  "A6_developer_merged": true,
+  "A7_think_plus_toolcall": true,
+  "B1_toolcall_emitted": true,
+  "B1_args_valid_json": true,
+  "B2_final_answer": true,
+  "_final_excerpt": "Here's the current weather in **Rome**:\n\n- \ud83c\udf21\ufe0f **Temperature:** 21\u00b0C\n- \u2600\ufe0f **Sky:** Clear\n\nIt's a nice, clear day in Rome right now!"
+ }
+}

@@ -1,0 +1,150 @@
+{
+ "label": "before-v2211",
+ "model": "Qwen38-27B-balanced",
+ "rows": [
+  {
+   "label": "default-no-kwargs",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": null,
+   "render_ms": 6.0
+  },
+  {
+   "label": "effort-low",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": "Reasoning effort is set to low.",
+   "render_ms": 5.4
+  },
+  {
+   "label": "effort-medium",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": null,
+   "render_ms": 4.3
+  },
+  {
+   "label": "effort-xhigh",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": "Reasoning effort is set to xhigh.",
+   "render_ms": 4.1
+  },
+  {
+   "label": "alias-minimal",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": "Reasoning effort is set to low.",
+   "render_ms": 5.0
+  },
+  {
+   "label": "alias-high",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": "Reasoning effort is set to xhigh.",
+   "render_ms": 3.9
+  },
+  {
+   "label": "alias-max",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": "Reasoning effort is set to xhigh.",
+   "render_ms": 2.9
+  },
+  {
+   "label": "alias-ultracode",
+   "ok": false,
+   "marker_ok": false,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": null,
+   "render_ms": 4.3
+  },
+  {
+   "label": "alias-extreme",
+   "ok": false,
+   "marker_ok": false,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": null,
+   "render_ms": 2.8
+  },
+  {
+   "label": "kwarg-off",
+   "ok": false,
+   "marker_ok": true,
+   "tail_ok": false,
+   "tag_ok": true,
+   "got_marker": null,
+   "render_ms": 3.2
+  },
+  {
+   "label": "top-none",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": null,
+   "render_ms": 2.6
+  },
+  {
+   "label": "kwarg-enable-false",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": null,
+   "render_ms": 3.5
+  },
+  {
+   "label": "off-plus-low",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": null,
+   "render_ms": 3.6
+  },
+  {
+   "label": "inline-think-low",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": "Reasoning effort is set to low.",
+   "render_ms": 3.5
+  },
+  {
+   "label": "inline-think-xhigh",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": "Reasoning effort is set to xhigh.",
+   "render_ms": 3.8
+  },
+  {
+   "label": "inline-think-off",
+   "ok": true,
+   "marker_ok": true,
+   "tail_ok": true,
+   "tag_ok": true,
+   "got_marker": null,
+   "render_ms": 2.5
+  }
+ ]
+}
