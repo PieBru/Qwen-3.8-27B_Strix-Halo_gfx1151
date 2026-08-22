@@ -10,3 +10,7 @@ nohup.out
 results/
 llama.cpp-stock/
 lc-edge/
+
+# Operator's local helper: resume the previous pi session (1-liner).
+# Local-only by design — never commit or delete.
+pi-resume.sh
