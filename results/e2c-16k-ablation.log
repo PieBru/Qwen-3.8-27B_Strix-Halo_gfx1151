@@ -1,0 +1,12 @@
+[20:58:37] Q8@medium i1 @16k -> PASS exp=64 got=64 think=4234 fin=stop wall=176s
+[20:59:11] Q8@medium i2 @16k -> PASS exp=1 got=1 think=631 fin=stop wall=34s
+[21:01:17] Q8@medium i6 @16k -> PASS exp=61 got=61 think=2720 fin=stop wall=125s
+[21:03:38] Q8@medium i9 @16k -> PASS exp=138 got=138 think=3915 fin=stop wall=141s
+[21:10:20] Q8@xhigh i1 @16k -> PASS exp=64 got=64 think=8411 fin=stop wall=403s
+[21:12:44] Q8@xhigh i3 @16k -> PASS exp=1002001 got=1002001 think=3206 fin=stop wall=143s
+[21:16:11] Q8@xhigh i6 @16k -> PASS exp=61 got=61 think=4968 fin=stop wall=207s
+[21:25:13] Q8@xhigh i9 @16k -> FAIL exp=138 got=None think=16384 fin=length wall=541s
+[21:31:21] Q6@xhigh i1 @16k -> PASS exp=64 got=64 think=8481 fin=stop wall=368s
+[21:33:34] Q6@xhigh i6 @16k -> PASS exp=61 got=61 think=3218 fin=stop wall=134s
+[21:40:37] Q6@xhigh i9 @16k -> PASS exp=138 got=138 think=12460 fin=stop wall=423s
+ablation complete

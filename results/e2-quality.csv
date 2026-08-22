@@ -1,0 +1,130 @@
+Q6@off,Q6,off,numeric,0,1,63,63,0,250,6.94,stop,19:09:06
+Q6@off,Q6,off,numeric,1,1,44,44,0,235,7.39,stop,19:09:14
+Q6@off,Q6,off,numeric,2,1,5,5,0,176,5.78,stop,19:09:19
+Q6@off,Q6,off,numeric,3,1,579,579,0,320,9.9,stop,19:09:29
+Q6@off,Q6,off,numeric,4,1,1145,1145,0,274,8.11,stop,19:09:37
+Q6@off,Q6,off,json,0,1,"{'invoice_id': 'IN-2093', 'seller': 'Nordic Tooling Oy', 'buyer': 'Sundvik AB', ",},0,106,3.58,stop,19:09:41
+Q6@off,Q6,off,json,1,1,"{'node': 'het-04', 'sockets': 2, 'cores': 64, 'ram_gb': 384, 'nvme_count': 4, 'n",},0,75,2.49,stop,19:09:43
+Q6@off,Q6,off,json,2,0,"{'order_id': '#88117', 'customer': 'Lena Fischer', 'mugs_qty': 3, 'carafe_qty': ",},0,76,2.65,stop,19:09:46
+Q6@off,Q6,off,json,3,1,"{'sensor': 'S-42', 'uptime_h': 312, 'warnings': 14, 'critical': 2, 'mean_temp_c'",},0,77,2.49,stop,19:09:49
+Q6@off,Q6,off,json,4,1,"{'chair': 'Meret Aaltonen', 'attendees_count': 3, 'quorum': True, 'action_items'","{""chair"":""Meret Aaltonen"",""attendees_count"":3,""quorum"":true,""action_items"":3,""ne",0,45,2.13,stop,19:09:51
+Q6@off,Q6,off,code,0,1,"assert flatten([1,[2,[3,[4]],5],[[6]]]) == [1,2,3,4,5,6]
+assert flatten([]) == [",```,0,52,1.81,stop,19:09:53
+Q6@off,Q6,off,code,1,1,"assert roman(4)=='IV' and roman(9)=='IX' and roman(58)=='LVIII'
+assert roman(199",```,0,153,4.44,stop,19:09:57
+Q6@off,Q6,off,code,2,1,"assert clean_pal('A man, a plan, a canal: Panama') is True
+assert clean_pal('No ",```,0,37,1.47,stop,19:09:59
+Q6@off,Q6,off,code,3,1,"assert running_sum([1,2,3,4]) == [1,3,6,10]
+assert running_sum([]) == []
+assert ",```,0,43,1.6,stop,19:10:00
+Q6@off,Q6,off,code,4,1,"assert caesar('abc',2)=='cde' and caesar('xyz',2)=='zab'
+assert caesar('Hello!',",```,0,93,2.81,stop,19:10:03
+Q6@off,Q6,off,multihop,0,1,Mira Deel,Mira Deel,0,180,7.83,stop,19:10:11
+Q6@off,Q6,off,multihop,1,1,Southmere Plant,Southmere Plant,0,134,8.43,stop,19:10:19
+Q6@off,Q6,off,multihop,2,1,Elin Park,Elin Park,0,137,6.8,stop,19:10:26
+Q6@off,Q6,off,multihop,3,1,Kira Blum reports to Ivo Brandt,Kira Blum reports to Ivo Brandt,0,39,4.0,stop,19:10:30
+Q6@off,Q6,off,multihop,4,1,1,1,0,134,6.8,stop,19:10:37
+Q6@xhigh,Q6,xhigh,numeric,0,1,63,63,148,2,6.25,stop,19:10:43
+Q6@xhigh,Q6,xhigh,numeric,1,1,44,44,74,2,4.62,stop,19:10:48
+Q6@xhigh,Q6,xhigh,numeric,2,1,5,5,86,1,3.54,stop,19:10:51
+Q6@xhigh,Q6,xhigh,numeric,3,1,579,579,169,3,7.14,stop,19:10:58
+Q6@xhigh,Q6,xhigh,numeric,4,1,1145,1145,195,4,7.82,stop,19:11:06
+Q6@xhigh,Q6,xhigh,json,0,1,"{'invoice_id': 'IN-2093', 'seller': 'Nordic Tooling Oy', 'buyer': 'Sundvik AB', ",},267,106,13.04,stop,19:11:19
+Q6@xhigh,Q6,xhigh,json,1,1,"{'node': 'het-04', 'sockets': 2, 'cores': 64, 'ram_gb': 384, 'nvme_count': 4, 'n",},325,75,14.73,stop,19:11:34
+Q6@xhigh,Q6,xhigh,json,2,0,"{'order_id': '#88117', 'customer': 'Lena Fischer', 'mugs_qty': 3, 'carafe_qty': ",},345,76,18.49,stop,19:11:53
+Q6@xhigh,Q6,xhigh,json,3,1,"{'sensor': 'S-42', 'uptime_h': 312, 'warnings': 14, 'critical': 2, 'mean_temp_c'",},86,77,5.84,stop,19:11:58
+Q6@xhigh,Q6,xhigh,json,4,1,"{'chair': 'Meret Aaltonen', 'attendees_count': 3, 'quorum': True, 'action_items'","{""chair"":""Meret Aaltonen"",""attendees_count"":3,""quorum"":true,""action_items"":3,""ne",353,45,15.86,stop,19:12:14
+Q6@xhigh,Q6,xhigh,code,0,0,"assert flatten([1,[2,[3,[4]],5],[[6]]]) == [1,2,3,4,5,6]
+assert flatten([]) == [",,4096,0,178.49,length,19:15:13
+Q6@xhigh,Q6,xhigh,code,1,1,"assert roman(4)=='IV' and roman(9)=='IX' and roman(58)=='LVIII'
+assert roman(199",```,235,155,11.96,stop,19:15:25
+Q6@xhigh,Q6,xhigh,code,2,1,"assert clean_pal('A man, a plan, a canal: Panama') is True
+assert clean_pal('No ",```,241,37,11.07,stop,19:15:36
+Q6@xhigh,Q6,xhigh,code,3,1,"assert running_sum([1,2,3,4]) == [1,3,6,10]
+assert running_sum([]) == []
+assert ",```,110,43,5.28,stop,19:15:41
+Q6@xhigh,Q6,xhigh,code,4,1,"assert caesar('abc',2)=='cde' and caesar('xyz',2)=='zab'
+assert caesar('Hello!',",```,210,117,10.44,stop,19:15:52
+Q6@xhigh,Q6,xhigh,multihop,0,1,Mira Deel,Mira Deel,152,4,8.39,stop,19:16:00
+Q6@xhigh,Q6,xhigh,multihop,1,1,Southmere Plant,Southmere Plant,160,3,8.67,stop,19:16:09
+Q6@xhigh,Q6,xhigh,multihop,2,1,Elin Park,Elin Park,136,3,7.84,stop,19:16:17
+Q6@xhigh,Q6,xhigh,multihop,3,1,Kira Blum reports to Ivo Brandt,Kira Blum reports to Ivo Brandt,85,10,6.53,stop,19:16:23
+Q6@xhigh,Q6,xhigh,multihop,4,1,1,1,192,1,9.51,stop,19:16:33
+Q8@off,Q8,off,numeric,0,1,63,63,0,250,15.31,stop,19:16:48
+Q8@off,Q8,off,numeric,1,1,44,44,0,235,8.56,stop,19:16:57
+Q8@off,Q8,off,numeric,2,1,5,5,0,177,6.51,stop,19:17:03
+Q8@off,Q8,off,numeric,3,1,579,579,0,357,11.22,stop,19:17:14
+Q8@off,Q8,off,numeric,4,1,1145,1145,0,365,11.96,stop,19:17:26
+Q8@off,Q8,off,json,0,1,"{'invoice_id': 'IN-2093', 'seller': 'Nordic Tooling Oy', 'buyer': 'Sundvik AB', ",},0,106,3.99,stop,19:17:30
+Q8@off,Q8,off,json,1,1,"{'node': 'het-04', 'sockets': 2, 'cores': 64, 'ram_gb': 384, 'nvme_count': 4, 'n",},0,75,2.74,stop,19:17:33
+Q8@off,Q8,off,json,2,0,"{'order_id': '#88117', 'customer': 'Lena Fischer', 'mugs_qty': 3, 'carafe_qty': ",},0,76,2.94,stop,19:17:36
+Q8@off,Q8,off,json,3,1,"{'sensor': 'S-42', 'uptime_h': 312, 'warnings': 14, 'critical': 2, 'mean_temp_c'",},0,77,2.76,stop,19:17:39
+Q8@off,Q8,off,json,4,1,"{'chair': 'Meret Aaltonen', 'attendees_count': 3, 'quorum': True, 'action_items'",},0,68,2.56,stop,19:17:41
+Q8@off,Q8,off,code,0,1,"assert flatten([1,[2,[3,[4]],5],[[6]]]) == [1,2,3,4,5,6]
+assert flatten([]) == [",```,0,52,2.01,stop,19:17:43
+Q8@off,Q8,off,code,1,1,"assert roman(4)=='IV' and roman(9)=='IX' and roman(58)=='LVIII'
+assert roman(199",```,0,153,5.0,stop,19:17:48
+Q8@off,Q8,off,code,2,1,"assert clean_pal('A man, a plan, a canal: Panama') is True
+assert clean_pal('No ",```,0,37,1.63,stop,19:17:50
+Q8@off,Q8,off,code,3,1,"assert running_sum([1,2,3,4]) == [1,3,6,10]
+assert running_sum([]) == []
+assert ",```,0,43,1.77,stop,19:17:52
+Q8@off,Q8,off,code,4,1,"assert caesar('abc',2)=='cde' and caesar('xyz',2)=='zab'
+assert caesar('Hello!',",```,0,93,3.13,stop,19:17:55
+Q8@off,Q8,off,multihop,0,1,Mira Deel,Mira Deel,0,181,8.53,stop,19:18:04
+Q8@off,Q8,off,multihop,1,1,Southmere Plant,Southmere Plant,0,122,7.98,stop,19:18:12
+Q8@off,Q8,off,multihop,2,1,Elin Park,Elin Park,0,137,7.25,stop,19:18:19
+Q8@off,Q8,off,multihop,3,1,Kira Blum reports to Ivo Brandt,Kira Blum reports to Ivo Brandt,0,34,3.97,stop,19:18:23
+Q8@off,Q8,off,multihop,4,1,1,1,0,173,8.56,stop,19:18:31
+Q8@xhigh,Q8,xhigh,numeric,0,1,63,63,148,2,7.01,stop,19:18:38
+Q8@xhigh,Q8,xhigh,numeric,1,1,44,44,99,2,5.73,stop,19:18:44
+Q8@xhigh,Q8,xhigh,numeric,2,1,5,5,94,1,4.32,stop,19:18:48
+Q8@xhigh,Q8,xhigh,numeric,3,1,579,579,182,3,7.88,stop,19:18:56
+Q8@xhigh,Q8,xhigh,numeric,4,1,1145,1145,191,4,8.45,stop,19:19:05
+Q8@xhigh,Q8,xhigh,json,0,1,"{'invoice_id': 'IN-2093', 'seller': 'Nordic Tooling Oy', 'buyer': 'Sundvik AB', ",},329,106,18.43,stop,19:19:23
+Q8@xhigh,Q8,xhigh,json,1,1,"{'node': 'het-04', 'sockets': 2, 'cores': 64, 'ram_gb': 384, 'nvme_count': 4, 'n",},332,75,16.48,stop,19:19:40
+Q8@xhigh,Q8,xhigh,json,2,0,"{'order_id': '#88117', 'customer': 'Lena Fischer', 'mugs_qty': 3, 'carafe_qty': ",},336,76,20.36,stop,19:20:00
+Q8@xhigh,Q8,xhigh,json,3,1,"{'sensor': 'S-42', 'uptime_h': 312, 'warnings': 14, 'critical': 2, 'mean_temp_c'",},86,77,6.56,stop,19:20:07
+Q8@xhigh,Q8,xhigh,json,4,1,"{'chair': 'Meret Aaltonen', 'attendees_count': 3, 'quorum': True, 'action_items'",},276,68,17.35,stop,19:20:24
+Q8@xhigh,Q8,xhigh,code,0,1,"assert flatten([1,[2,[3,[4]],5],[[6]]]) == [1,2,3,4,5,6]
+assert flatten([]) == [",```,1325,52,61.37,stop,19:21:25
+Q8@xhigh,Q8,xhigh,code,1,1,"assert roman(4)=='IV' and roman(9)=='IX' and roman(58)=='LVIII'
+assert roman(199",```,539,157,29.04,stop,19:21:54
+Q8@xhigh,Q8,xhigh,code,2,1,"assert clean_pal('A man, a plan, a canal: Panama') is True
+assert clean_pal('No ",```,185,37,9.73,stop,19:22:04
+Q8@xhigh,Q8,xhigh,code,3,1,"assert running_sum([1,2,3,4]) == [1,3,6,10]
+assert running_sum([]) == []
+assert ",```,110,43,5.94,stop,19:22:10
+Q8@xhigh,Q8,xhigh,code,4,1,"assert caesar('abc',2)=='cde' and caesar('xyz',2)=='zab'
+assert caesar('Hello!',",```,210,117,11.81,stop,19:22:22
+Q8@xhigh,Q8,xhigh,multihop,0,1,Mira Deel,Mira Deel,155,4,9.77,stop,19:22:32
+Q8@xhigh,Q8,xhigh,multihop,1,1,Southmere Plant,Southmere Plant,173,3,9.72,stop,19:22:42
+Q8@xhigh,Q8,xhigh,multihop,2,1,Elin Park,Elin Park,153,3,8.23,stop,19:22:50
+Q8@xhigh,Q8,xhigh,multihop,3,1,Kira Blum reports to Ivo Brandt,Kira Blum reports to Ivo Brandt,103,10,7.1,stop,19:22:57
+Q8@xhigh,Q8,xhigh,multihop,4,1,1,1,200,1,9.74,stop,19:23:07
+Q8@medium,Q8,medium,numeric,0,1,63,63,125,12,6.35,stop,19:23:13
+Q8@medium,Q8,medium,numeric,1,1,44,44,102,83,7.95,stop,19:23:21
+Q8@medium,Q8,medium,numeric,2,1,5,5,70,53,5.2,stop,19:23:26
+Q8@medium,Q8,medium,numeric,3,1,579,579,104,63,6.7,stop,19:23:33
+Q8@medium,Q8,medium,numeric,4,1,1145,1145,134,128,8.79,stop,19:23:42
+Q8@medium,Q8,medium,json,0,1,"{'invoice_id': 'IN-2093', 'seller': 'Nordic Tooling Oy', 'buyer': 'Sundvik AB', ","{""invoice_id"":""IN-2093"",""seller"":""Nordic Tooling Oy"",""buyer"":""Sundvik AB"",""items",138,74,7.53,stop,19:23:49
+Q8@medium,Q8,medium,json,1,0,"{'node': 'het-04', 'sockets': 2, 'cores': 64, 'ram_gb': 384, 'nvme_count': 4, 'n","{""node"":""het-04"",""sockets"":2,""cores"":32,""ram_gb"":384,""nvme_count"":4,""nvme_tb"":3.",212,44,9.5,stop,19:23:59
+Q8@medium,Q8,medium,json,2,0,"{'order_id': '#88117', 'customer': 'Lena Fischer', 'mugs_qty': 3, 'carafe_qty': ","{""order_id"":""88117"",""customer"":""Lena Fischer"",""mugs_qty"":3,""carafe_qty"":2,""shipp",245,46,11.74,stop,19:24:10
+Q8@medium,Q8,medium,json,3,1,"{'sensor': 'S-42', 'uptime_h': 312, 'warnings': 14, 'critical': 2, 'mean_temp_c'","{""sensor"":""S-42"",""uptime_h"":312,""warnings"":14,""critical"":2,""mean_temp_c"":21.7,""m",127,48,5.95,stop,19:24:16
+Q8@medium,Q8,medium,json,4,1,"{'chair': 'Meret Aaltonen', 'attendees_count': 3, 'quorum': True, 'action_items'",},199,68,8.75,stop,19:24:25
+Q8@medium,Q8,medium,code,0,1,"assert flatten([1,[2,[3,[4]],5],[[6]]]) == [1,2,3,4,5,6]
+assert flatten([]) == [",```,126,52,6.51,stop,19:24:32
+Q8@medium,Q8,medium,code,1,1,"assert roman(4)=='IV' and roman(9)=='IX' and roman(58)=='LVIII'
+assert roman(199",```,321,155,15.52,stop,19:25:02
+Q8@medium,Q8,medium,code,2,1,"assert clean_pal('A man, a plan, a canal: Panama') is True
+assert clean_pal('No ",```,132,37,6.41,stop,19:25:08
+Q8@medium,Q8,medium,code,3,1,"assert running_sum([1,2,3,4]) == [1,3,6,10]
+assert running_sum([]) == []
+assert ",```,194,43,8.32,stop,19:25:17
+Q8@medium,Q8,medium,code,4,1,"assert caesar('abc',2)=='cde' and caesar('xyz',2)=='zab'
+assert caesar('Hello!',",```,220,87,11.56,stop,19:25:28
+Q8@medium,Q8,medium,multihop,0,1,Mira Deel,Mira Deel,115,80,9.1,stop,19:25:37
+Q8@medium,Q8,medium,multihop,1,1,Southmere Plant,Southmere Plant,215,65,12.53,stop,19:25:50
+Q8@medium,Q8,medium,multihop,2,1,Elin Park,Elin Park,88,26,6.49,stop,19:25:56
+Q8@medium,Q8,medium,multihop,3,1,Kira Blum reports to Ivo Brandt,Kira Blum reports to Ivo Brandt,104,47,7.73,stop,19:26:04
+Q8@medium,Q8,medium,multihop,4,1,1,1,185,96,13.08,stop,19:26:17

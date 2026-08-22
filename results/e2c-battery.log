@@ -1,0 +1,53 @@
+SELFCHECK OK | truths: [9, 64, 1, 1002001, 8, 76, 61, 144, 100, 138]
+resume: 0 done
+[19:50:09] Q8@off      i0 -> PASS exp=9 got=9 think=    0 wall= 51.26s
+[19:52:44] Q8@off      i1 -> FAIL exp=64 got=24 think=    0 wall=140.06s
+[19:53:11] Q8@off      i2 -> PASS exp=1 got=1 think=    0 wall= 26.86s
+[19:53:48] Q8@off      i3 -> PASS exp=1002001 got=1002001 think=    0 wall= 37.34s
+[19:55:02] Q8@off      i4 -> PASS exp=8 got=8 think=    0 wall= 74.32s
+[19:55:34] Q8@off      i5 -> PASS exp=76 got=76 think=    0 wall= 31.15s
+[19:57:59] Q8@off      i6 -> FAIL exp=61 got=61.80 think=    0 wall=145.76s
+[19:58:40] Q8@off      i7 -> PASS exp=144 got=144 think=    0 wall= 40.98s
+[19:59:22] Q8@off      i8 -> PASS exp=100 got=100 think=    0 wall= 41.23s
+[20:00:32] Q8@off      i9 -> PASS exp=138 got=138 think=    0 wall= 70.03s
+[20:01:02] Q8@xhigh    i0 -> PASS exp=9 got=9 think=  400 wall= 30.21s
+[20:04:03] Q8@xhigh    i1 -> FAIL exp=64 got=None think= 4096 wall=181.44s
+[20:04:21] Q8@xhigh    i2 -> PASS exp=1 got=1 think=  283 wall= 18.04s
+[20:07:10] Q8@xhigh    i3 -> FAIL exp=1002001 got=None think= 4096 wall=168.48s
+[20:08:09] Q8@xhigh    i4 -> PASS exp=8 got=8 think= 1217 wall= 59.12s
+[20:08:42] Q8@xhigh    i5 -> PASS exp=76 got=76 think=  738 wall= 32.55s
+[20:11:32] Q8@xhigh    i6 -> FAIL exp=61 got=None think= 4096 wall= 170.6s
+[20:11:57] Q8@xhigh    i7 -> PASS exp=144 got=144 think=  374 wall= 25.18s
+[20:12:56] Q8@xhigh    i8 -> PASS exp=100 got=100 think= 1224 wall= 58.38s
+[20:15:12] Q8@xhigh    i9 -> FAIL exp=138 got=None think= 4096 wall=136.22s
+[20:15:42] Q8@medium   i0 -> PASS exp=9 got=9 think=  404 wall= 29.77s
+[20:18:21] Q8@medium   i1 -> FAIL exp=64 got=None think= 4096 wall=159.37s
+[20:20:14] Q8@medium   i2 -> FAIL exp=1 got=None think= 4096 wall=112.72s
+[20:21:24] Q8@medium   i3 -> PASS exp=1002001 got=1002001 think= 1301 wall= 69.77s
+[20:23:26] Q8@medium   i4 -> PASS exp=8 got=8 think= 2686 wall=122.55s
+[20:23:51] Q8@medium   i5 -> PASS exp=76 got=76 think=  488 wall= 24.75s
+[20:26:44] Q8@medium   i6 -> FAIL exp=61 got=1 think= 4012 wall=173.44s
+[20:27:13] Q8@medium   i7 -> PASS exp=144 got=144 think=  367 wall= 28.27s
+[20:28:02] Q8@medium   i8 -> PASS exp=100 got=100 think=  889 wall= 49.43s
+[20:30:29] Q8@medium   i9 -> FAIL exp=138 got=None think= 4096 wall=146.55s
+[20:31:19] Q6@off      i0 -> PASS exp=9 got=9 think=    0 wall= 50.36s
+[20:33:14] Q6@off      i1 -> PASS exp=64 got=64 think=    0 wall= 114.8s
+[20:33:58] Q6@off      i2 -> PASS exp=1 got=1 think=    0 wall= 43.76s
+[20:35:14] Q6@off      i3 -> PASS exp=1002001 got=1002001 think=    0 wall= 76.62s
+[20:36:09] Q6@off      i4 -> PASS exp=8 got=8 think=    0 wall= 54.64s
+[20:36:41] Q6@off      i5 -> PASS exp=76 got=76 think=    0 wall= 31.62s
+[20:38:08] Q6@off      i6 -> PASS exp=61 got=61 think=    0 wall= 87.81s
+[20:38:45] Q6@off      i7 -> PASS exp=144 got=144 think=    0 wall=  36.1s
+[20:39:21] Q6@off      i8 -> PASS exp=100 got=100 think=    0 wall= 36.16s
+[20:40:22] Q6@off      i9 -> PASS exp=138 got=138 think=    0 wall= 61.14s
+[20:40:40] Q6@xhigh    i0 -> PASS exp=9 got=9 think=  236 wall= 17.95s
+[20:43:18] Q6@xhigh    i1 -> FAIL exp=64 got=None think= 4096 wall=157.78s
+[20:43:35] Q6@xhigh    i2 -> PASS exp=1 got=1 think=  288 wall=  16.9s
+[20:45:11] Q6@xhigh    i3 -> PASS exp=1002001 got=1002001 think= 2389 wall=  96.1s
+[20:46:41] Q6@xhigh    i4 -> PASS exp=8 got=8 think= 2230 wall= 90.76s
+[20:47:13] Q6@xhigh    i5 -> PASS exp=76 got=76 think=  838 wall= 31.99s
+[20:49:43] Q6@xhigh    i6 -> FAIL exp=61 got=None think= 4096 wall=149.19s
+[20:50:09] Q6@xhigh    i7 -> PASS exp=144 got=144 think=  470 wall= 26.37s
+[20:51:16] Q6@xhigh    i8 -> PASS exp=100 got=100 think= 1620 wall= 66.52s
+[20:53:28] Q6@xhigh    i9 -> FAIL exp=138 got=None think= 4096 wall=132.33s
+battery complete
