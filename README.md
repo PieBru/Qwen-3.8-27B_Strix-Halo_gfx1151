@@ -168,7 +168,7 @@ the serving setup and notes:
 | Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | context | RAM (GiB) | left (GiB) | tg (t/s) | pp4k (t/s) | PPL / KLD↑ |
 |---|---|---|---|---:|---:|---:|---:|---:|
 | **Quality @256k** | `Qwen38-27B-quality@256k` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 | ~63 | ~25 | ~330 | 4.692 / ref |
-| **Quality** | `Qwen38-27B-quality@64k` (+`@128k`, `@192k`) | `--goal quality` (Q8) | 65536 window; presets to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
+| **Quality** | `Qwen38-27B-quality@64k` (+`@96k`, `@128k`, `@192k`) | `--goal quality` (Q8) | 65536 window; presets to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
 | **Balanced** | `Qwen38-27B-balanced` | `run_llama-server.sh` (Q6) | 131072 window (agentic-sized); flat to 256k | ~42 | ~80 | **~29** | ~306 | 4.706 / 0.0073 |
 | **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 | ~88 | **~32** | ~297 | 4.722 / 0.0137 |
 | **Vision** | `Qwen38-27B-vision` | router-only (mmproj, no spec) | 65536 | ~32 | ~91 | ~8.4 | — | 4.706 / 0.0073 |
@@ -241,14 +241,20 @@ When to pick which:
   be slow on an uptimed box. Same weights/quality/speed as Quality @64k — the
   difference is purely RAM for window (see the context-dial note above).
 - **Quality (@64k) — correctness-first answers, code, synthesis; the
-  `@128k`/`@192k`/`@256k` presets are one model-field away when the window is
-  needed — pick your standing window by your own usage.
+  `@96k`/`@128k`/`@192k`/`@256k` presets are one model-field away when the window is
+  needed — pick your standing window by your own usage. `@96k` is the **fence**
+  variant: identical speed (allocation-flat), but the 98,304 max fill is hard-capped
+  in doubly-verified safe territory — the physical guarantee for unattended agent
+  runs, versus relying on the client's own compaction limit. Pair it with an agent
+  compact threshold ≤ ~90k.
 - **Balanced** — the all-rounder: best quality/speed balance
   (28.1–29.6 t/s across the whole 32k–256k ladder). Default window 128k: sized
   for agentic coding sessions — the primary Qwen3.8-27B workload — at ~+4 GiB
-  RAM over 64k and zero decode cost, while staying inside the measured-safe
-  ~128k content ceiling (the window itself keeps sessions out of the crash
-  zone).
+  RAM over 64k and zero decode cost, while staying under the crash zone
+  (window caps at 131,072 filled: 5.9k under the measured death at 136,965,
+  though 2.9k past the largest verified-OK fill of 128,209 — the last sliver
+  of a completely full window is unverified; `quality@96k` is the recipe that
+  keeps every fill in verified territory).
 - **Speed** — fastest decoder: +10% tg and ~5 GiB lighter than balanced, at the
   documented quality cost (see the PPL/KLD columns) — churn and prototyping.
 - **Vision** — the only image-capable recipe (mmproj, no spec decode — lessons
