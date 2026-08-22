@@ -74,9 +74,11 @@ curl -s localhost:8081/completion -H 'Content-Type: application/json' \
      -d '{"prompt":"Explain briefly why the sky is blue at sunset.","n_predict":64}'
 ```
 
-Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. Deep prefill
-**crashes ≥128k ctx** (`vk::DeviceLostError`) on this stack — 64k is the ceiling.
-Once verified, pick your workload recipe from the
+Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. Windows
+allocate and serve fine up to 256k — but *filling* one deep does not survive:
+prefill past ~128k total positions **crashes** (`vk::DeviceLostError`, this
+stack; verified OK at 128,209 filled, dead at ~160k) — plan ~128k of real
+content per session. Once verified, pick your workload recipe from the
 [**Recommended configs (per goal)**](#recommended-configs-per-goal) table.
 
 ## Headline findings (the counterintuitive ones)
