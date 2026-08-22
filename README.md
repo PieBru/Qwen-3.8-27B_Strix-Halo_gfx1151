@@ -201,7 +201,8 @@ f16 KV, chunked incremental fill): decode falls with FILLED depth —
 **24.7 t/s fresh → 13.1 @64k → 9.8 @128k filled** (incremental prefill
 likewise: ~218 → ~113 t/s from 32k to 96k depth) — and content beyond
 **~128k positions crashes the Vulkan path even for incremental fills**
-(128,209-token fill OK; ~160k `vk::DeviceLostError`). So `@64k…@128k` are
+(128,209-token fill OK; ~160k `vk::DeviceLostError` — a same-day control
+re-run pinned the actual death at **136,965** filled). So `@64k…@128k` are
 fully usable presets; `@192k`/`@256k` are allocation headroom until deep
 positions are fixed — plan sessions around ~128k of real content.
 
@@ -270,7 +271,7 @@ Q8: 24.7–24.9) — the hybrid-SSM architecture gives most layers a constant-si
 state, so an allocated-but-unfilled window costs nothing. What DOES cost
 is how much of the window is FILLED — measured on Q8 (fill batteries
 2026-08-21, quality@256k): **24.7 fresh → ~21 @2.6k → 16.8 @26k → 13–13.7
-@64–118k (plateau) → 9.8 @128k → vk::DeviceLost ≥~160k** (the few
+@64–118k (plateau) → 9.8 @128k → vk::DeviceLost at ~137k (2026-08-22 control)** (the few
 full-attention layers scan the filled KV per token; incremental prefill
 decays similarly).
 So `~25` is the short-prompt benchmark — a filled long-window session decodes
@@ -551,8 +552,8 @@ reports to hold — upstream tracks the gfx1151 gaps
 ([#21284](https://github.com/ggml-org/llama.cpp/issues/21284),
 [#24437](https://github.com/ggml-org/llama.cpp/issues/24437)); the 7.14+/TheRock
 line is where parity arrives. Until the Vulkan fix lands, **ROCm is the
-deep-context escape hatch: slower per token past ~60k filled, but it doesn't
-die.**
+deep-context escape hatch: slower prefill at every depth (1.25–2.7×), but it
+doesn't die.**
 
 **What 1M costs in memory** (Q6 targets; f16 measured on a real 1M load, the
 rest derived from GTT deltas at 110k ctx scaled linearly — the derivation
@@ -612,7 +613,9 @@ Every number below comes from the same experiment rig: identical fork commit
 `-c 262144 -b/-ub 4096 -fa on`), identical battery
 ([`fill_battery.sh`](fill_battery.sh) — grows the context in 16k-token chunks
 through cached prefixes, i.e. true incremental fill). Only the backend — or the
-build — changes between rows. Raw CSVs and server logs are in `results/`.
+build — changes between rows. The A/B CSVs, server logs, and the 16k-token
+fill corpus are committed under `results/` (the repo's `.gitignore` hides the
+full ~80-file research tree; only the evidence set is versioned).
 
 **The four builds we tested:**
 
@@ -644,6 +647,11 @@ Decode with speculative decoding (Q6 @ 128k, fresh context):
 | Vulkan + MTP | 13.1 t/s | 0.35 |
 | ROCm + MTP | 14.7 t/s | 0.32 |
 
+*Single-probe numbers (fresh context, short prompt, 256-token generation) —
+draft acceptance sits ~0.3 on this probe shape vs ~0.38 on real router
+traffic, which is why the intro's 25–32 t/s production figures are higher.
+The backend ranking is the point of this table, not the absolutes.*
+
 Read it straight: **on the TheRock 7.15 line, ROCm reaches parity** (Q8 prefill
 even ahead) — the "way slower" folklore belongs to the official 7.2.x releases
 (upstream tracks those gaps: [#21284](https://github.com/ggml-org/llama.cpp/issues/21284),
@@ -662,7 +670,13 @@ Same battery, deep fill, fate of the server:
 | Fork HEAD Vulkan | died in the 117k–137k band | same |
 | Stock master Vulkan (`-ub 4096`) | **died at 19,571** (!) | same |
 | Stock master Vulkan (`-ub 1024`) | died in the 39k–58k band | same |
-| Fork ROCm TheRock 7.15 | **survived 215,228 filled — zero errors** (stopped by us mid-chunk-12, server healthy at ~230k) | — |
+| Fork ROCm TheRock 7.15 | **survived 215,228 filled — zero errors** (two runs: run 1's chunk-12 client-timeout cancelled at 98% progress ≈ 234k filled server-side; run 2 stopped manually mid-chunk-10 — server healthy both times) | — |
+
+*Note on the stock rows: they ran without a draft model — stock's loader
+rejects the fork-format DFlash2 draft (`wrong number of tensors; expected 81,
+got 58`, [log](results/stock-dflash-loadfail.log)) — so stock-vs-fork differs
+in build **and** spec path; the fork-HEAD row is the clean same-spec
+comparison.*
 
 Three findings worth internalizing:
 
@@ -683,9 +697,10 @@ Three findings worth internalizing:
 ### The chart: context-filling decay, deep into the 256k window
 
 Prompt-processing speed while the context fills (the same 16k chunks, same
-flags; Q8 + DFlash2 + f16 KV). **Vulkan is ~2× faster at every depth — until it
-isn't** (it dies mid-band). ROCm decays faster but keeps going to the window's
-end:
+flags; Q8 + DFlash2 + f16 KV). **Vulkan's prefill edge widens with depth
+(1.25× at 20k → 2.7× at ~117k) — until it dies mid-band.** ROCm decays faster
+in absolute terms but is the only one still standing (measured to 215k = 82%
+of the 262k window):
 
 ```mermaid
 xychart-beta
@@ -710,8 +725,8 @@ fill-decay table in the 1M chapter.)*
   setup — that's what `run_llama-server.sh` and the recipes assume.
 - **Deep-context escape hatch: the ROCm build.** When a session genuinely
   needs > ~128k of *filled* context today, swap the binary — same models, same
-  flags, same recipe file — and it does not die. Slower per token past ~60k
-  filled, but alive. Build recipe in
+  flags, same recipe file — and it does not die. Slower prefill at every depth
+  (1.25–2.7×), but alive. Build recipe in
   [the deep-positions A/B](#deep-positions-the-vulkan-wall-vs-rocm-survival).
 - **Watch, don't switch, on stock upstream** — its Vulkan path is strictly
   worse on this APU today (and its `draft-dflash` loader can't even read the
@@ -928,7 +943,7 @@ hatch (see [Vulkan vs ROCm](#vulkan-vs-rocm-which-and-why)):
 
 - **TheRock nightly (recommended, 2026-08-22 measured)** — userspace-only,
   no root, sits in `~/opt`; reaches Vulkan bench parity and survives fills
-  past 176k where Vulkan dies. Full recipe in
+  past 215k where Vulkan dies. Full recipe in
   [the deep-positions A/B](#deep-positions-the-vulkan-wall-vs-rocm-survival).
   ⚠️ Avoid the `v2/gfx1151` wheel feed's 7.14.0a20260609..0612 builds — they
   segfault in `hsa_init` on gfx1151 (TheRock issue #5763); use
