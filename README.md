@@ -74,11 +74,14 @@ curl -s localhost:8081/completion -H 'Content-Type: application/json' \
      -d '{"prompt":"Explain briefly why the sky is blue at sunset.","n_predict":64}'
 ```
 
-Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. Windows
-allocate and serve fine up to 256k — but *filling* one deep does not survive:
-prefill past ~128k total positions **crashes** (`vk::DeviceLostError`, this
-stack; verified OK at 128,209 filled, dead at ~160k) — plan ~128k of real
-content per session. Once verified, pick your workload recipe from the
+Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. On the
+Vulkan build, *filling* a window deep does not survive: prefill past ~128k
+total positions **crashes** (`vk::DeviceLostError`; verified OK at 128,209
+filled, dead at ~137k–160k) — plan ~128k of real content per session on
+Vulkan. (ROCm/TheRock 7.15 build of the same commit: same-day A/B survived
+176,100 filled positions — see
+[the deep-positions A/B](#deep-positions-the-vulkan-wall-vs-rocm-survival).)
+Once verified, pick your workload recipe from the
 [**Recommended configs (per goal)**](#recommended-configs-per-goal) table.
 
 ## Headline findings (the counterintuitive ones)
@@ -488,12 +491,67 @@ with no YaRN exemption. We load-tested a full 1M recipe
 and the usable slot came back at 262,144 — full memory cost, zero extra window.
 The same test showed there is **no 512K middle ground**: the cap applies to any
 `c` above 262,144, so 512K would pay ~18 GiB more KV than 256k and still serve
-a capped slot. Separately, even inside a 262k window, content beyond **~128k positions**
-hits the Vulkan `vk::DeviceLostError` — and this is an **absolute-position**
-limit, not a per-batch one: chunked/incremental fills crash at the same depth
-(measured: 128,209-token fill OK, ~160k crash). Big windows are for many
-medium contexts, not one giant prompt — and on this fork not for more than
-~128k of content at all.
+a capped slot. Separately, even inside a 262k window, content beyond
+**~128k positions** hits the Vulkan `vk::DeviceLostError` — and this is an
+**absolute-position** limit, not a per-batch one: chunked/incremental fills
+crash at the same depth (measured: 128,209-token fill OK, ~160k crash). Big
+windows are for many medium contexts, not one giant prompt — and on the Vulkan
+build not for more than ~128k of content at all (the ROCm build survives this
+band — next subsection).
+
+### Deep positions: the Vulkan wall vs ROCm survival
+
+A/B measured 2026-08-22 on the same box, same fork commit (`9b9ac3e38`),
+same battery (`fill_battery.sh`: Q8 target + DFlash2 draft, f16 KV,
+`-c 262144 -b/-ub 4096`, incremental 16k-token fills via cached prefixes):
+
+| Backend | bare bench (Q6 / Q8) | fill fate |
+|---|---|---|
+| Vulkan (production build) | pp512 360.6 / 365.0 · tg32 8.78 / 7.27 | 💥 died at **136,965** filled (`vk::Queue::submit: ErrorDeviceLost`, RADV "CS cancelled") |
+| ROCm — TheRock 7.15.0a nightly | pp512 352.5 / 370.8 · tg32 8.57 / 7.18 | ✅ **survived 176,100** filled, zero errors |
+
+Reading it straight:
+
+- **The ~128k+ wall is a Vulkan-path bug, not the model or the hardware.**
+  Same weights, same flags, same commit — only the backend differs.
+- **Vulkan stays the faster deep-prefiller while it lives**: incremental fill
+  177→144→119 t/s at 78k→98k→117k filled, vs ROCm's 72→55→44 t/s in the same
+  band (ROCm decays faster with depth: 262 t/s at 20k → 28 t/s at 176k).
+- **DFlash2 works on ROCm**: draft acceptance 0.34 on a matched probe; decode
+  14.5 t/s vs Vulkan's 16.9 t/s (Q6@128k) — Vulkan ~17% ahead with spec decode.
+- Upstream status (2026-08-22): the Vulkan device-lost class is still open
+  upstream ([#27076](https://github.com/ggml-org/llama.cpp/issues/27076),
+  [#27458](https://github.com/ggml-org/llama.cpp/issues/27458)); the fork's
+  [issue #9](https://github.com/Nathanw1014/strix-halo-llamacpp/issues/9)
+  shows a 491,520-token prefill *succeeding* on Vulkan with DeepSeek-V4 +
+  q8_0 KV + `-ub 1024` — the wall is config-shaped, and the suspects are
+  f16 KV at depth, `-ub 4096`, and this model's full-attention layers.
+
+**To try the ROCm build yourself** (no root needed; userspace-only, sits
+beside the Vulkan one):
+
+```bash
+# TheRock nightly for gfx1151 (fixed line — the 7.14.0a20260609..0612 wheels
+# segfault in hsa_init on gfx1151; see TheRock issue #5763)
+curl -O https://rocm.nightlies.amd.com/tarball-multi-arch/therock-dist-linux-gfx1151-7.15.0a20260728.tar.gz
+mkdir -p ~/opt/rocm-7.15 && tar -xzf therock-dist-linux-gfx1151-*.tar.gz -C ~/opt/rocm-7.15
+export ROCM_PATH=~/opt/rocm-7.15 PATH=$HOME/opt/rocm-7.15/bin:$PATH LD_LIBRARY_PATH=$HOME/opt/rocm-7.15/lib
+cmake -B build-hip -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 -DCMAKE_BUILD_TYPE=Release \
+      -DGGML_NATIVE=ON -DLLAMA_CURL=OFF \
+      -DCMAKE_C_COMPILER=$ROCM_PATH/bin/hipcc -DCMAKE_CXX_COMPILER=$ROCM_PATH/bin/hipcc
+cmake --build build-hip --target llama-server llama-bench -j
+# then run any recipe with build-hip/bin/llama-server instead of build-vk —
+# and ./fill_battery.sh <label> ./llama.cpp/build-hip/bin/llama-server to
+# reproduce the deep-fill A/B
+```
+
+For official-release ROCm (7.2.4 era), expect the "way slower than Vulkan"
+reports to hold — upstream tracks the gfx1151 gaps
+([#21284](https://github.com/ggml-org/llama.cpp/issues/21284),
+[#24437](https://github.com/ggml-org/llama.cpp/issues/24437)); the 7.14+/TheRock
+line is where parity arrives. Until the Vulkan fix lands, **ROCm is the
+deep-context escape hatch: slower per token past ~60k filled, but it doesn't
+die.**
 
 **What 1M costs in memory** (Q6 targets; f16 measured on a real 1M load, the
 rest derived from GTT deltas at 110k ctx scaled linearly — the derivation
