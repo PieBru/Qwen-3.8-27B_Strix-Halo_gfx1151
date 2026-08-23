@@ -267,9 +267,10 @@ and the "it loads ≠ it works" vision lesson:
 ## Ideas, parked (help wanted!)
 
 Things we researched, started, or parked — each is a standing invitation for a
-fellow Haloer to pick up. The fleet master-plan with full research lives in
-`PROPOSAL-two-halos-rpc-usb4.md` territory (ask us for the current copy);
-this chapter is the menu.
+fellow Haloer to pick up. The fleet master-plan with full research (two-Halo performance,
+engine bake-off, and the mirrored-Halo reliability design — full throttle
+when both are up, zero-config degraded serve with one) lives in
+[docs/FLEET-PLAN.md](docs/FLEET-PLAN.md); this chapter is the menu.
 
 **Two-Halo fleet** (two 128 GB Strix boxes, one flock):
 
