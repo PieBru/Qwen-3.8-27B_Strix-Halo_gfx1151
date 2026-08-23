@@ -1,0 +1,14 @@
+# pi-scout — nightly research watch (fleet rung 1: observe). Report-only.
+# Companion to pi-dream.service (03:0x); runs 07:00 local.
+[Unit]
+Description=pi scout — nightly research watch, morning report (report-only)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/pi --no-session --model local/Qwen38-27B-quality@128k --skill /home/piero/.pi/agent/skills/scout -p "Read /home/piero/.pi/agent/skills/scout/SKILL.md and execute its workflow: scan all monitored sources, write the versioned SCOUT_REPORT via the report conventions (SCOUT_REPORT_YYMMDD-HHMMSS.md + latest symlink in /home/piero/Piero/Work/pi-scout/). Report-only - no installs, no edits, no posts. Keep the run under 40 minutes."
+TimeoutStartSec=3600
+StandardOutput=append:/home/piero/Piero/Work/pi-scout/scout-run.log
+StandardError=append:/home/piero/Piero/Work/pi-scout/scout-run.log
+
+[Install]
+WantedBy=default.target

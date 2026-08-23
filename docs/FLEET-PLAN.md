@@ -183,6 +183,18 @@ then a one-evening smoke (build Vulkan/HIP, run our e5 two-client battery
 as the judge vs the router's -np 2 result). Meanwhile: watch, star, and
 keep the e5 battery ready.
 
+### Phase S — Scout: the nightly research watch (BUILT & FIRST-RUN 2026-08-23)
+
+Rung 1 of the auto-healing/auto-evolutive ladder (see README Ideas):
+observe-only. `fleet/scout/` carries the skill + systemd units (timer
+07:00 local, runs pi with the scout skill pinned to quality@128k;
+reports land in ~/Piero/Work/pi-scout/ as versioned SCOUT_REPORT_*.md).
+First run (manual, 44 min): 2 evening-grade findings (fork 5 commits
+past pin incl. an MTP-checkpoint revert→reapply pair — sync candidate;
+community 1.8× gfx1151 prefill claim #27553), 6 watch items, correct
+report-only gating with a proposed ledger diff. Dream Gate applies:
+nothing is applied without the operator.
+
 ### Phase R — Reliability: the mirrored-Halo fleet (full throttle ↔ degraded serve)
 
 Two identical computers are a reliability asset independent of the two-Halo

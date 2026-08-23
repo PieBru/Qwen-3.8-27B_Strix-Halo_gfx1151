@@ -1,0 +1,11 @@
+# Morning report at 07:00 local (operator reads with coffee; dream runs 03:0x).
+[Unit]
+Description=run pi scout every morning at 07:00
+
+[Timer]
+OnCalendar=*-*-* 07:00:00
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target
