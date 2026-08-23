@@ -177,8 +177,21 @@ the serving setup and notes:
 | **Quality @256k** | `Qwen38-27B-quality@256k` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 | ~63 | ~25 | ~330 | 4.692 / ref |
 | **Quality** | `Qwen38-27B-quality@64k` (+`@96k`, `@128k`, `@192k`) | `--goal quality` (Q8) | 65536 window; presets to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
 | **Balanced** | `Qwen38-27B-balanced` (+`@96k` fence variant) | `run_llama-server.sh` (Q6) | 131072 window (agentic-sized); flat to 256k | ~42 | ~80 | **~29** | ~306 | 4.706 / 0.0073 |
+| **Coding** | `Qwen38-27B-coding` (alias `coding`) | router-only (Q6, 128k, reasoning-budget 2048) | 131072 | ~42 | ~80 | ~29 | ~306 | 4.706 / 0.0073 |
 | **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 | ~88 | **~32** | ~297 | 4.722 / 0.0137 |
 | **Vision** | `Qwen38-27B-vision` | router-only (mmproj, no spec) | 65536 | ~32 | ~91 | ~8.4 | — | 4.706 / 0.0073 |
+
+**Coding = balanced + a measured guard.** Same Q6 weights, window and
+speed as balanced; the only difference is a server-side
+`reasoning-budget 2048` default — insurance against the one failure mode
+the reasoning batteries actually found: thinking that eats a bounded
+`max_tokens` whole and returns an *empty* answer (60–70% of frontier items
+at a 4k budget). 2048 sits above hard-routine thinking p90 (~610–736), so
+normal work never touches it. Override per request: body
+`reasoning_budget_tokens` — `32768` for effectively-unrestricted deep work,
+`0` to end thinking immediately, absent/`-1` inherits 2048. Rationale and
+verifications: models.ini `[Qwen38-27B-coding]` section comment and the
+[reasoning chapter](#reasoning-levels-cost-and-quality--measured).
 
 **The context dial.** All `quality@NNk` presets are the same weights, quality
 and decode speed — allocation is free (headline #1), so `NN` buys only the
