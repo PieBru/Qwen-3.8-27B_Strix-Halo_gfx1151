@@ -126,18 +126,43 @@ PILL = '<span class="p {}">{}</span>'
 def pill(ok, label_ok, label_bad="DOWN"):
     return PILL.format("ok" if ok else "bad", label_ok if ok else label_bad)
 
+# numeric health thresholds (bad => bold red; good => quiet green note)
+THR = {
+    "mem_avail_gb": (20, "RAM LOW"),        # < 20 GB free is fleet-unhealthy
+    "swap_used_gb": (8, "SWAPPING"),        # zram churn tax (lesson #2)
+    "load1": (24, "CPU SAT"),               # > 1.5x cores sustained
+    "disk_free_gb": (100, "DISK LOW"),      # GB free on /
+}
+
+# metrics where HIGH is bad (load1); all others are "at least X" (low is bad)
+LOWER_BOUND_BETTER = {"mem_avail_gb", "disk_free_gb", "swap_used_gb"}
+
+def num_pill(m, key, text):
+    """Render a numeric metric: red+bold pill if past threshold, green note otherwise."""
+    limit, label = THR[key]
+    val = m.get(key)
+    if val is None:
+        return PILL.format("bad", "n/a")
+    bad = (val > limit) if key == "load1" else (val < limit)
+    if bad:
+        return PILL.format("bad", f'{label}: {text}')
+    return f'<span class="p ok">{text}</span>'
+
 def halo_card(m):
     if m is None or m.get("unreachable"):
         name = (m or {}).get("halo", PEER_NAME)
         return f'<div class="card"><h3>{name}</h3>{PILL.format("bad","UNREACHABLE")}</div>'
-    up_h, up_m = divmod(m["uptime_s"], 3600)
+    up_d, up_rem = divmod(m["uptime_s"], 86400)
+    up_h, up_m = divmod(up_rem, 3600)
+    up_s = f"{up_d}d{up_h}h" if up_d else f"{up_h}h{up_m:02d}m"
     rows = [
         ("router", pill(m["router_health"], f'OK · {m["recipes"]} recipes')),
         ("units", pill(m["router_unit"] and m["keepalived"] and m["haproxy"], "router·vrrp·lb")),
         ("vip", PILL.format("ok", "OWNS VIP") if m["vip_owner"] else '<span class="p dim">standby</span>'),
-        ("RAM", f'{m["mem_avail_gb"]} GB avail / {m["mem_total_gb"]} · cache {m["cached_gb"]} · swap {m["swap_used_gb"]}'),
-        ("load", f'{m["load1"]} / {m["load5"]} · up {up_h}h{up_m:02d}m'),
-        ("disk", f'{m["disk_free_gb"]:.0f} GB free'),
+        ("RAM", num_pill(m, "mem_avail_gb", f'{m["mem_avail_gb"]} GB avail / {m["mem_total_gb"]} · cache {m["cached_gb"]} · swap {m["swap_used_gb"]}')),
+        ("swap", num_pill(m, "swap_used_gb", f'{m["swap_used_gb"]} GB in zram')),
+        ("load", num_pill(m, "load1", f'{m["load1"]} / {m["load5"]} · up {up_s}')),
+        ("disk", num_pill(m, "disk_free_gb", f'{m["disk_free_gb"]:.0f} GB free')),
         ("canary", pill(bool(m["canary_last"]), (m["canary_last"] or "")[:44] + f' ({m["canary_age_min"]}m ago)') if m["canary_last"] else PILL.format("bad", "no log")),
         ("kernel", pill(m["ring_events_24h"] == 0, "0 ring events 24h", f'{m["ring_events_24h"]} RING TIMEOUTS')),
         ("git", m["git"]),
@@ -214,7 +239,7 @@ body{font:14px/1.45 ui-monospace,monospace;background:#0e1116;color:#cdd6e1;marg
 table{border-collapse:collapse;width:100%}td{padding:2px 8px 2px 0;vertical-align:top}
 td.k{color:#565f89;white-space:nowrap}
 .p{padding:0 8px;border-radius:10px;font-size:12px}
-.p.ok{background:#1b2b1f;color:#9ece6a}.p.bad{background:#2f1b1b;color:#f7768e}
+.p.ok{background:#1b2b1f;color:#9ece6a}.p.bad{background:#3a1418;color:#ff6b7d;font-weight:700;border:1px solid #f7768e66}
 .p.dim{background:#1d222c;color:#565f89}
 .dim{color:#565f89}
 </style></head><body>
