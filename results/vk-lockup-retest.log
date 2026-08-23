@@ -1,0 +1,18 @@
+server up (pid 1269), battery start 2026-08-23T06:58:37+00:00
+chunk  1: + 19567 -> filled=  19567  prefill=  328.5 t/s ( 59.6s)
+chunk  2: + 19571 -> filled=  39138  prefill=  265.9 t/s ( 73.6s)
+chunk  3: + 19571 -> filled=  58709  prefill=  217.9 t/s ( 89.8s)
+chunk  4: + 19571 -> filled=  78280  prefill=  177.4 t/s (110.3s)
+chunk  5: + 19564 -> filled=  97844  prefill=  144.3 t/s (135.6s)
+chunk  6: + 19564 -> filled= 117408  prefill=  118.5 t/s (165.0s)
+chunk  7: + 19564 -> filled= 136972  prefill=  100.3 t/s (195.1s)
+chunk  8: + 19564 -> filled= 156536  prefill=   85.9 t/s (227.8s)
+chunk  9: + 19564 -> filled= 176100  prefill=   75.2 t/s (260.2s)
+chunk 10: + 19564 -> filled= 195664  prefill=   66.8 t/s (293.0s)
+chunk 11: + 19564 -> filled= 215228  prefill=   60.1 t/s (325.4s)
+chunk 12: + 19564 -> filled= 234792  prefill=   54.4 t/s (359.7s)
+chunk 13: + 19564 -> filled= 254356  prefill=   49.5 t/s (395.3s)
+REQUEST FAILED at filled=254356: HTTP Error 400: Bad Request
+VERDICT: CRASH (server unreachable mid-fill)
+battery rc=2 2026-08-23T07:43:37+00:00
+server still alive after battery

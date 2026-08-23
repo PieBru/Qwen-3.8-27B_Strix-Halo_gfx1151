@@ -543,7 +543,7 @@ same battery (`fill_battery.sh`: Q8 target + DFlash2 draft, f16 KV,
 
 | Backend | bare bench (Q6 / Q8) | fill fate |
 |---|---|---|
-| Vulkan (production build) | pp512 360.6 / 365.0 · tg32 8.78 / 7.27 | 💥 died at **136,965** filled (`vk::Queue::submit: ErrorDeviceLost`, RADV "CS cancelled") |
+| Vulkan (production build) | pp512 360.6 / 365.0 · tg32 8.78 / 7.27 | 💥 died at **136,965** filled (`vk::Queue::submit: ErrorDeviceLost`, RADV "CS cancelled") — default kernel watchdog; **with `lockup_timeout=-1`: full window, 254,356** |
 | ROCm — TheRock 7.15.0a nightly | pp512 352.5 / 370.8 · tg32 8.57 / 7.18 | ✅ **survived 215,228** filled, zero errors |
 
 Reading it straight:
@@ -715,6 +715,7 @@ Same battery, deep fill, fate of the server:
 | Stock master Vulkan (`-ub 4096`) | **died at 19,571** (!) | same |
 | Stock master Vulkan (`-ub 1024`) | died in the 39k–58k band | same |
 | Fork ROCm TheRock 7.15 | **survived 215,228 filled — zero errors** (two runs: run 1's chunk-12 client-timeout cancelled at 98% progress ≈ 234k filled server-side; run 2 stopped manually mid-chunk-10 — server healthy both times) | — |
+| Fork Vulkan + `amdgpu.lockup_timeout=-1` | **survived 254,356 filled = full window** (2026-08-23 intervention run; rejected only the one-chunk-overflow request past the window with a clean 400) | **none — zero kernel ring events** |
 
 *Note on the stock rows: they ran without a draft model — stock's loader
 rejects the fork-format DFlash2 draft (`wrong number of tensors; expected 81,
@@ -738,16 +739,18 @@ Three findings worth internalizing:
   136,965. Healthy chunks of 60–144 s never tripped it (many short,
   progress-signaling submissions), so the trigger is one long no-signal
   dispatch, not total runtime.
-- **Community confirmation (REPORTED, 2026-08-23)**: a Strix-Halo user ran
-  the same class of deep fills with `amdgpu.lockup_timeout=-1` (kernel
-  cmdline) and now sustains **2–3 concurrent Q6 instances at 256k context on
-  Vulkan, no device-lost** (slow — a few t/s — but stable; consistent with
-  the watchdog theory: given infinite patience the dispatch completes).
-  Not yet verified on this box — the test needs a grub edit + reboot
-  (operator gate). Side effects are real: `-1` disables GPU hang recovery,
-  so a *true* hang then requires a reboot — acceptable headless, riskier on
-  a desktop box. A middle path (`lockup_timeout=600000`, 10 min) keeps some
-  recovery.
+- **Community confirmation (REPORTED → now VERIFIED here, 2026-08-23)**:
+  the intervention test ran on this box — kernel cmdline
+  `amdgpu.lockup_timeout=-1` (systemd-boot entry, backup kept), same
+  battery: **254,356 positions filled = the entire usable window in 45 min,
+  zero device-lost, zero kernel ring events** (journal confirms
+  `amdgpu: lockup timeout disabled` at boot). The twice-deterministic
+  136,965 death is gone → causation established, not just correlation.
+  Cost model of `-1` (reported by the same user): a *true* GPU hang then
+  needs a reboot — acceptable headless, a real tradeoff on a desktop. A
+  middle path (`lockup_timeout=600000`, 10 min) keeps some recovery and
+  would very likely also clear our ~2 s-class false positive, at the cost
+  of unverified-by-us behavior on 10-minute dispatches.
 - **Why ROCm survived (INFERRED)**: the HIP path splits the same math into
   differently-shaped submissions that keep signaling progress — so the
   watchdog never fires — rather than being immune to the underlying depth
@@ -769,27 +772,29 @@ Three findings worth internalizing:
 
 ### The chart: context-filling decay, deep into the 256k window
 
-Prompt-processing speed while the context fills (the same 16k chunks, same
-flags; Q8 + DFlash2 + f16 KV). **Vulkan's prefill edge widens with depth
-(1.25× at 20k → 2.7× at ~117k) — until it dies mid-band.** ROCm decays faster
-in absolute terms but is the only one still standing (measured to 215k = 82%
-of the 262k window):
+Prompt-processing speed while the context fills (same 16k chunks, same
+flags; Q8 + DFlash2 + f16 KV). With the default kernel, **Vulkan's prefill
+edge widens with depth (1.25× at 20k → 2.7× at ~117k) — until the amdgpu
+watchdog kills it at ~137k.** With `amdgpu.lockup_timeout=-1` the same run
+sails through the death zone and fills the **entire window** (2026-08-23
+intervention run: 254,356 positions — window boundary, not a crash — in
+45 min, zero errors, zero kernel ring events). ROCm decays faster in
+absolute terms and survives on the default kernel:
 
 ```mermaid
 xychart-beta
-    title "Incremental prefill speed vs FILLED context — the duel while Vulkan lives"
-    x-axis "positions filled" ["19.5k", "39k", "58.7k", "78k", "97.8k", "117k"]
+    title "Incremental prefill t/s vs FILLED context — Vulkan with lockup_timeout=-1 vs ROCm"
+    x-axis "positions filled" ["19.5k","39k","58.7k","78k","97.8k","117k","137k","156k","176k","196k","215k","235k","254k"]
     y-axis "prefill tok/s" 0 --> 350
-    line [327, 265, 218, 177, 144, 119]
-    line [262, 165, 102, 71, 55, 44]
+    line [328, 266, 218, 177, 144, 118, 100, 86, 75, 67, 60, 54, 49]
+    line [262, 165, 102, 71, 55, 44, 37, 32, 28, 25, 22]
 ```
 
-*(upper line = Vulkan — it died one chunk past the last point shown, at
-136,965 filled; lower line = ROCm TheRock 7.15, which kept decaying smoothly
-through the death zone: 37 t/s @137k → 32 @156k → 28 @176k → 25 @196k →
-22 @215k — zero errors, measured to 215,228 = 82% of the window. Two
-independent runs reproduced the ROCm curve within ±3% at every depth.
-Decode speed decays with filled depth on both backends the same way — see the
+*(upper line = Vulkan, `lockup_timeout=-1` — the 2026-08-23 full-window run;
+it matches the killed run's curve within ±1 t/s at every shared depth, then
+continues 6 more chunks past the old 136,965 death. Lower line = ROCm
+TheRock 7.15 through 215k. Decode speed decays with filled depth on both
+backends — see the
 fill-decay table in the 1M chapter.)*
 
 ### So which one, and why?
