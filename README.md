@@ -445,6 +445,32 @@ WebUI's saved model, cron/curl scripts, other boxes on the LAN — silently
 follows the move; the recipe names stay available for when you explicitly
 want a different tradeoff.
 
+### Pair it with pi (the coding agent)
+
+[pi](https://pi.dev) is the agent this repo's boxes run daily, and it talks
+to this router natively — the llama.cpp project's own site uses exactly this
+pairing as its example. Two ways, both verified on this stack:
+
+1. **pi extension (what we run)** — [`pi-llama-cpp`](https://www.npmjs.com/package/pi-llama-cpp)
+   auto-discovers every recipe from the router's catalog, shows live
+   load/loading/failed state, and maps its thinking levels to configurable
+   `reasoning_budget_tokens` budgets (the same measured cap behind the
+   `coding` recipe):
+   ```bash
+   pi install npm:pi-llama-cpp
+   # point it at one or more routers (semicolon-separated):
+   # ~/.pi/agent/settings.json:  "llamaServerUrl": "http://127.0.0.1:8080;http://192.168.50.15:8080"
+   ```
+   Verified here (2026-08-23): both LAN boxes discovered — 10 recipes each
+   with correct per-recipe context windows and vision detection — and live
+   completions through the discovered names. Our `models.json` now carries
+   only load-bearing pins (the `Qwen38-27B` alias surfaces + the nightly
+   systemd pin); the extension carries the catalog, so a new `models.ini`
+   recipe appears in pi without any config edit.
+2. **pi built-in** — `/login llama.cpp` + `/llama` + `/model`: model
+   load/unload, live status, even Hugging Face downloads from the palette
+   (works against stock router servers; our fork speaks the same surface).
+
 ### Running 24/7 agents: the margin rule
 
 The window (`c`) is a **fence**, not a target. A prompt larger than the window
