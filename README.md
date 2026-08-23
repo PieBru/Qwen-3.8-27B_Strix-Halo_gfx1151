@@ -264,6 +264,68 @@ silently, penalties poison speculative decode, the KV-contamination trap,
 and the "it loads ≠ it works" vision lesson:
 **[docs/LESSONS.md](docs/LESSONS.md)**.
 
+## Ideas, parked (help wanted!)
+
+Things we researched, started, or parked — each is a standing invitation for a
+fellow Haloer to pick up. The fleet master-plan with full research lives in
+`PROPOSAL-two-halos-rpc-usb4.md` territory (ask us for the current copy);
+this chapter is the menu.
+
+**Two-Halo fleet** (two 128 GB Strix boxes, one flock):
+
+- **USB4 direct link** — a 0.8 m certified cable turns two Halos into a
+  ~10–20 Gbps pair (vs 1 GbE); thunderbolt-net staging is ready on both
+  boxes (`tb0`, static /30, module persisted). *Status: cable in transit —
+  bring-up runbook ready.*
+- **llama.cpp RPC virtual-Halo** — `ggml-rpc-server` + `--rpc` splits
+  weights/KV across both boxes; the decoder needs only ~300 KB/s cross-
+  traffic (1 GbE suffices!), prefill pays ~10–15%. Open upstream bugs to
+  dodge: #26685 (Vulkan garble), #26746 (gfx1151 TOP_K crash), #26128.
+- **DeepSeek V4 Flash on two Halos** — the quality frontier: ~685B MoE,
+  Unsloth UD-IQ3_S lands at 116 GB (perfect two-Halo split) or their Q2
+  imatrix quants fit one Halo. The fork already ships DSV4 Vulkan kernels
+  + dspark spec decode. Bonus insight: MoE + mmap = demand-paged experts
+  (hot experts in RAM, cold ones on the 7.9 GB/s NVMe) — single-Halo
+  DSV4 might just work.
+
+**Engine bake-off** (all three build on gfx1151 today — verified):
+
+- **ds4 (DwarfStar)** — antirez's DSV4-specialized engine, 21k★,
+  Strix-Halo ROCm target builds first-try against TheRock 7.15; ships
+  two-Halo layer-split pipeline + SSD expert streaming. Next: the ~100 GB
+  quant download and a first t/s number.
+- **vllm.cpp** — vLLM's serving core (continuous batching, RadixAttention)
+  in one C++ binary; multi-client serving frontier — currently broken on
+  AMD iGPU (their #125/#41/#937) → watch, then a one-evening smoke.
+- **audio.cpp** — 50 families of ASR/TTS/VAD/diar on ggml, builds on the
+  Halos (Vulkan, verified): the natural audio-server side for our sister
+  project [Ciao](https://github.com/PieBru/Ciao) (Wyoming bridge = the fun
+  part).
+
+**Quality & reasoning**:
+
+- **passkey at depth** — we filled 254k positions and measured speed at
+  every depth; nobody has measured *recall* there. `llama-passkey` is
+  built and waiting for a GPU evening.
+- **e3 agent battery tail** — 10 of 30 tool-loop episodes unbanked
+  (`e3_agent_battery.py`, resume-safe).
+- **froggeric template watch** — v22.3 current; upgrades are a ~30-min
+  adopt-track (their suite + our E0 matrix).
+
+**Upstream karma** (pick one, file a PR, cite our evidence):
+
+- llama.cpp **#27588** (ours): trailing `assistant(tool_calls)` dropped in
+  auto-prefill — PR offer stands (serialize vs reject).
+- Watchdog forensics worth posting on **#27076/#27458**: our kernel-log
+  1:1 + `lockup_timeout=-1` intervention is the only published causal
+  proof we know of.
+- **#27210** (adaptive MTP) / **#27342** (DFlash2 upstreaming): both open,
+  both shape our spec-decode future; our spec-battery is ready to be the
+  first gfx1151 datapoint when they merge.
+
+Something catch your eye? Open an issue — measured numbers welcome, vibes
+politely declined.
+
 ## 🙏 Thanks to the authors of this software stack
 
 This experiment stands entirely on other people's work:
