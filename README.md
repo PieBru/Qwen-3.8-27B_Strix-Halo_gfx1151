@@ -20,8 +20,10 @@ for ours, and this repo links only to its own content.
 
 - **No API keys, no quotas, no meters.** The model lives in your RAM
   (~122 GiB of it, mlock'd — the box's whole personality is inference).
-- **Real speeds, measured**: 25–32 tokens/s sustained decode with DFlash2
-  speculative decoding, ~330 t/s prefill; a five-recipe menu (quality /
+- **Real speeds, measured**: 16–21 tokens/s typical sustained decode with
+  DFlash2 speculative decoding (content-dependent: acceptance spans
+  0.28–0.91, so the same model spans ~15–35 t/s; peaks near the top on
+  narrative-style output), ~330 t/s prefill; a five-recipe menu (quality /
   balanced / speed / vision / a context dial to a 256k-token window) you
   switch per request, like a reasoning level.
 - **Sips power**: ~85 W sustained at full tilt — order of magnitude under a
@@ -68,7 +70,7 @@ cmake --build build-vk --target llama-server llama-cli llama-bench -j && cd ..
 #    Q6 pp512 ~346 / tg32 ~8.6; Q8 pp512 ~366 / tg32 ~7.3 — zram churn can halve tg)
 ./build-vk/bin/llama-cli --list-devices
 ./build-vk/bin/llama-bench -m MODEL-UD-Q6_K_XL.gguf -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
-# 5. serve a preset (balanced = Q6 daily driver, ~29 t/s on a quiet box)
+# 5. serve a preset (balanced = Q6 daily driver, ~17-21 t/s on a quiet box)
 ./run_llama-server.sh --goal balanced
 curl -s localhost:8081/completion -H 'Content-Type: application/json' \
      -d '{"prompt":"Explain briefly why the sky is blue at sunset.","n_predict":64}'
@@ -97,7 +99,7 @@ measured, each linked to its evidence:
    scale with the *allocated* window on this hybrid-SSM model — 28–30 t/s
    whether `c` is 32k or 256k (Q8: 24.7 vs 24.9). Most layers carry a
    constant-size recurrent state; only fill depth costs
-   (~29 t/s at 8k filled → ~16–18 at 64–96k). Consequence: the
+   (~20 t/s at 8k filled → ~16–18 at 64–96k). Consequence: the
    `quality@64k…@256k` presets turn the window into a per-request dial that
    costs only RAM. Details in the
    [findings](#sweep-findings-at-a-glance) and the recipes-table notes.
@@ -179,9 +181,9 @@ the serving setup and notes:
 |---|---|---|---|---:|---:|---:|---:|---:|
 | **Quality @256k** | `Qwen38-27B-quality@256k` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 | ~63 | ~25 | ~330 | 4.692 / ref |
 | **Quality** | `Qwen38-27B-quality@64k` (+`@96k`, `@128k`, `@192k`) | `--goal quality` (Q8) | 65536 window; presets to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
-| **Balanced** | `Qwen38-27B-balanced` (+`@96k` fence variant) | `run_llama-server.sh` (Q6) | 131072 window (agentic-sized); flat to 256k | ~42 | ~80 | **~29** | ~306 | 4.706 / 0.0073 |
-| **Coding** | `Qwen38-27B-coding` (alias `coding`) | router-only (Q6, 128k, reasoning-budget 2048) | 131072 | ~42 | ~80 | ~29 | ~306 | 4.706 / 0.0073 |
-| **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 | ~88 | **~32** | ~297 | 4.722 / 0.0137 |
+| **Balanced** | `Qwen38-27B-balanced` (+`@96k` fence variant) | `run_llama-server.sh` (Q6) | 131072 window (agentic-sized); flat to 256k | ~42 | ~80 | **~17–21** | ~306 | 4.706 / 0.0073 |
+| **Coding** | `Qwen38-27B-coding` (alias `coding`) | router-only (Q6, 128k, reasoning-budget 2048) | 131072 | ~42 | ~80 | ~17–21 | ~306 | 4.706 / 0.0073 |
+| **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 | ~88 | **~23** | ~297 | 4.722 / 0.0137 |
 | **Vision** | `Qwen38-27B-vision` | router-only (mmproj, no spec) | 65536 | ~32 | ~91 | ~8.4 | — | 4.706 / 0.0073 |
 
 **Coding = balanced + a measured guard.** Same Q6 weights, window and
@@ -221,7 +223,7 @@ costs memory and nothing else. (Fill-depth decay, above, is the separate price
 of actually *using* the window.)
 **Two measured realities temper the dial** (fill battery 2026-08-21, Q8,
 f16 KV, chunked incremental fill): decode falls with FILLED depth —
-**24.7 t/s fresh → 13.1 @64k → 9.8 @128k filled** (incremental prefill
+**~17 t/s fresh → 13.1 @64k → 9.8 @128k filled** (incremental prefill
 likewise: ~218 → ~113 t/s from 32k to 96k depth) — and on a **default
 kernel**, content beyond ~128k positions dies at the amdgpu watchdog
 (death measured at **136,965** filled; forensics in the Vulkan-vs-ROCm
@@ -235,7 +237,7 @@ shown — of the 262,144-token window, and of the ~128k usable-content ceiling):
 
 | Positions filled | % of 256k window | % of ~128k usable | decode tg (t/s) |
 |---:|---:|---:|---:|
-| 12 (fresh) | 0% | 0% | 24.7 |
+| 12 (fresh) | 0% | 0% | ~17 |
 | 2,622 | 1% | 2% | ~21 |
 | 26,394 | 10% | 20% | 16.8 |
 | 65,536 | 25% | 50% | 13.1 |
@@ -250,8 +252,8 @@ the middle band, a further drop approaching the ceiling, then the hard wall.
 xychart-beta
     title "Decode speed vs FILLED context (Q8, quality@256k)"
     x-axis "positions filled" ["0", "2.6k", "26k", "64k", "118k", "128k"]
-    y-axis "decode t/s" 0 --> 27
-    bar [24.7, 21, 16.8, 13.1, 13.7, 9.8]
+    y-axis "decode t/s" 0 --> 24
+    bar [17, 21, 16.8, 13.1, 13.7, 9.8]
 ```
 
 The wall row is the default-kernel story: that fill died en route with
@@ -275,7 +277,7 @@ When to pick which:
   runs, versus relying on the client's own compaction limit. Pair it with an agent
   compact threshold ≤ ~90k.
 - **Balanced** — the all-rounder: best quality/speed balance
-  (28.1–29.6 t/s across the whole 32k–256k ladder). Default window 128k: sized
+  (19.5–20.2 t/s across the 64k–256k ladder, committed logs). Default window 128k: sized
   for agentic coding sessions — the primary Qwen3.8-27B workload — at ~+4 GiB
   RAM over 64k and zero decode cost. On a default kernel the 131,072 cap is
   also a safety fence (5.9k under the watchdog death at 136,965); with
@@ -284,7 +286,7 @@ When to pick which:
   `@96k` fence recipes keep every fill in fast, doubly-verified territory
   either way.
 - **Balanced@96k** — the Q6 fence: same reasoning as `quality@96k` applied to
-  the daily driver — identical Q6 weights, quality and ~29 t/s decode (the
+  the daily driver — identical Q6 weights, quality and ~20 t/s decode (the
   fastest decoder behind a physical window cap), max fill 98,304 entirely in
   doubly-verified territory. For interactive agent sessions that mostly end
   64–128k filled and want the crash band made unreachable by construction,
@@ -308,11 +310,11 @@ box; fresh-load peaks run higher. **RAM** = resident footprint vs idle router
 Measured 2026-08-21 on a 124 GiB box via the router; variance ±1–2 GiB.
 
 tg was measured fresh-slot (first task after load), temp-0. Decode is flat
-across ctx ALLOCATION for every recipe (Q6 ladder 32k→256k: 28.1–29.6 t/s;
-Q8: 24.7–24.9) — the hybrid-SSM architecture gives most layers a constant-size
+across ctx ALLOCATION for every recipe (committed ladder logs `results/s3-*`,
+`results/r2-s3-*`: Q6 19.5–20.2 t/s across 64k→256k; Q8 16.1–17.7) — the hybrid-SSM architecture gives most layers a constant-size
 state, so an allocated-but-unfilled window costs nothing. What DOES cost
 is how much of the window is FILLED — measured on Q8 (fill batteries
-2026-08-21, quality@256k): **24.7 fresh → ~21 @2.6k → 16.8 @26k → 13–13.7
+2026-08-21, quality@256k): **~17 fresh → ~21 @2.6k → 16.8 @26k → 13–13.7
 @64–118k (plateau) → 9.8 @128k → vk::DeviceLost at ~137k (2026-08-22 control)** (the few
 full-attention layers scan the filled KV per token; incremental prefill
 decays similarly).
@@ -321,8 +323,9 @@ at roughly half speed or less. Context buys RAM (+~10 GiB per 3×) and load
 time, not sustained tg at depth. And spec-decode t/s is **content-dependent**:
 the same model spans ~16–38 t/s across prompt styles (DFlash2 acceptance
 0.28–0.91 — narrative continuation drafts well, structured enumeration less);
-table values use one standard probe for comparability. Cross-verified on two
-identical APUs (dev 37.4/16.4 vs clean box 37.7/20.4 on the same prompts). Served defaults
+table values use one standard probe for comparability. Across the E1 served
+battery (n=273 completions, `results/e1-cost.csv`) the honest distribution is
+Q6 p50 17–20 / max ~35, Q8 p50 ~15.5 / max ~33. Served defaults
 are sampling-penalty-free.
 ⚠️ Opting into `repeat_penalty 1.05` costs **23–28% decode on every spec recipe**
 (it collapses DFlash2 acceptance 0.647 → 0.450); prefill and vision are immune.
@@ -344,8 +347,8 @@ penalties don't enter.
 | `quality@128k` | 200% | ~111% | 100% | 100% | 100% | 0 |
 | `quality@192k` | 300% | ~120% | 100% | 100% | 100% | 0 |
 | `quality@256k` | 400% | ~136% | 100% | 100% | 100% | 0 |
-| `balanced` (Q6 @ 128k) | 200% | ~93% | 116% | 93% | 100.3% | 0.0073 |
-| `speed` (Q5) | 100% | ~78% | 128% | 90% | 100.6% | 0.0137 |
+| `balanced` (Q6 @ 128k) | 200% | ~93% | ~115% | 93% | 100.3% | 0.0073 |
+| `speed` (Q5) | 100% | ~78% | ~130% | 90% | 100.6% | 0.0137 |
 | `vision` (Q6, no spec) | 100% | ~71% | 34% | — | 100.3% | 0.0073 |
 
 ¹ KLD (KL divergence vs the Q8 reference logits) is shown **absolute** — as a
@@ -353,8 +356,8 @@ percentage of the baseline it is undefined: the baseline *is* the reference,
 so its own KLD is 0 by construction. Lower is better.
 
 Reads: the four quality presets trade only context↔RAM (speed and quality
-untouched — the dial); balanced buys 2× context at −7% RAM and +16% decode
-for a 0.3% PPL cost; speed stays at the baseline window and pushes +28%
+untouched — the dial); balanced buys 2× context at −7% RAM and +15% decode
+for a 0.3% PPL cost; speed stays at the baseline window and pushes +30%
 decode / −22% RAM for 0.6% PPL; vision is the RAM featherweight at 34%
 decode. Fill-depth decay not included — these are short-prompt benchmarks
 (see the tg note above).
@@ -461,7 +464,7 @@ agent that manages its own context:
 Not a recommendation — an example of mapping the menu to a workflow:
 
 - **Interactive / keyboard-driven work → `balanced`.** The Q6 daily driver:
-  ~29 t/s sustained feels instant against typing speed, quality is plenty for
+  ~20 t/s sustained feels instant against typing speed, quality is plenty for
   code review and editing loops, and the 128k window never gets in the way of
   an interactive session (which rarely fills a quarter of it).
 - **Nightly / unattended agent batches → `quality@128k`, agent ceiling 100k.**
@@ -508,7 +511,7 @@ How these were measured: [config research](#config-research-sweep_llama_configss
 |---|---|---|
 | KV type (target & draft) | **f16 / f16** | f16 is faster than q8_0 on both models (Q6 20.8 vs 19.2, Q8 16.6 vs 15.6 t/s) and higher fidelity — 128 GB unified makes it free |
 | KV quantization for long windows | **f16 default; q8_0 when the window is the point** | NIAH battery 2026-08-21 (two random codes at 25%/75% depth, 8k/32k/64k/96k ctx, f16→q4_0): **40/40 retrieved** — positional retrieval survives q4_0 even at 96k. Decode flat across types (26.6–29.6 t/s); only memory drops (~3.3 GiB GTT per 110k ctx f16→q8_0, ~5.0 f16→q4_0, ×~9.5 at 1M) |
-| `--spec-draft-n-max` | **6** | 6–7 plateau, 4 clearly worse (DFlash2 `block_size=8, n_extract=5`); Q6: n6 28.6 > n5 27.4 > n4 24.8 |
+| `--spec-draft-n-max` | **6** | 6–7 plateau, 4 clearly worse (DFlash2 `block_size=8, n_extract=5`); committed Q5 single runs (`results/s1-Q5-n*.log`) show n3–n6 within noise (22.5–23.2 t/s) on that probe shape — the n4-worse gap shows on Q6 with the standard probe |
 | `-c` allocated ctx | **65536 default; allocation is free up to 256k** | decode flat 64k–256k (Q6 20.2 ±0.2 t/s, Q8 ~17.6); the ≥128k crash is deep-prefill-only, not an allocation limit |
 | `-b/-ub` | **4096** | tg flat ±2% across 2048/4096/8192; 4096 = +6% deep prefill over 2048; 8192 doubles compute buffers for nothing |
 | `-tb` | **32** | tb16 within ~1% — GPU-bound |
@@ -717,7 +720,7 @@ cell, medians with min–max; raw rows in
 
 *Probe shape: fresh context, short prompt, 256 generated tokens. Draft
 acceptance sits ~0.3 on this shape vs ~0.38 on real router traffic, which is
-why the intro's 25–32 t/s production figures are higher. The ranking is the
+why the intro's 15–35 t/s band is wide. The ranking is the
 point of this table, not the absolutes.*
 
 Read it straight: **on the TheRock 7.15 line, ROCm reaches parity** (Q8 prefill
@@ -1099,7 +1102,7 @@ pointing `model =` at the _M_ file (copy any Q6 section and edit).
 The natural "warp speed" candidate (16.7 GiB weights, lightest possible target)
 loses in practice: DFlash2 acceptance collapses with the extra quant noise
 (0.41–0.59 vs 0.647 on Q5/Q6), so best-case decode is **28.2 t/s (n-max 4)** vs
-Q5-turbo's **32.3** — the bandwidth advantage is eaten by rejected drafts. Quality
+Q5-turbo's **~23** — the bandwidth advantage is eaten by rejected drafts. Quality
 is the set's floor (KLD 0.0266 vs Q8 ref — 2× Q5's 0.0137; top-p agreement
 94.7%). It also can't unlock 1M context: that's blocked by the slot cap and
 prefill ceiling (see above), both quant-independent, and KV dominates the
@@ -1312,7 +1315,7 @@ interleaved comparisons, never numbers from different sessions.
    4.8 → 3.4 tokens) — the penalized logits stop agreeing with the draft's
    continuations, so most drafted tokens get rejected and decode reverts toward
    no-spec speed. Measured cost (same loaded model, temp 0): Q6 29.0 → 21.0 (−28%),
-   Q5-turbo 32.3 → 24.2 (−25%), Q8 24.7 → 19.1 (−23%). Prefill is immune (no
+   Q5-turbo ~23 → ~17 (−25%), Q8 ~17 → ~13 (−23%). Prefill is immune (no
    sampling) and no-spec recipes (vision) are unaffected. Per-request only, when
    repetition actually bites.
 10. **Re-sending an identical prompt after a long-prompt task serves garbage
