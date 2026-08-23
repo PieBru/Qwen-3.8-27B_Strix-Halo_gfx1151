@@ -44,6 +44,15 @@ owner spreads requests across both routers. Direct per-box access
   green. No split-brain observed (exactly-one-VIP check is a doctor rule).
 - Dashboard via VIP:8082 during all of the above: kept rendering from the
   surviving halo, showing the current server and VIP owner.
+- **Halo-death drill (2026-08-24)**: with halo2's keepalived+haproxy+
+  dashboard-agent stopped, the VIP dashboard kept rendering from strixy2 —
+  halo2's card held its slot as red `UNREACHABLE`, doctor row
+  `FAIL: both halos reachable`, load split showed it `DOWN`, and inference
+  through VIP:8081 continued (`HALO2-DOWN-OK`). On restore: all pills green,
+  both cards live, `both-reachable OK`. The dashboard is exactly as
+  available as the fleet (shares its fate by design); per-box agents also
+  listen on their real IPs (`:8082`) so any breathing box can show the
+  fleet state directly.
 
 ## Deploy discipline (the rule the doctor enforces)
 
