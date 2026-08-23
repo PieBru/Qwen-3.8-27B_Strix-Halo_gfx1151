@@ -356,6 +356,22 @@ decision rules); this chapter is the menu.
   re-run stock-vs-fork spec battery").
 - Quality gate: report-only by default (pi-dream's Dream Gate pattern);
   nothing auto-applies to recipes or memory without a human pass.
+- **The philosophy behind it — auto-healing, auto-evolutive system**: the
+  scout is phase 1 of a ladder, not a newsfeed:
+  1. **Observe** (day 1): morning report, operator reads.
+  2. **Propose** (stable weeks): report + drafted experiment/patch per
+     finding, operator approves each.
+  3. **Auto-heal** (trust earned): autonomous *revertible* actions only —
+     restart a wedged service (the canary already does this pattern),
+     re-pin a flaky recipe, re-run a battery and file the result; every
+     action journaled + one-command rollback.
+  4. **Auto-evolve** (highest bar, always operator-sealed): adopting
+     measured improvements (new quants, flags, recipes) — proposal +
+     evidence lands as a PR/draft; **the operator keeps the seal** (the
+     agent's own constitution: never self-ratify hard changes).
+  Rollback is a first-class citizen at every rung — nothing evolves
+  without a tested way back (git discipline + .bak conventions + the
+  fleet doctor's drift detection are the existing rails this climbs).
 
 **Upstream karma** (pick one, file a PR, cite our evidence):
 
