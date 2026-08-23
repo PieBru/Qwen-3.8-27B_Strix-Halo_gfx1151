@@ -1,0 +1,11 @@
+[t16-tb32] server up (t=16 tb=32, np=2)
+[t16-tb32] done in 150s | prefill mean/client 192 t/s | decode mean/client 18.8 t/s | combined decode ~89.9 t/s
+[t1-tb1] server up (t=1 tb=1, np=2)
+[t1-tb1] done in 150s | prefill mean/client 191 t/s | decode mean/client 18.8 t/s | combined decode ~89.8 t/s
+[t1-tb2] server up (t=1 tb=2, np=2)
+[t1-tb2] done in 150s | prefill mean/client 191 t/s | decode mean/client 18.7 t/s | combined decode ~89.7 t/s
+[t2-tb1] server up (t=2 tb=1, np=2)
+[t2-tb1] done in 151s | prefill mean/client 174 t/s | decode mean/client 19.6 t/s | combined decode ~85.3 t/s
+[t2-tb2] server up (t=2 tb=2, np=2)
+[t2-tb2] done in 151s | prefill mean/client 191 t/s | decode mean/client 18.7 t/s | combined decode ~89.3 t/s
+e5 complete

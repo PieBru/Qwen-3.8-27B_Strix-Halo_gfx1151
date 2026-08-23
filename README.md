@@ -566,6 +566,51 @@ How these were measured: [config research](#config-research-sweep_llama_configss
 | dflash fine-tuning | **inert beyond n-max** | `spec-draft-n-min` 2/3 and `spec-draft-p-min` 0.3/0.9 change nothing (bit-identical decodes, acceptance 0.647); stacking `ngram-map-k` on dflash *hurts* (29.0 → 27.4 t/s). Draft quality sets acceptance — `n_max` is the only working knob |
 | `--kv-unified` | **no effect at `-np 1`** | measured 2026-08-21 on Q6@64k and Q8@192k (journal-confirmed `kv_unified='true'`): tg and RAM identical within noise. Its purpose is sharing one KV buffer across parallel slots; with a single slot (and the hybrid SSM's tiny KV) there is nothing to unify. It flips on by itself if slots ever go auto |
 
+## Threads (`-t`), batch threads (`-tb`) and two concurrent clients — measured
+
+Production pins `-t 16 -tb 32` (the box has 16C/32T), but with **full GPU
+offload** (`-ngl all`) CPU threads only orchestrate — so how little can you
+run with, and does it matter when two clients are hitting the server at once?
+Measured 2026-08-23 (`e5_threads_battery.py`, evidence
+[`results/e5-threads.csv`](results/e5-threads.csv)): standalone server in the
+balanced shape (Q6 + DFlash2 draft, f16 KV, `-c 131072 -np 2` → two 64k
+slots, fa on), **2 concurrent client threads** × 4 requests each; every
+request re-prefills 4,927 tokens (`cache_prompt=false`) then decodes 128
+(`ignore_eos`). n=8 per config.
+
+| Config | prefill per client (t/s) | decode per client (t/s) | vs baseline |
+|---|---:|---:|---|
+| `-t 16 -tb 32` (production) | 192 | 18.8 | — |
+| `-t 1 -tb 1` | 191 | 18.8 | **−0.4% / −0.1%** |
+| `-t 1 -tb 2` | 191 | 18.7 | −0.5% / −0.5% |
+| `-t 2 -tb 1` | 161–174 (2 runs) | 19.6–22.3 | **−9…−16% prefill** / decode: noise |
+| `-t 2 -tb 2` | 191 | 18.7 | −0.6% / −0.7% |
+
+Read it straight:
+
+- **One thread costs nothing.** With everything on the GPU, `-t 1 -tb 1`
+  serves two concurrent clients at baseline speed — CPU threads are pure
+  orchestration here. Practical use: if you co-locate CPU-heavy work with
+  the server (agent processes, builds), dropping to `-t 1 -tb 1` gifts ~15
+  cores to it with **zero measured serving cost** under this workload.
+- **The one bad shape is `-t 2 -tb 1`**: a reproducible 9–16% prefill loss
+  (both runs), while its decode moved within noise. Mechanism unproven —
+  avoid the combination; every other tested shape ties the baseline.
+- **Concurrency itself is nearly free in aggregate**: two clients each decode
+  at ~18.8 t/s *while both are running* — aggregate ~37.6 t/s vs ~19–20
+  single-stream (the batched 2-slot path packs both streams into one GPU
+  submission; the hybrid-SSM's tiny per-layer state makes this cheap).
+  Prefill is the shared resource: ~192 t/s per client concurrent vs ~300+
+  solo. If you need two consumers on one box, decode is the wrong thing to
+  worry about — long *prefills* queueing each other are.
+
+Caveats: n=8 per config, single box, decode scatter ±15% across configs
+(DFlash2 acceptance is content-dependent); thread findings apply to
+fully-offloaded serving — CPU-layer runs are a different regime. The
+`--models-max 1` router serializes *model* loading, not slots; to get two
+concurrent clients on one model you need `-np 2` (as here) — the recipe
+default stays `-np 1`.
+
 ## The 1M-token context: what works, what doesn't, and what it costs
 
 Qwen3.8-27B's 1M-token window is a headline feature — here is everything this
