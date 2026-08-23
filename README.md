@@ -316,6 +316,25 @@ decision rules); this chapter is the menu.
 - **froggeric template watch** — v22.3 current; upgrades are a ~30-min
   adopt-track (their suite + our E0 matrix).
 
+**Fleet growth — heterogeneous backends** (researched 2026-08-24):
+
+- The fleet's HA spine (VIP + haproxy) is backend-agnostic: enrolling a
+  box = two haproxy `server` lines + a llama-server that answers `/health`.
+- **Beefy i9 + RTX 4090 Ti + 128 GB DDR5** → third *27B-class* backend
+  (CUDA speed likely beats the halos; 128 GB RAM opens `-cmoe` MoE shapes).
+  Pilot candidate: weight-80 backend behind the existing VIP.
+- **i7 + 8 GB VRAM + 64 GB** → wrong box for the 27B, right box for the
+  small-model speed lane, embeddings, or **audio.cpp for Ciao** (Phase E
+  lands naturally on exactly this class of hardware).
+- Heterogeneity caveats researched: per-server `weight` (leastconn doesn't
+  know "fast"), KV re-prefill on cross-hardware failover (same one-time
+  cost, more frequent), dashboard doctor needs a generalized "backends"
+  card (halo-specific checks don't map), capacity-sharing vs dedicated
+  (boxes already running llama-server for others = *federation*, not
+  takeover), LAN trust surface.
+- Suggested pilot: enroll the i9 alone (evening, zero fleet risk), live
+  with three-way spreading for a week, then decide the i7's lane.
+
 **Upstream karma** (pick one, file a PR, cite our evidence):
 
 - llama.cpp **#27588** (ours): trailing `assistant(tool_calls)` dropped in
