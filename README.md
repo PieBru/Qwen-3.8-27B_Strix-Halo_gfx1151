@@ -335,6 +335,28 @@ decision rules); this chapter is the menu.
 - Suggested pilot: enroll the i9 alone (evening, zero fleet risk), live
   with three-way spreading for a week, then decide the i7's lane.
 
+**Nightly research dream — the "scout"** (researched 2026-08-24):
+
+- Unattended ~07:00 pi run (same systemd pattern as the nightly memory
+  dream; [pi-dream](https://github.com/PieBru/pi-dream) is the chassis)
+  that scans the monitored sources — llama.cpp/fork commits + merged PRs,
+  r/LocalLLaMA + r/StrixHalo (+ this repo's watch ledger triggers), HF
+  quant repos (Unsloth/froggeric), the engine newborns (ds4, vllm.cpp,
+  audio.cpp) — and writes a **morning report**: what's new AND *worth
+  evaluating* for our fully-local, lightweight LAN-inference goals.
+- Infrastructure ~90% standing: pi + headless-Chromium Reddit browsing
+  (proven), GitHub API, the watch ledger's named triggers, report
+  conventions. Missing piece: a `scout` skill (focused prompt + source
+  list + worth-evaluating filter) on the pi-dream chassis.
+- Filter is the design core: the report earns its 07:00 slot only by
+  surfacing *decision-relevant* changes (perf/quality deltas on our
+  model/hardware class, bug fixes touching our open issues, new quant
+  revisions) — not a firehose. Each finding links evidence + names the
+  repo experiment that would evaluate it (e.g. "DFlash2 upstreamed →
+  re-run stock-vs-fork spec battery").
+- Quality gate: report-only by default (pi-dream's Dream Gate pattern);
+  nothing auto-applies to recipes or memory without a human pass.
+
 **Upstream karma** (pick one, file a PR, cite our evidence):
 
 - llama.cpp **#27588** (ours): trailing `assistant(tool_calls)` dropped in
