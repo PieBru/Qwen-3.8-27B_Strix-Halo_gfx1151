@@ -45,6 +45,14 @@ owner spreads requests across both routers. Direct per-box access
 - Dashboard via VIP:8082 during all of the above: kept rendering from the
   surviving halo, showing the current server and VIP owner.
 
+## Deploy discipline (the rule the doctor enforces)
+
+Fleet deploys are **git push on the dev box → `git pull --ff-only` on the
+peer** — never scp'd file copies. Hot-scping a script to one halo works
+until the next parity check catches the drift (this happened once, 2026-08-24:
+the dashboard's git-parity FAIL flagged an scp-hot-deployed agent; fixed by
+checkout + ff-pull). The doctor's parity row exists precisely to catch this.
+
 ## Known limits (documented, not hidden)
 
 - **In-flight requests die on failover.** Stateless HTTP + client retry
