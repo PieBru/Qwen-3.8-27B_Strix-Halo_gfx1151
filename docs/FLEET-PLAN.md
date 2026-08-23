@@ -234,6 +234,36 @@ R2 — Degraded-serve behavior (the payoff):
   is down, a simple health-check wrapper starts the job on the survivor
   (one systemd `OnFailure`/ ExecCondition line, to be written when needed).
 
+R2.5 — Transparent HA, one address (BUILT & TESTED 2026-08-24)
+
+keepalived + haproxy run ON both halos (no extra hardware — a proxy pair
+of Raspberry PIs would add boxes to maintain without adding availability
+for a 2-backend fleet; revisit PIs only at 3+ backends / TLS / mixed
+services). Configs are the repo's source of truth under `fleet/`.
+
+    clients ──► 192.168.50.10:8081 (VIP, VRRP failover < 4 s)
+                  └─ haproxy on the VIP owner, leastconn + /health checks
+                       ├─ halo1 127.0.0.1:8080
+                       └─ halo2 192.168.50.15:8080
+
+As-built details: VIP port 8081 (the routers' 0.0.0.0:8080 shadows a VIP
+:8080 — direct per-box access stays :8080 for debug); `ip_nonlocal_bind=1`
+sysctl (`/etc/sysctl.d/91-haproxy-vip.conf`) so the BACKUP's haproxy binds
+the VIP before owning it; VRRP id 51, priority 150/100, preemptive MASTER.
+
+Verified (2026-08-24): VIP serving + alias completion; **failover drill** —
+halt halo1's keepalived+haproxy → VIP moved to .15 in <4 s → completion
+served transparently (`FAILOVER-OK`); restore → MASTER preempted, .15
+released, health green.
+
+Client guidance: point anything that wants transparent HA at
+`192.168.50.10:8081` (scripts, WebUI presets, Ciao primary). pi keeps its
+direct localhost/LAN providers (the pi-llama-cpp extension already lists
+both routers — richer than the VIP for model management); Ciao's existing
+fallback stays as belt-and-suspenders. In-flight requests die on failover
+(clients retry once — stateless HTTP recovers); KV does not migrate (the
+survivor re-prefills; the e4 decay table prices it).
+
 R3 — Verification (measure the reliability, don't assume it):
 
 - A `fleet-doctor.sh` (repo tool): on either box, verify git commit parity,
