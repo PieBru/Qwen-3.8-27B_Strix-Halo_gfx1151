@@ -164,3 +164,35 @@ answered with our own numbers.
   README section + headline finding #7 added.
 - **E3 — NOT RUN** (multi-turn agentic realism; pre-registered rules resolved
   without it; harness sketch deferred — new plan needed if revisited).
+
+## Upstream watch ledger (checked 2026-08-23)
+
+| Item | What | Our stake | Trigger to act |
+|---|---|---|---|
+| [#27076](https://github.com/ggml-org/llama.cpp/issues/27076), [#27458](https://github.com/ggml-org/llama.cpp/issues/27458) | Vulkan device-lost class | Root-caused here as the amdgpu watchdog (forensics + `lockup_timeout=-1` intervention); plausibly same for these reports | Any upstream fix — retest fill battery on default kernel; post our forensics if a maintainer asks |
+| [#27588](https://github.com/ggml-org/llama.cpp/issues/27588) (ours) | Trailing `assistant(tool_calls)` silently dropped in auto-prefill path | Found by T0.4 probes, reproduced on stock master; PR offer stands | Maintainer response — decide serialize-vs-reject, file PR |
+| [PR #27210](https://github.com/ggml-org/llama.cpp/pull/27210) — `draft-mtp-adaptive` | Counting controller climbs/drops MTP draft depth with acceptance | Their data: **+9.6% coding / −3..−3.6% prose** (content-dependent); we run DFlash2 (16.7 > MTP 15.1 on VK), and the controller idea should transfer to `draft-dflash` — our e4 log shows exactly the acceptance spread it exploits (0.26–1.00) | On merge: cherry-pick + our spec-battery n=3 + coding-shaped workload arm; separately ask upstream whether the controller generalizes to draft-dflash (comment drafted 2026-08-23) |
+| froggeric templates | v22.3 current as of 2026-08-23 (repo lastModified 08-21); we ship v22.3 | `sharp.jinja` upgrades: ~30 min via test suite + E0 matrix rerun | Weekly re-check; new version → adopt-track
+
+## E3 addendum (2026-08-23, pre-registered before execution)
+
+Question: in bounded-budget multi-turn tool loops (the agent regime), do
+reasoning level / the coding-recipe budget guard change end-to-end success,
+ total tokens, or retries — including the vendor's retry-cascade warning
+ ("cheap" thinking costs MORE end-to-end once retries compound)?
+
+Cells (5): balanced@{off, low, medium, xhigh} + coding (= balanced +
+reasoning-budget 2048). Tasks (3, client-side deterministic tools,
+max 8 turns, max_tokens 1024/turn, temp 0, 2 reps): T1 clean 2-call
+calculator loop; T2 error-recovery (tool fails on 1st call, succeeds on
+retry — exercises template error-tiering); T3 2-call ledger synthesis.
+
+Pre-registered rules:
+- R1 any success < 100% on deterministic T1/T3 = recorded agent-loop
+  brittleness for that cell (with turn-by-turn trace kept).
+- R2 guard value confirmed iff coding achieves balanced@medium-level
+  success with zero empty-answer turns and total tokens <= medium +10%.
+- R3 retry-cascade confirmed iff off (or low) total tokens on T2 exceed
+  medium's by >25%.
+Metrics: success, total completion tokens, wall, tool calls, retries,
+empty-answer turns.
