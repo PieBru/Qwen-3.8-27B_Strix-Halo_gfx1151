@@ -267,10 +267,11 @@ and the "it loads ≠ it works" vision lesson:
 ## Ideas, parked (help wanted!)
 
 Things we researched, started, or parked — each is a standing invitation for a
-fellow Haloer to pick up. The fleet master-plan with full research (two-Halo performance,
-engine bake-off, and the mirrored-Halo reliability design — full throttle
-when both are up, zero-config degraded serve with one) lives in
-[docs/FLEET-PLAN.md](docs/FLEET-PLAN.md); this chapter is the menu.
+fellow Haloer to pick up. The fleet has its own documentation set: **[docs/MULTI-HALO.md](docs/MULTI-HALO.md)**
+(the guide: [HA stack as built](docs/FLEET-HA.md) — one VIP address,
+failover-drilled, dashboard — plus [clustering research](docs/FLEET-CLUSTER.md)
+and the [master plan](docs/FLEET-PLAN.md) with phases, bake-offs, and
+decision rules); this chapter is the menu.
 
 **Two-Halo fleet** (two 128 GB Strix boxes, one flock):
 
