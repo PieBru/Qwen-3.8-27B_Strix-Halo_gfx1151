@@ -1,0 +1,11 @@
+# gpu-canary — userspace GPU-liveness probe; see gpu_canary.py header for the
+# full rationale (lockup_timeout=-1 removed kernel-side wedge detection).
+# Deploy: cp to ~/.config/systemd/user/ && systemctl --user daemon-reload
+[Unit]
+Description=gpu_canary — GPU-wedge detector for the lockup_timeout=-1 setup
+ConditionPathExists=/sys/module/amdgpu/parameters/lockup_timeout
+
+[Service]
+Type=oneshot
+# stdlib-only script — no venv/uv dependency, safe from a system timer
+ExecStart=/usr/bin/python3 %h/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/gpu_canary.py

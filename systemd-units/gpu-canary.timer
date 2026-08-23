@@ -1,0 +1,12 @@
+# Every 10 min. Persistent=true catches wedges that happened while the box
+# was suspended/off-line at the scheduled slot.
+[Unit]
+Description=run gpu_canary every 10 minutes
+
+[Timer]
+OnCalendar=*:0/10
+Persistent=true
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target

@@ -750,7 +750,10 @@ Three findings worth internalizing:
   needs a reboot — acceptable headless, a real tradeoff on a desktop. A
   middle path (`lockup_timeout=600000`, 10 min) keeps some recovery and
   would very likely also clear our ~2 s-class false positive, at the cost
-  of unverified-by-us behavior on 10-minute dispatches.
+  of unverified-by-us behavior on 10-minute dispatches. Our unattended-
+  stability setup for living with `-1` (hardware TCO + GPU canary + scoped
+  reboot grant): the
+  [playbook chapter](#stability-without-the-kernel-gpu-watchdog-lockup_timeout-1-playbook).
 - **Why ROCm survived (INFERRED)**: the HIP path splits the same math into
   differently-shaped submissions that keep signaling progress — so the
   watchdog never fires — rather than being immune to the underlying depth
@@ -854,6 +857,44 @@ Nothing wrong with choosing that point on the speed/quality curve *knowing
 you chose it* — but this repo's contract is measured-quality-first: every
 recipe we ship carries its PPL/KLD price tag, and we don't deliver formats
 whose fidelity we haven't measured ourselves.
+
+## Stability without the kernel GPU watchdog (lockup_timeout=-1 playbook)
+
+Running with `amdgpu.lockup_timeout=-1` buys the full 256k Vulkan window
+(above) at a price: **the kernel will never report a GPU hang again**. A
+true wedge then means a box that looks alive but never computes. This
+chapter is the unattended-stability stack that makes `-1` safe on an
+inference appliance — three layers, each catching what the others can't:
+
+1. **Hardware watchdog (already there — verify, don't build).** The board's
+   SP5100 TCO timer is petted by systemd (`RuntimeWatchdogUSec=20s`,
+   `RebootWatchdogUSec=10min` — OBSERVED on this box via `systemctl show`).
+   Catches full-system hangs: if PID 1 stops petting, the firmware reboots
+   the box in 20 s. No action needed beyond checking it's on.
+2. **GPU canary (the new layer — `gpu_canary.py` + `systemd-units/gpu-canary.{service,timer}`).**
+   The gap the TCO can't cover: *kernel alive, GPU ring wedged* — systemd
+   keeps petting, HTTP health stays green, every inference hangs forever
+   (exactly the 2026-08-22 wedges, which `-1` now silences instead of
+   recovering). The canary probes every 10 min: **health green + a 1-token
+   completion dead = the wedge signature**. Two consecutive dead probes →
+   journal entry + reboot. Router inactive → planned offline, skip (batteries
+   don't trip it); health down → service restart only (not a GPU verdict).
+3. **Unattended reboot grant.** `/etc/sudoers.d/gpu-canary-reboot`:
+   `piero ALL=(root) NOPASSWD: /usr/bin/systemctl reboot` — exact-argv
+   scoped (one command, no arguments), so the canary can act while the
+   console is locked. Remove the file to revoke.
+
+Replication on another box: append `amdgpu.lockup_timeout=-1` to the boot
+entry (systemd-boot: `/boot/loader/entries/*.conf` — keep a `.bak`), copy
+the two units to `~/.config/systemd/user/`, `daemon-reload`, `enable --now
+gpu-canary.timer`, drop the sudoers file. Undo is the reverse of every
+step (boot-entry restore is the only reboot-requiring one). The softer
+alternative — `lockup_timeout=600000` (10 min, keeps kernel recovery) — is
+untested here; it's on the ledger as the desktop-friendly variant.
+
+Why this shape: under `-1`, wedge *detection* must move to userspace (the
+kernel has contractually given up reporting it), while wedge *recovery*
+was always the firmware's job (TCO) — the canary just connects the two.
 
 ## Reasoning levels: cost and quality — measured
 

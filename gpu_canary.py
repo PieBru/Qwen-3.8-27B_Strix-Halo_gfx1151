@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""gpu_canary — unattended GPU-liveness watchdog for the lockup_timeout=-1 setup.
+
+WHY IT EXISTS: with amdgpu.lockup_timeout=-1 the kernel will never again
+declare a ring timeout — the price of the 256k-window Vulkan fix. The
+hardware watchdog (SP5100 TCO, petted by systemd at RuntimeWatchdogSec=20s)
+only catches FULL system hangs. The gap is "kernel alive, GPU ring wedged":
+HTTP health stays green while every inference hangs forever. This canary
+closes that gap.
+
+Probe signature (matches the observed 2026-08-22 wedges):
+  /health OK  AND  a 1-token completion dead/timing out  =>  GPU path wedged.
+
+Behavior (timer fires every 10 min):
+  router not active            -> skip (planned offline: batteries etc.)
+  /health not ok                -> restart router once, log, reset counter
+  health ok + completion ok     -> reset fail counter
+  health ok + completion dead   -> count; 2 consecutive => journal + reboot
+                                    (via sudoers NOPASSWD systemctl reboot)
+
+State: ~/.local/state/gpu_canary/  Logs: results/gpu-canary.log
+Undo: systemctl --user disable --now gpu-canary.timer; remove sudoers file.
+"""
+import json
+import os
+import subprocess
+import time
+import urllib.error
+import urllib.request
+
+HOST = "localhost:8080"
+MODEL = "Qwen38-27B-balanced"   # always-loaded default; probe is tiny
+COMPLETION_TIMEOUT = 240        # s; normal is <10 s even under load
+STATE_DIR = os.path.expanduser("~/.local/state/gpu_canary")
+FAILS_FILE = os.path.join(STATE_DIR, "consecutive_fails")
+LOG = os.path.expanduser("~/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151/results/gpu-canary.log")
+
+
+def log(msg):
+    line = f"{time.strftime('%F %T')} {msg}"
+    with open(LOG, "a") as fh:
+        fh.write(line + "\n")
+    print(line, flush=True)
+
+
+def unit_active(name):
+    r = subprocess.run(["systemctl", "--user", "is-active", name],
+                       capture_output=True, text=True)
+    return r.stdout.strip() == "active"
+
+
+def http(url, body=None, timeout=30):
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return json.loads(resp.read())
+
+
+def read_fails():
+    try:
+        return int(open(FAILS_FILE).read())
+    except (OSError, ValueError):
+        return 0
+
+
+def write_fails(n):
+    os.makedirs(STATE_DIR, exist_ok=True)
+    with open(FAILS_FILE, "w") as fh:
+        fh.write(str(n))
+
+
+def main():
+    if not unit_active("llama-router.service"):
+        log("router inactive — planned offline, skipping probe")
+        write_fails(0)
+        return 0
+
+    # 1) service-level health
+    try:
+        http(f"http://{HOST}/health", timeout=15)
+    except Exception as e:
+        log(f"health DOWN ({e}) — restarting router (service-level), not GPU verdict")
+        subprocess.run(["systemctl", "--user", "restart", "llama-router.service"])
+        write_fails(0)
+        return 0
+
+    # 2) end-to-end GPU probe: health-green + inference-dead = wedge signature
+    body = json.dumps({"model": MODEL, "max_tokens": 1, "temperature": 0,
+                       "messages": [{"role": "user", "content": "1"}]}).encode()
+    try:
+        t0 = time.time()
+        d = http(f"http://{HOST}/v1/chat/completions", body, timeout=COMPLETION_TIMEOUT)
+        _ = d["choices"][0]
+        log(f"probe ok ({time.time()-t0:.1f}s)")
+        write_fails(0)
+        return 0
+    except Exception as e:
+        fails = read_fails() + 1
+        write_fails(fails)
+        log(f"probe DEAD ({e}) — health was green: GPU-wedge signature, "
+            f"consecutive fails={fails}")
+        if fails >= 2:
+            log("GPU WEDGE CONFIRMED (2 consecutive dead probes with green "
+                "health) — REBOOTING box via hardware path (lockup_timeout=-1 "
+                "means the kernel cannot recover itself)")
+            subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "reboot"])
+            return 2
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
