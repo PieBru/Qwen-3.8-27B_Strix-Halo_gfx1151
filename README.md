@@ -556,8 +556,8 @@ same battery (`fill_battery.sh`: Q8 target + DFlash2 draft, f16 KV,
 
 | Backend | bare bench (Q6 / Q8) | fill fate |
 |---|---|---|
-| Vulkan (production build) | pp512 360.6 / 365.0 · tg32 8.78 / 7.27 | 💥 died at **136,965** filled (`vk::Queue::submit: ErrorDeviceLost`, RADV "CS cancelled") — default kernel watchdog; **with `lockup_timeout=-1`: full window, 254,356** |
-| ROCm — TheRock 7.15.0a nightly | pp512 352.5 / 370.8 · tg32 8.57 / 7.18 | ✅ **survived 215,228** filled, zero errors |
+| Vulkan (production build, `9b9ac3e38`) | pp512 360.6 / 365.0 · tg32 8.78 / 7.27 | **default kernel:** 💥 dies at **136,965** filled (`vk::Queue::submit: ErrorDeviceLost` ← amdgpu ring watchdog) · **`lockup_timeout=-1`:** ✅ full window, **254,356**, zero errors — *same binary, only the kernel param differs* |
+| ROCm — TheRock 7.15.0a nightly | pp512 352.5 / 370.8 · tg32 8.57 / 7.18 | **default kernel:** ✅ survived **215,228** filled, zero errors (no boot param needed) |
 
 Reading it straight:
 
