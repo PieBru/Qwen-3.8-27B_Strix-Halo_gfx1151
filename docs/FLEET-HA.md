@@ -53,6 +53,32 @@ until the next parity check catches the drift (this happened once, 2026-08-24:
 the dashboard's git-parity FAIL flagged an scp-hot-deployed agent; fixed by
 checkout + ff-pull). The doctor's parity row exists precisely to catch this.
 
+## Session affinity (sticky by client IP) — as built
+
+Steady-state bouncing — a reconnecting client ping-ponging between halos and
+thrashing both KV caches every request — is eliminated: the backend carries
+
+    stick-table type ip size 100k expire 24h
+    stick on src
+
+Semantics (verified live 2026-08-24): a **fresh** client is assigned by
+leastconn (the *less-busy* halo — demonstrated with a held generation on one
+halo routing the new client to the other); from then on the client IP sticks
+to that halo (warm prefix cache; `X-Served-By` response header names the
+server for debugging). Different clients → different halos → **parallel
+full-speed serving** (two agents = one per box, better than 2-on-1: e5).
+Failover: stuck clients move to the survivor — each pays exactly **one**
+re-prefill (the acceptable, one-time cost — not to be confused with the
+per-request thrash affinity kills). Known nuances: (a) two agents behind one
+IP pin together (np=1 keeps their keep-alive connections independent — they
+queue per halo; if that pattern ever hurts, the knob is `-np 2` on the
+routers or per-path hashing); (b) the stick table is per-haproxy-instance —
+on VIP failover the new owner's table is empty and reassigns once (peers
+table-sync is the documented upgrade if that one bounce ever matters);
+(c) `timeout server 30m` on the halos backend so long silent non-streaming
+generations (16k-token thinking bursts ≈ 13 min at ~20 t/s) survive the
+proxy.
+
 ## Known limits (documented, not hidden)
 
 - **In-flight requests die on failover.** Stateless HTTP + client retry
