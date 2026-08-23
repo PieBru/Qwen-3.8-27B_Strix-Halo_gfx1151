@@ -1,0 +1,14 @@
+# fleet-dashboard — minimalist HTMX fleet dashboard (see fleet_dashboard.py)
+# systemd USER unit (linger on; no root needed). Exposed via haproxy VIP:8082.
+[Unit]
+Description=Halo fleet dashboard (HTMX, stdlib-only)
+After=network-online.target
+
+[Service]
+# repo layout differs per box (dev: ~/Piero/Work/<repo>, halo2: ~/<repo>) - resolve both
+ExecStart=/usr/bin/bash -c 'exec /usr/bin/python3 $(ls -d %h/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151 %h/Qwen-3.8-27B_Strix-Halo_gfx1151 2>/dev/null | head -1)/fleet/fleet_dashboard.py'
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
