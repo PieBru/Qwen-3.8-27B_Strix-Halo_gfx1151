@@ -1,0 +1,33 @@
+{
+ "outcome": "success",
+ "turns": 3,
+ "total_comp": 152,
+ "empty_answers": 0,
+ "wall": 359.1,
+ "tool_calls": 2,
+ "retries": 1,
+ "trace": [
+  {
+   "turn": 0,
+   "tool_calls": [
+    "get_weather"
+   ],
+   "finish": "tool_calls",
+   "content_len": 0
+  },
+  {
+   "turn": 1,
+   "tool_calls": [
+    "get_weather"
+   ],
+   "finish": "tool_calls",
+   "content_len": 0
+  },
+  {
+   "turn": 2,
+   "tool_calls": [],
+   "finish": "stop",
+   "content_len": 61
+  }
+ ]
+}

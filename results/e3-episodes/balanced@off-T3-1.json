@@ -1,0 +1,26 @@
+{
+ "outcome": "success",
+ "turns": 2,
+ "total_comp": 104,
+ "empty_answers": 0,
+ "wall": 3.9,
+ "tool_calls": 2,
+ "retries": 0,
+ "trace": [
+  {
+   "turn": 0,
+   "tool_calls": [
+    "ledger",
+    "ledger"
+   ],
+   "finish": "tool_calls",
+   "content_len": 50
+  },
+  {
+   "turn": 1,
+   "tool_calls": [],
+   "finish": "stop",
+   "content_len": 72
+  }
+ ]
+}

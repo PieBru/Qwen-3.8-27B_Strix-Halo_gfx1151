@@ -198,6 +198,29 @@ Pre-registered rules:
 Metrics: success, total completion tokens, wall, tool calls, retries,
 empty-answer turns.
 
+## E3 EXECUTED (2026-08-23/24) — all rules resolved
+
+30/30 episodes (5 cells × 3 tasks × 2 reps; deterministic client-side
+tools; the run survived GPU contention with a concurrent scout scan —
+retry armor added to the harness, header-row resume bug fixed).
+
+- **R1 PASS (trivially)**: 20/20 deterministic-task successes; zero
+  empty-answer turns in ANY cell — no agent-loop brittleness anywhere.
+- **R2 PASS**: the coding recipe's budget guard costs nothing in agent
+  loops — 6/6 success, zero starved answers, total tokens 155 vs
+  balanced@medium's 157 (−1.3%, rule allowed +10%).
+- **R3 NOT confirmed**: no retry-cascade — on the error-recovery task
+  (T2, tool fails once then succeeds) off-mode was *cheaper* than medium
+  (125 vs 185 tokens, 0.68×; rule threshold 1.25×). At this task
+  difficulty retries succeed first-shot; the vendor's cascade warning
+  needs harder failure modes than a single transient error.
+- Token economics across cells (p50): off 104 · low 191 · medium 157 ·
+  xhigh 253 · coding 155 — the effort ladder's agent-loop cost is
+  modest; xhigh costs ~60% more than medium for zero success gain here.
+- Wall-times: balanced cells 4–12 s/episode; the coding cell's 306 s
+  p50 is CONTAMINATED (ran during the scout's manual scan on the same
+  router) — excluded from claims; tokens are contention-immune.
+
 Upstream version checks: **stock master b10597 `95b8e33e1` reviewed
 2026-08-24** — 16 commits past our A/B pick (`2115b73`): mostly WebUI tabs,
 a slot-diff debug env var (#27600 — diagnostics tooling, not the lesson-#10
