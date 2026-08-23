@@ -1,0 +1,17 @@
+server up (pid 4563)
+fresh: decode 13.6 t/s (n=256)
+chunk  1: filled=  19567 prefill=  323.7 t/s decode= 31.0 t/s (n=256)
+chunk  2: filled=  39138 prefill=  263.4 t/s decode= 11.1 t/s (n=256)
+chunk  3: filled=  58709 prefill=  216.6 t/s decode= 10.3 t/s (n=256)
+chunk  4: filled=  78280 prefill=  176.4 t/s decode=  9.9 t/s (n=256)
+chunk  5: filled=  97851 prefill=  143.5 t/s decode=  9.0 t/s (n=256)
+chunk  6: filled= 117422 prefill=  118.3 t/s decode= 10.3 t/s (n=256)
+chunk  7: filled= 136993 prefill=   99.5 t/s decode=  8.3 t/s (n=256)
+chunk  8: filled= 156564 prefill=   85.3 t/s decode=  8.3 t/s (n=256)
+chunk  9: filled= 176135 prefill=   74.9 t/s decode=  7.2 t/s (n=256)
+chunk 10: filled= 195706 prefill=   66.6 t/s decode=  7.4 t/s (n=256)
+chunk 11: filled= 215277 prefill=   59.9 t/s decode=  6.6 t/s (n=256)
+chunk 12: filled= 234848 prefill=   54.1 t/s decode=  5.8 t/s (n=256)
+chunk 13: filled= 254419 prefill=   49.3 t/s decode=  5.5 t/s (n=256)
+VERDICT: SURVIVED + full decay curve
+server stopped

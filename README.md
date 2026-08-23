@@ -104,7 +104,8 @@ measured, each linked to its evidence:
    scale with the *allocated* window on this hybrid-SSM model — 28–30 t/s
    whether `c` is 32k or 256k (Q8: 24.7 vs 24.9). Most layers carry a
    constant-size recurrent state; only fill depth costs
-   (~20 t/s at 8k filled → ~16–18 at 64–96k). Consequence: the
+   (~10 t/s by 78k filled → 5.5 at 254k on the Q8 probe; see the decay
+   table below). Consequence: the
    `quality@64k…@256k` presets turn the window into a per-request dial that
    costs only RAM. Details in the
    [findings](#sweep-findings-at-a-glance) and the recipes-table notes.
@@ -226,46 +227,59 @@ xychart-beta
 Bars = RAM occupied; line = decode speed (quality is likewise flat) — the window
 costs memory and nothing else. (Fill-depth decay, above, is the separate price
 of actually *using* the window.)
-**Two measured realities temper the dial** (fill battery 2026-08-21, Q8,
-f16 KV, chunked incremental fill): decode falls with FILLED depth —
-**~17 t/s fresh → 13.1 @64k → 9.8 @128k filled** (incremental prefill
-likewise: ~218 → ~113 t/s from 32k to 96k depth) — and on a **default
-kernel**, content beyond ~128k positions dies at the amdgpu watchdog
-(death measured at **136,965** filled; forensics in the Vulkan-vs-ROCm
-chapter). With `amdgpu.lockup_timeout=-1` (this box, 2026-08-23) the same
-battery fills the whole window — **254,356 positions, zero errors** — so
-`@192k`/`@256k` are real, usable windows, priced in prefill/decode time at
-depth, not in crashes. Default-kernel boxes: plan ~128k of real content.
+**Two measured realities temper the dial** (re-measured end-to-end
+2026-08-23, Q8 `quality@256k`-shape standalone, DFlash2, f16 KV — raw CSV
+[`results/e4-decay.csv`](results/e4-decay.csv)): decode falls with FILLED
+depth — **~10 t/s by 78k filled → ~8 @137–157k → 5.5 @254k** (probe wall
+per 256 tokens rises monotonically 8.8 s → 48.0 s; incremental prefill
+likewise: 324 → 143 t/s from 20k to 98k depth, 49 at 254k) — and on a
+**default kernel**, content beyond ~128k positions dies at the amdgpu
+watchdog (death measured at **136,965** filled; forensics in the
+Vulkan-vs-ROCm chapter). With `amdgpu.lockup_timeout=-1` (this box,
+2026-08-23) the same battery fills the whole window — **254,356 positions,
+zero errors** — so `@192k`/`@256k` are real, usable windows, priced in
+prefill/decode time at depth, not in crashes. Default-kernel boxes: plan
+~128k of real content.
 
-Measured decode vs fill (`quality@256k`, Q8, temp 0; both reference frames
-shown — of the 262,144-token window, and of the ~128k usable-content ceiling):
+Measured decode vs fill (`quality@256k` shape, Q8 + DFlash2, temp 0,
+256-token probes per depth, `ignore_eos`, 2026-08-23 re-measure — the
+2026-08-21 table's absolute values had no committed raw logs and are
+superseded by this pass; the shape matches):
 
-| Positions filled | % of 256k window | % of ~128k usable | decode tg (t/s) |
-|---:|---:|---:|---:|
-| 12 (fresh) | 0% | 0% | ~17 |
-| 2,622 | 1% | 2% | ~21 |
-| 26,394 | 10% | 20% | 16.8 |
-| 65,536 | 25% | 50% | 13.1 |
-| 118,212 | 45% | 90% | 13.7 |
-| 128,209 | 49% | 98% | 9.8 |
-| ~160,000 (fill target) | 61% | — (past ceiling) | 💥 died en route |
+| Positions filled | % of 256k window | prefill (t/s) | decode tg (t/s) | probe wall (s/256 tok) |
+|---:|---:|---:|---:|---:|
+| 19,567 | 7% | 323.7 | 31.0 | 8.8 |
+| 39,138 | 15% | 263.4 | 11.1 | 23.6 |
+| 58,709 | 22% | 216.6 | 10.3 | 25.5 |
+| 78,280 | 30% | 176.4 | 9.9 | 26.6 |
+| 97,851 | 37% | 143.5 | 9.0 | 29.2 |
+| 117,422 | 45% | 118.3 | 10.3 | 25.6 |
+| 136,993 | 52% | 99.5 | 8.3 | 31.9 |
+| 156,564 | 60% | 85.3 | 8.3 | 32.0 |
+| 176,135 | 67% | 74.9 | 7.2 | 36.5 |
+| 195,706 | 75% | 66.6 | 7.4 | 35.7 |
+| 215,277 | 82% | 59.9 | 6.6 | 39.8 |
+| 234,848 | 90% | 54.1 | 5.8 | 45.4 |
+| 254,419 | 97% | 49.3 | 5.5 | 48.0 |
 
-Not linear: fast decay in the first quarter, a ~13–14 t/s plateau through
-the middle band, a further drop approaching the ceiling, then the hard wall.
+Single probes per depth: DFlash2 draft acceptance on the story-probe spans
+0.26–0.93 across depths (server-log join), so decode-t/s rows scatter ±3×;
+the **wall column is the clean monotonic signal** (same 256 tokens, same
+shape, rising 5.5× from shallow to full window). Prefill decays smoothly
+throughout — it has no acceptance term.
 
 ```mermaid
 xychart-beta
-    title "Decode speed vs FILLED context (Q8, quality@256k)"
-    x-axis "positions filled" ["0", "2.6k", "26k", "64k", "118k", "128k"]
-    y-axis "decode t/s" 0 --> 24
-    bar [17, 21, 16.8, 13.1, 13.7, 9.8]
+    title "Decode t/s and probe wall vs FILLED context (Q8+DFlash2, 2026-08-23)"
+    x-axis "positions filled" ["20k","39k","59k","78k","98k","117k","137k","157k","176k","196k","215k","235k","254k"]
+    y-axis "decode t/s (probe)" 0 --> 35
+    bar [31.0, 11.1, 10.3, 9.9, 9.0, 10.3, 8.3, 8.3, 7.2, 7.4, 6.6, 5.8, 5.5]
 ```
 
-The wall row is the default-kernel story: that fill died en route with
-`vk::DeviceLostError` (child crash, router wedge; same-shape control pinned
-the death at 136,965 — later root-caused to the amdgpu watchdog). With
-`amdgpu.lockup_timeout=-1` the fill completes (254,356, zero errors); the
-price at depth is time, not death.
+The old table's "~160k death row" is the default-kernel story (that fill
+died en route — later root-caused to the amdgpu watchdog at 136,965). With
+`amdgpu.lockup_timeout=-1` this pass filled to 254,419 with zero errors;
+the price at depth is time, not death.
 
 When to pick which:
 
@@ -318,13 +332,14 @@ tg was measured fresh-slot (first task after load), temp-0. Decode is flat
 across ctx ALLOCATION for every recipe (committed ladder logs `results/s3-*`,
 `results/r2-s3-*`: Q6 19.5–20.2 t/s across 64k→256k; Q8 16.1–17.7) — the hybrid-SSM architecture gives most layers a constant-size
 state, so an allocated-but-unfilled window costs nothing. What DOES cost
-is how much of the window is FILLED — measured on Q8 (fill batteries
-2026-08-21, quality@256k): **~17 fresh → ~21 @2.6k → 16.8 @26k → 13–13.7
-@64–118k (plateau) → 9.8 @128k → vk::DeviceLost at ~137k (2026-08-22 control)** (the few
+is how much of the window is FILLED — measured on Q8 (re-measured end-to-end
+2026-08-23, `results/e4-decay.csv`; every row committed): **~10 t/s by
+78k filled → ~8 @137–157k → 5.5 @254k; on a default kernel the curve ends
+at the amdgpu-watchdog death, 136,965** (the few
 full-attention layers scan the filled KV per token; incremental prefill
-decays similarly).
-So `~25` is the short-prompt benchmark — a filled long-window session decodes
-at roughly half speed or less. Context buys RAM (+~10 GiB per 3×) and load
+decays similarly — 324 → 49 t/s across the window).
+So the table's short-prompt t/s is the best case — a filled long-window
+session decodes at half that or worse. Context buys RAM (+~10 GiB per 3×) and load
 time, not sustained tg at depth. And spec-decode t/s is **content-dependent**:
 the same model spans ~16–38 t/s across prompt styles (DFlash2 acceptance
 0.28–0.91 — narrative continuation drafts well, structured enumeration less);
