@@ -264,7 +264,9 @@ silently, penalties poison speculative decode, the KV-contamination trap,
 and the "it loads ≠ it works" vision lesson:
 **[docs/LESSONS.md](docs/LESSONS.md)**.
 
-## Ideas, parked (help wanted!)
+<a id="ideas-parked-help-wanted"></a>
+
+## Ideas, parked
 
 Things we researched, started, or parked — each is a standing invitation for a
 fellow Haloer to pick up. The fleet has its own documentation set: **[docs/MULTI-HALO.md](docs/MULTI-HALO.md)**
