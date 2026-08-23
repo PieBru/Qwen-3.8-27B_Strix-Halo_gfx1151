@@ -147,6 +147,25 @@ Everything needed for the day it unlocks is parked and ready at the bottom of
 above, and the two blockers documented inline.
 
 
+## Quality at depth — passkey recall through the full window (2026-08-24)
+
+Survival and speed at depth were measured (e4); quality was not — until
+this ladder. `llama-passkey` (fork example, greedy, Q8, seed 42,
+`-fa on`), needle hidden in junk, model asked to recall it:
+
+| Filled context | Needle position | Recall |
+|---:|---:|---|
+| 147,617 | mid (~74k) | ✅ found |
+| 196,793 | mid (~98k) | ✅ found |
+| 245,969 | mid (~123k) | ✅ found |
+| 245,969 | **near-end (~221k)** | ✅ **"The pass key is 39384."** |
+
+Under `amdgpu.lockup_timeout=-1` the model doesn't just *survive* the
+unlocked window — it **remembers across all of it**, including a needle
+221k tokens deep. Combined with e4's fill-decay curve, the deep-context
+story is now complete: survival ✓, speed-at-depth ✓ (49 t/s prefill at
+254k), and recall ✓. Logs: `results/passkey-*.log`.
+
 ## Stability without the kernel GPU watchdog (lockup_timeout=-1 playbook)
 
 Running with `amdgpu.lockup_timeout=-1` buys the full 256k Vulkan window

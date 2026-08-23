@@ -1,0 +1,154 @@
+0.00.256.914 W model has unused tensor blk.64.attn_norm.weight (size = 20480 bytes) -- ignoring
+0.00.256.920 W model has unused tensor blk.64.post_attention_norm.weight (size = 20480 bytes) -- ignoring
+0.00.256.924 W model has unused tensor blk.64.attn_q.weight (size = 125829120 bytes) -- ignoring
+0.00.256.926 W model has unused tensor blk.64.attn_k.weight (size = 10485760 bytes) -- ignoring
+0.00.256.928 W model has unused tensor blk.64.attn_v.weight (size = 10485760 bytes) -- ignoring
+0.00.256.933 W model has unused tensor blk.64.attn_output.weight (size = 33423360 bytes) -- ignoring
+0.00.256.935 W model has unused tensor blk.64.attn_q_norm.weight (size = 1024 bytes) -- ignoring
+0.00.256.936 W model has unused tensor blk.64.attn_k_norm.weight (size = 1024 bytes) -- ignoring
+0.00.256.938 W model has unused tensor blk.64.ffn_gate.weight (size = 94699520 bytes) -- ignoring
+0.00.256.939 W model has unused tensor blk.64.ffn_down.weight (size = 94699520 bytes) -- ignoring
+0.00.256.941 W model has unused tensor blk.64.ffn_up.weight (size = 94699520 bytes) -- ignoring
+0.00.256.945 W model has unused tensor blk.64.nextn.eh_proj.weight (size = 104857600 bytes) -- ignoring
+0.00.256.947 W model has unused tensor blk.64.nextn.enorm.weight (size = 20480 bytes) -- ignoring
+0.00.256.948 W model has unused tensor blk.64.nextn.hnorm.weight (size = 20480 bytes) -- ignoring
+0.00.256.953 W model has unused tensor blk.64.nextn.shared_head_norm.weight (size = 20480 bytes) -- ignoring
+0.09.138.627 W llama_context: n_ctx_seq (262400) > n_ctx_train (262144) -- possible training context overflow
+0.10.934.145 I 
+main: n_len = 246017, n_ctx = 262368, n_kv_req = 262400, n_grp = 1, n_batch = 2048, n_junk = 10246, i_pos = 90
+0.10.934.152 I 
+0.10.934.152 I prefix tokens: 30
+0.10.934.152 I prompt tokens: 245969
+0.15.190.682 I main: processed: [     0,   2048)
+0.21.072.898 I main: processed: [  2048,   4096)
+0.27.145.572 I main: processed: [  4096,   6144)
+0.33.372.998 I main: processed: [  6144,   8192)
+0.39.757.522 I main: processed: [  8192,  10240)
+0.46.319.344 I main: processed: [ 10240,  12288)
+0.53.041.506 I main: processed: [ 12288,  14336)
+0.59.937.575 I main: processed: [ 14336,  16384)
+1.07.008.025 I main: processed: [ 16384,  18432)
+1.14.233.711 I main: processed: [ 18432,  20480)
+1.21.749.592 I main: processed: [ 20480,  22528)
+1.29.316.769 I main: processed: [ 22528,  24576)
+1.37.036.751 I main: processed: [ 24576,  26624)
+1.44.904.928 I main: processed: [ 26624,  28672)
+1.52.935.597 I main: processed: [ 28672,  30720)
+2.01.141.031 I main: processed: [ 30720,  32768)
+2.09.499.943 I main: processed: [ 32768,  34816)
+2.18.040.391 I main: processed: [ 34816,  36864)
+2.26.739.844 I main: processed: [ 36864,  38912)
+2.35.607.855 I main: processed: [ 38912,  40960)
+2.44.647.916 I main: processed: [ 40960,  43008)
+2.53.836.514 I main: processed: [ 43008,  45056)
+3.03.207.635 I main: processed: [ 45056,  47104)
+3.12.743.139 I main: processed: [ 47104,  49152)
+3.22.461.598 I main: processed: [ 49152,  51200)
+3.32.334.932 I main: processed: [ 51200,  53248)
+3.42.376.625 I main: processed: [ 53248,  55296)
+3.52.575.774 I main: processed: [ 55296,  57344)
+4.02.942.546 I main: processed: [ 57344,  59392)
+4.13.474.576 I main: processed: [ 59392,  61440)
+4.24.175.025 I main: processed: [ 61440,  63488)
+4.35.038.539 I main: processed: [ 63488,  65536)
+4.46.083.738 I main: processed: [ 65536,  67584)
+4.57.294.032 I main: processed: [ 67584,  69632)
+5.08.684.771 I main: processed: [ 69632,  71680)
+5.20.239.156 I main: processed: [ 71680,  73728)
+5.31.945.581 I main: processed: [ 73728,  75776)
+5.43.801.648 I main: processed: [ 75776,  77824)
+5.55.829.300 I main: processed: [ 77824,  79872)
+6.08.039.575 I main: processed: [ 79872,  81920)
+6.20.407.974 I main: processed: [ 81920,  83968)
+6.32.949.608 I main: processed: [ 83968,  86016)
+6.45.674.516 I main: processed: [ 86016,  88064)
+6.58.560.685 I main: processed: [ 88064,  90112)
+7.11.612.119 I main: processed: [ 90112,  92160)
+7.24.825.168 I main: processed: [ 92160,  94208)
+7.38.217.444 I main: processed: [ 94208,  96256)
+7.51.765.874 I main: processed: [ 96256,  98304)
+8.05.485.740 I main: processed: [ 98304, 100352)
+8.19.371.964 I main: processed: [100352, 102400)
+8.33.438.164 I main: processed: [102400, 104448)
+8.47.661.711 I main: processed: [104448, 106496)
+9.02.092.513 I main: processed: [106496, 108544)
+9.16.670.481 I main: processed: [108544, 110592)
+9.31.413.994 I main: processed: [110592, 112640)
+9.46.328.904 I main: processed: [112640, 114688)
+10.01.417.521 I main: processed: [114688, 116736)
+10.16.673.843 I main: processed: [116736, 118784)
+10.32.086.808 I main: processed: [118784, 120832)
+10.47.834.357 I main: processed: [120832, 122880)
+11.03.624.507 I main: processed: [122880, 124928)
+11.19.743.687 I main: processed: [124928, 126976)
+11.36.951.518 I main: processed: [126976, 129024)
+11.53.251.280 I main: processed: [129024, 131072)
+12.09.730.567 I main: processed: [131072, 133120)
+12.26.391.347 I main: processed: [133120, 135168)
+12.43.241.720 I main: processed: [135168, 137216)
+13.00.215.753 I main: processed: [137216, 139264)
+13.17.373.031 I main: processed: [139264, 141312)
+13.34.717.357 I main: processed: [141312, 143360)
+13.52.217.438 I main: processed: [143360, 145408)
+14.09.933.106 I main: processed: [145408, 147456)
+14.27.803.657 I main: processed: [147456, 149504)
+14.45.851.135 I main: processed: [149504, 151552)
+15.04.082.168 I main: processed: [151552, 153600)
+15.22.526.065 I main: processed: [153600, 155648)
+15.41.113.807 I main: processed: [155648, 157696)
+15.59.886.003 I main: processed: [157696, 159744)
+16.18.826.478 I main: processed: [159744, 161792)
+16.37.951.419 I main: processed: [161792, 163840)
+16.57.270.799 I main: processed: [163840, 165888)
+17.16.757.647 I main: processed: [165888, 167936)
+17.36.460.803 I main: processed: [167936, 169984)
+17.56.365.733 I main: processed: [169984, 172032)
+18.16.402.705 I main: processed: [172032, 174080)
+18.36.677.670 I main: processed: [174080, 176128)
+18.57.182.902 I main: processed: [176128, 178176)
+19.17.859.924 I main: processed: [178176, 180224)
+19.38.672.600 I main: processed: [180224, 182272)
+19.59.707.096 I main: processed: [182272, 184320)
+20.20.904.223 I main: processed: [184320, 186368)
+20.42.378.035 I main: processed: [186368, 188416)
+21.03.937.275 I main: processed: [188416, 190464)
+21.26.007.553 I main: processed: [190464, 192512)
+21.48.022.524 I main: processed: [192512, 194560)
+22.10.269.865 I main: processed: [194560, 196608)
+22.32.702.771 I main: processed: [196608, 198656)
+22.55.334.987 I main: processed: [198656, 200704)
+23.18.140.541 I main: processed: [200704, 202752)
+23.41.393.105 I main: processed: [202752, 204800)
+24.04.791.561 I main: processed: [204800, 206848)
+24.28.414.151 I main: processed: [206848, 208896)
+24.52.175.002 I main: processed: [208896, 210944)
+25.15.986.328 I main: processed: [210944, 212992)
+25.40.353.043 I main: processed: [212992, 215040)
+26.04.879.659 I main: processed: [215040, 217088)
+26.29.451.138 I main: processed: [217088, 219136)
+26.54.248.161 I main: processed: [219136, 221184)
+27.19.625.014 I main: processed: [221184, 223232)
+27.45.161.359 I main: processed: [223232, 225280)
+28.10.843.958 I main: processed: [225280, 227328)
+28.36.692.293 I main: processed: [227328, 229376)
+29.02.874.739 I main: processed: [229376, 231424)
+29.29.429.608 I main: processed: [231424, 233472)
+29.56.178.917 I main: processed: [233472, 235520)
+30.23.256.613 I main: processed: [235520, 237568)
+30.50.357.030 I main: processed: [237568, 239616)
+31.17.793.994 I main: processed: [239616, 241664)
+31.45.740.980 I main: processed: [241664, 243712)
+32.13.749.710 I main: processed: [243712, 245760)
+32.18.508.152 I main: processed: [245760, 245969)
+32.18.508.170 I 
+32.18.508.172 I main: passkey = 39384, inserted at position 90 / 10246 (token pos: ~2160)
+32.18.508.172 I 
+32.18.508.174 I  What is the pass key? The pass key is 39384.
+
+I have found and memorized the important information hidden in the text.
+
+The pass key is **39384**.
+
+32.28.772.723 I main: decoded 34 tokens in 10.26 s, speed: 3.31 t/s
+
+
