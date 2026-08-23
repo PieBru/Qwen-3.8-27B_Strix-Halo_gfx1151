@@ -15,8 +15,13 @@ cloud chains — read on. An all-purpose computer that cost **less than €2,000
 from your own desk. Which machine? We tested on a **GMKtec EVO-X2** (Ryzen
 AI MAX+ 395, 128 GiB) — [amazon.it/dp/B0F6X332N6](https://www.amazon.it/dp/B0F6X332N6/) —
 any mini-PC or desktop with the same AMD Strix Halo APU works the same. **Not
-affiliated**: no sponsorship, no free hardware, no affiliate links; we paid
-for ours, and this repo links only to its own content.
+affiliated**: no sponsorship, no free hardware, no affiliate links (the
+shopping link above is a plain product URL, no referral tag); we paid for
+ours. External links in this README point only to the open-source projects,
+model publishers, hardware references, and community threads this work builds
+on or measures — see
+[Acknowledgements](#-thanks-to-the-authors-of-this-software-stack) — never to
+sponsored placements.
 
 - **No API keys, no quotas, no meters.** The model lives in your RAM
   (~122 GiB of it, mlock'd — the box's whole personality is inference).
