@@ -134,8 +134,9 @@ THR = {
     "disk_free_gb": (100, "DISK LOW"),      # GB free on /
 }
 
-# metrics where HIGH is bad (load1); all others are "at least X" (low is bad)
-LOWER_BOUND_BETTER = {"mem_avail_gb", "disk_free_gb", "swap_used_gb"}
+# direction per metric: UPPER = "bad when ABOVE limit"; LOWER = "bad when BELOW"
+DIRECTION = {"mem_avail_gb": "LOWER", "disk_free_gb": "LOWER",
+             "swap_used_gb": "UPPER", "load1": "UPPER"}
 
 def num_pill(m, key, text):
     """Render a numeric metric: red+bold pill if past threshold, green note otherwise."""
@@ -143,7 +144,7 @@ def num_pill(m, key, text):
     val = m.get(key)
     if val is None:
         return PILL.format("bad", "n/a")
-    bad = (val > limit) if key == "load1" else (val < limit)
+    bad = (val > limit) if DIRECTION[key] == "UPPER" else (val < limit)
     if bad:
         return PILL.format("bad", f'{label}: {text}')
     return f'<span class="p ok">{text}</span>'
@@ -159,13 +160,13 @@ def halo_card(m):
         ("router", pill(m["router_health"], f'OK · {m["recipes"]} recipes')),
         ("units", pill(m["router_unit"] and m["keepalived"] and m["haproxy"], "router·vrrp·lb")),
         ("vip", PILL.format("ok", "OWNS VIP") if m["vip_owner"] else '<span class="p dim">standby</span>'),
-        ("RAM", num_pill(m, "mem_avail_gb", f'{m["mem_avail_gb"]} GB avail / {m["mem_total_gb"]} · cache {m["cached_gb"]} · swap {m["swap_used_gb"]}')),
+        ("RAM", num_pill(m, "mem_avail_gb", f'{m["mem_avail_gb"]} GB avail / {m["mem_total_gb"]} · cache {m["cached_gb"]} GB')),
         ("swap", num_pill(m, "swap_used_gb", f'{m["swap_used_gb"]} GB in zram')),
         ("load", num_pill(m, "load1", f'{m["load1"]} / {m["load5"]} · up {up_s}')),
         ("disk", num_pill(m, "disk_free_gb", f'{m["disk_free_gb"]:.0f} GB free')),
         ("canary", pill(bool(m["canary_last"]), (m["canary_last"] or "")[:44] + f' ({m["canary_age_min"]}m ago)') if m["canary_last"] else PILL.format("bad", "no log")),
         ("kernel", pill(m["ring_events_24h"] == 0, "0 ring events 24h", f'{m["ring_events_24h"]} RING TIMEOUTS')),
-        ("git", m["git"]),
+        ("git", f'<span class="g">{m["git"]}</span>'),
     ]
     trs = "".join(f'<tr><td class="k">{k}</td><td>{v}</td></tr>' for k, v in rows)
     return f'<div class="card"><h3>{m["halo"]}</h3><table>{trs}</table></div>'
@@ -242,6 +243,7 @@ td.k{color:#565f89;white-space:nowrap}
 .p.ok{background:#1b2b1f;color:#9ece6a}.p.bad{background:#3a1418;color:#ff6b7d;font-weight:700;border:1px solid #f7768e66}
 .p.dim{background:#1d222c;color:#565f89}
 .dim{color:#565f89}
+.g{color:#9ece6a}
 </style></head><body>
 <div id="dash" hx-get="/fragment" hx-trigger="load, every 5s">loading fleet…</div>
 </body></html>"""
