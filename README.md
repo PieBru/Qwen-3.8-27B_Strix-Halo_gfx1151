@@ -5,7 +5,6 @@
 
 Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/strix-halo-llamacpp)
 fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding.
-
 ## Why this exists: cloud-free intelligence on a desk
 
 If you are a solo developer with an AI agent working around the clock, a
@@ -42,6 +41,16 @@ sponsored placements.
 The recipes, the numbers, and every trap we hit (there were many) are
 documented below — so your agent can run 24/7 on hardware you own outright.
 
+**How we know (the method behind every number):** all benchmarks are
+back-to-back interleaved pairs (lesson #1); every battery's raw evidence is
+committed under `results/` — CSVs, server logs, kernel journal excerpts;
+experiments run under pre-registered decision rules (`docs/PLAN-reasoning-economics.md`)
+and the reasoning batteries' answer keys are computed by the graders
+themselves; claims carry OBSERVED / INFERRED / REPORTED labels; and when our
+own adversarial README audit caught numbers without committed evidence, we
+corrected the README rather than the evidence (2026-08-23). If a number here
+can't be re-run from this repo, it doesn't belong here.
+
 ## Provenance note
 
 > *Humans architected, verified, sealed. AI assistants built and wrote all the
@@ -52,7 +61,6 @@ measurement, and the seal of each release were human; the builds, probes,
 batteries, tables, and most of this documentation were produced by AI
 assistants under that supervision — including this sentence. Every number in
 this README traces to a command you can re-run.
-
 ## TL;DR — reproduce on any gfx1151 (Strix Halo) box
 
 Six steps, ~45 min, no desktop environment needed (Arch minimal headless verified
@@ -94,7 +102,6 @@ and the [stability playbook](#stability-without-the-kernel-gpu-watchdog-lockup_t
 battery — the fallback when boot params are off-limits.)
 Once verified, pick your workload recipe from the
 [**Recommended configs (per goal)**](#recommended-configs-per-goal) table.
-
 ## Headline findings (the counterintuitive ones)
 
 Seven results from this setup that invert what most LLM users expect — each
@@ -112,7 +119,7 @@ measured, each linked to its evidence:
 2. **A lighter quant is *slower* here, not faster.** With speculative decode,
    Q4 (16.7 GiB of weights) decodes at 28 t/s vs Q5's 32 — quant noise
    collapses DFlash2 draft acceptance (0.647 → 0.41) and rejected drafts eat
-   the bandwidth win whole. [Why Q4 was dropped](#ud-q4_k_xl-evaluated-and-dropped-2026-08-21--gguf-deleted-locally)
+   the bandwidth win whole. [Why Q4 was dropped](docs/BUILDING.md#ud-q4_k_xl-evaluated-and-dropped-2026-08-21--gguf-deleted-locally)
 3. **Sampling penalties are poison for speculative decode.** A mild
    `repeat_penalty 1.05` costs **23–28% decode t/s** on every spec recipe —
    penalized logits stop agreeing with the draft (acceptance 0.647 → 0.450).
@@ -143,7 +150,6 @@ measured, each linked to its evidence:
 Also big, but limitation-shaped rather than surprise-shaped: the 1M-context
 story (262k servable ceiling, measured RAM budget, three routes to 1M) has
 [its own chapter](#the-1m-token-context-what-works-what-doesnt-and-what-it-costs).
-
 ## Quick start: run the prebuilt release (time-saving)
 
 Skip the build entirely — the toolbox releases ship a portable, self-contained stack
@@ -161,7 +167,6 @@ curl -L https://github.com/Nathanw1014/strix-halo-llamacpp/releases/download/v0.
 Verified on this box: the tarball pins commit `7b6c613`; the fork tip is
 perf-identical within 1% (chat-parser-only delta since). Read on only if you want
 to build from source.
-
 ## What's in this repo
 
 Model weights (`.gguf`) and the `llama.cpp/` clone are local-only; this repo holds
@@ -181,6 +186,17 @@ the serving setup and notes:
 - `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
 - `sweep_llama_configs.sh` — staged config search ([config research](#config-research-sweep_llama_configssh))
 
+**The detail pages** (each opens from the front page where it's summarized):
+
+- [docs/RUNNING.md](docs/RUNNING.md) — operations: router, alias, pi pairing,
+  margin rule, recipe deep-dive, verification
+- [docs/DEEP-CONTEXT.md](docs/DEEP-CONTEXT.md) — the 256k/1M window, the
+  watchdog wall, unattended stability
+- [docs/BACKENDS.md](docs/BACKENDS.md) — Vulkan vs ROCm A/B, halofpx, HIP build
+- [docs/REASONING.md](docs/REASONING.md) — reasoning cost/quality batteries
+- [docs/BENCHMARKS.md](docs/BENCHMARKS.md) — sweep findings, threads study,
+  config research
+- [docs/BUILDING.md](docs/BUILDING.md) — models, quants, deps, builds
 ## Recommended configs (per goal)
 
 | Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | context | RAM (GiB) | left (GiB) | tg (t/s) | pp4k (t/s) | PPL / KLD↑ |
@@ -227,1115 +243,80 @@ xychart-beta
 Bars = RAM occupied; line = decode speed (quality is likewise flat) — the window
 costs memory and nothing else. (Fill-depth decay, above, is the separate price
 of actually *using* the window.)
-**Two measured realities temper the dial** (re-measured end-to-end
-2026-08-23, Q8 `quality@256k`-shape standalone, DFlash2, f16 KV — raw CSV
-[`results/e4-decay.csv`](results/e4-decay.csv)): decode falls with FILLED
-depth — **~10 t/s by 78k filled → ~8 @137–157k → 5.5 @254k** (probe wall
-per 256 tokens rises monotonically 8.8 s → 48.0 s; incremental prefill
-likewise: 324 → 143 t/s from 20k to 98k depth, 49 at 254k) — and on a
-**default kernel**, content beyond ~128k positions dies at the amdgpu
-watchdog (death measured at **136,965** filled; forensics in the
-Vulkan-vs-ROCm chapter). With `amdgpu.lockup_timeout=-1` (this box,
-2026-08-23) the same battery fills the whole window — **254,356 positions,
-zero errors** — so `@192k`/`@256k` are real, usable windows, priced in
-prefill/decode time at depth, not in crashes. Default-kernel boxes: plan
-~128k of real content.
-
-Measured decode vs fill (`quality@256k` shape, Q8 + DFlash2, temp 0,
-256-token probes per depth, `ignore_eos`, 2026-08-23 re-measure — the
-2026-08-21 table's absolute values had no committed raw logs and are
-superseded by this pass; the shape matches):
-
-| Positions filled | % of 256k window | prefill (t/s) | decode tg (t/s) | probe wall (s/256 tok) |
-|---:|---:|---:|---:|---:|
-| 19,567 | 7% | 323.7 | 31.0 | 8.8 |
-| 39,138 | 15% | 263.4 | 11.1 | 23.6 |
-| 58,709 | 22% | 216.6 | 10.3 | 25.5 |
-| 78,280 | 30% | 176.4 | 9.9 | 26.6 |
-| 97,851 | 37% | 143.5 | 9.0 | 29.2 |
-| 117,422 | 45% | 118.3 | 10.3 | 25.6 |
-| 136,993 | 52% | 99.5 | 8.3 | 31.9 |
-| 156,564 | 60% | 85.3 | 8.3 | 32.0 |
-| 176,135 | 67% | 74.9 | 7.2 | 36.5 |
-| 195,706 | 75% | 66.6 | 7.4 | 35.7 |
-| 215,277 | 82% | 59.9 | 6.6 | 39.8 |
-| 234,848 | 90% | 54.1 | 5.8 | 45.4 |
-| 254,419 | 97% | 49.3 | 5.5 | 48.0 |
-
-Single probes per depth: DFlash2 draft acceptance on the story-probe spans
-0.26–0.93 across depths (server-log join), so decode-t/s rows scatter ±3×;
-the **wall column is the clean monotonic signal** (same 256 tokens, same
-shape, rising 5.5× from shallow to full window). Prefill decays smoothly
-throughout — it has no acceptance term.
-
-```mermaid
-xychart-beta
-    title "Decode t/s and probe wall vs FILLED context (Q8+DFlash2, 2026-08-23)"
-    x-axis "positions filled" ["20k","39k","59k","78k","98k","117k","137k","157k","176k","196k","215k","235k","254k"]
-    y-axis "decode t/s (probe)" 0 --> 35
-    bar [31.0, 11.1, 10.3, 9.9, 9.0, 10.3, 8.3, 8.3, 7.2, 7.4, 6.6, 5.8, 5.5]
-```
-
-The old table's "~160k death row" is the default-kernel story (that fill
-died en route — later root-caused to the amdgpu watchdog at 136,965). With
-`amdgpu.lockup_timeout=-1` this pass filled to 254,419 with zero errors;
-the price at depth is time, not death.
-
-When to pick which:
-
-- **Quality @256k** — the flagship window: the servable ceiling, for many/long
-  contexts. One ≥128k-position prompt is fine **with** `lockup_timeout=-1`
-  (full-window fill verified 2026-08-23); on a default kernel it is a crash
-  (watchdog death band ~137k). Loads can be slow on an uptimed box. Same weights/quality/speed as Quality @64k — the
-  difference is purely RAM for window (see the context-dial note above).
-- **Quality (@64k) — correctness-first answers, code, synthesis; the
-  `@96k`/`@128k`/`@192k`/`@256k` presets are one model-field away when the window is
-  needed — pick your standing window by your own usage. `@96k` is the **fence**
-  variant: identical speed (allocation-flat), but the 98,304 max fill is hard-capped
-  in doubly-verified safe territory — the physical guarantee for unattended agent
-  runs, versus relying on the client's own compaction limit. Pair it with an agent
-  compact threshold ≤ ~90k.
-- **Balanced** — the all-rounder: best quality/speed balance
-  (19.5–20.2 t/s across the 64k–256k ladder, committed logs). Default window 128k: sized
-  for agentic coding sessions — the primary Qwen3.8-27B workload — at ~+4 GiB
-  RAM over 64k and zero decode cost. On a default kernel the 131,072 cap is
-  also a safety fence (5.9k under the watchdog death at 136,965); with
-  `lockup_timeout=-1` deep fills survive and the reason to stay at 128k is
-  decode economics (~9.8 t/s at 128k filled and falling), not crashes. The
-  `@96k` fence recipes keep every fill in fast, doubly-verified territory
-  either way.
-- **Balanced@96k** — the Q6 fence: same reasoning as `quality@96k` applied to
-  the daily driver — identical Q6 weights, quality and ~20 t/s decode (the
-  fastest decoder behind a physical window cap), max fill 98,304 entirely in
-  doubly-verified territory. For interactive agent sessions that mostly end
-  64–128k filled and want the crash band made unreachable by construction,
-  without dropping to the Q8 recipe's ~25 t/s. Pair with an agent compact
-  threshold ≤ ~90k; balanced (128k, alias, preload) stays the default.
-- **Speed** — fastest decoder: +10% tg and ~5 GiB lighter than balanced, at the
-  documented quality cost (see the PPL/KLD columns) — churn and prototyping.
-- **Vision** — the only image-capable recipe (mmproj, no spec decode — lessons
-  #7); lightest resident footprint.
-- **Max context** — superseded by **Quality @256k** (same recipe, clearer
-  name); the separate-recipe rationale — per-request window choice — is now
-  the whole `quality@NNk` dial.
-
-Notes on the columns:
-
-All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6 (turbo: 5), `-b/-ub 4096`, `-t 16 -tb 32`,
-`-lm mmap+mlock`, sharp.jinja template, metrics on. tg = sustained decode on a quiet
-box; fresh-load peaks run higher. **RAM** = resident footprint vs idle router
-(weights + draft + KV + compute buffers; mlock'd, never swapped), **left** = `free`
-"available" with that recipe live — headroom for concurrent models/activities.
-Measured 2026-08-21 on a 124 GiB box via the router; variance ±1–2 GiB.
-
-tg was measured fresh-slot (first task after load), temp-0. Decode is flat
-across ctx ALLOCATION for every recipe (committed ladder logs `results/s3-*`,
-`results/r2-s3-*`: Q6 19.5–20.2 t/s across 64k→256k; Q8 16.1–17.7) — the hybrid-SSM architecture gives most layers a constant-size
-state, so an allocated-but-unfilled window costs nothing. What DOES cost
-is how much of the window is FILLED — measured on Q8 (re-measured end-to-end
-2026-08-23, `results/e4-decay.csv`; every row committed): **~10 t/s by
-78k filled → ~8 @137–157k → 5.5 @254k; on a default kernel the curve ends
-at the amdgpu-watchdog death, 136,965** (the few
-full-attention layers scan the filled KV per token; incremental prefill
-decays similarly — 324 → 49 t/s across the window).
-So the table's short-prompt t/s is the best case — a filled long-window
-session decodes at half that or worse. Context buys RAM (+~10 GiB per 3×) and load
-time, not sustained tg at depth. And spec-decode t/s is **content-dependent**:
-the same model spans ~16–38 t/s across prompt styles (DFlash2 acceptance
-0.28–0.91 — narrative continuation drafts well, structured enumeration less);
-table values use one standard probe for comparability. Across the E1 served
-battery (n=273 completions, `results/e1-cost.csv`) the honest distribution is
-Q6 p50 17–20 / max ~35, Q8 p50 ~15.5 / max ~33. Served defaults
-are sampling-penalty-free.
-⚠️ Opting into `repeat_penalty 1.05` costs **23–28% decode on every spec recipe**
-(it collapses DFlash2 acceptance 0.647 → 0.450); prefill and vision are immune.
-Use it per-request, only when repetition actually bites — lessons #9.
-
-PPL / KLD↑ (`llama-perplexity`, 200×512-token chunks of a local docs corpus; use for
-internal ranking only — absolute values are corpus-specific). KLD = KL divergence of
-the token distribution vs the `UD-Q8_K_XL` reference logits; top-p agreement with the
-reference: Q8 100% (is the reference), Q6 96.5%, Q5 95.5%. PPL depends only on the
-weights — recipes sharing a quant share these values; spec decode, mmproj, ctx and
-penalties don't enter.
-
-**Everything relative to the `quality@64k` baseline** (UD-Q8_K_XL v3.0,
-64k window — pick your own reference frame; values are % of that row):
-
-| Recipe | context | RAM occupied | tg | pp4k | PPL | KLD (absolute¹) |
-|---|---:|---:|---:|---:|---:|---:|
-| `quality@64k` (baseline) | 100% | 100% | 100% | 100% | 100% | 0 (reference) |
-| `quality@128k` | 200% | ~111% | 100% | 100% | 100% | 0 |
-| `quality@192k` | 300% | ~120% | 100% | 100% | 100% | 0 |
-| `quality@256k` | 400% | ~136% | 100% | 100% | 100% | 0 |
-| `balanced` (Q6 @ 128k) | 200% | ~93% | ~115% | 93% | 100.3% | 0.0073 |
-| `speed` (Q5) | 100% | ~78% | ~130% | 90% | 100.6% | 0.0137 |
-| `vision` (Q6, no spec) | 100% | ~71% | 34% | — | 100.3% | 0.0073 |
-
-¹ KLD (KL divergence vs the Q8 reference logits) is shown **absolute** — as a
-percentage of the baseline it is undefined: the baseline *is* the reference,
-so its own KLD is 0 by construction. Lower is better.
-
-Reads: the four quality presets trade only context↔RAM (speed and quality
-untouched — the dial); balanced buys 2× context at −7% RAM and +15% decode
-for a 0.3% PPL cost; speed stays at the baseline window and pushes +30%
-decode / −22% RAM for 0.6% PPL; vision is the RAM featherweight at 34%
-decode. Fill-depth decay not included — these are short-prompt benchmarks
-(see the tg note above).
-
-Heads-up for concurrency: `--models-max 1` is policy, not a hard memory limit —
-two small recipes would *fit* (e.g. speed + balanced ≈ 75 GiB), but three resident
-models exhausted memory and hard-hung the box, so 1 stays the default; raise only
-with verified headroom. Note there is **no weight sharing between recipes**: two
-recipes pointing at the same GGUF (e.g. balanced + vision, both Q6) each upload
-their own copy — measured 41.0 → 71.5 GiB RAM and 37.2 → 67.1 GiB GTT when the
-second one loaded. The duplicate is the per-process Vulkan GTT allocation, not
-the file cache — mmap already shares the file pages (the RAM delta ≈ the GTT
-delta; no second file copy appears), and no llama-server flag or Linux knob
-(KSM can't see driver shmem) dedups device memory across processes. Concurrent
-same-weights recipes therefore always cost a full extra copy; the alternative
-is the current `--models-max 1` serialization (~6–13 s reload on switch). At boot
-only **balanced** loads (`load-on-startup = true` in its models.ini section — the
-one recipe allowed under `--models-max 1`); every other recipe's **first request
-pays a one-time load** (~6 s warm, up to ~13 s from cold page cache), and switching recipe
-names under `--models-max 1` unloads the previous one first, paying the same load
-again — steady-state serving after that is instant.
-
-Decision rule: **Q8 when quality is the point, Q6 when tokens/s is** — prefill is
-equal (~250–330 pp4k), decode favors Q5-turbo > Q6 > Q8 at every context size.
 
 ## Running it
 
-Single model with a preset (any field overridable, `--help` for all):
-
-```bash
-./run_llama-server.sh --goal balanced            # Q6 @ 128k — daily driver
-./run_llama-server.sh --goal quality             # Q8 @ 64k — correctness first
-./run_llama-server.sh --goal speed              # Q5 @ 64k — fastest decoder
-./run_llama-server.sh --goal quality --ctx 196608  # Q8 with a bigger window
-./run_llama-server.sh --model q8 --kv q8_0 --nmax 4   # fully custom
-./run_llama-server.sh --router --agent              # WebUI agent: all tools + MCP proxy
-./run_llama-server.sh --router --tools all --tools-runtime docker:alpine  # sandboxed
-```
-
-### Serving all recipes (the router)
-
-One port, every recipe from the table, loaded on demand:
-
-```bash
-./run_llama-server.sh --router --port 8080              # foreground
-# or as a boot-persistent user service — substitute in the pipe (keeps your
-# clone clean for future git pulls; run from the repo root):
-mkdir -p ~/.config/systemd/user
-sed "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" llama-router.service \
-    > ~/.config/systemd/user/llama-router.service
-systemctl --user daemon-reload && systemctl --user enable --now llama-router
-sudo loginctl enable-linger $USER   # run the user manager (and the router) at
-                                    # BOOT, with nobody logged in — without this
-                                    # a headless box starts no router
-
-curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
-     -d '{"model":"Qwen38-27B-balanced","max_tokens":64,
-          "messages":[{"role":"user","content":"hi"}]}'
-```
-
-#### Tip: `Qwen38-27B` — the movable "default model" alias
-
-`models.ini` pins one stable client-facing name, `Qwen38-27B`, on the balanced
-recipe (`LLAMA_ARG_ALIAS = Qwen38-27B`). Point clients at **that** name instead
-of a recipe name, and changing your mind about which recipe is "the default"
-becomes a one-line move — no client reconfiguration:
-
-1. In `models.ini`, move the `LLAMA_ARG_ALIAS = Qwen38-27B` line from
-   `[Qwen38-27B-balanced]` to your preferred section (e.g. `[Qwen38-27B-speed]`).
-2. Move the `load-on-startup = true` line with it, so the boot-preloaded
-   recipe stays your default (only ONE recipe may carry it: `--models-max 1`).
-3. Restart the router (`systemctl --user restart llama-router`) — the alias
-   re-registers at startup and the new default re-preloads at boot. A
-   `?reload=1` is NOT enough: the router re-reads presets only for recipes
-   that aren't running, so moving an alias off a loaded recipe needs the
-   restart.
-
-Everything pinned to the alias — pi's `local` provider (`models.json`), the
-WebUI's saved model, cron/curl scripts, other boxes on the LAN — silently
-follows the move; the recipe names stay available for when you explicitly
-want a different tradeoff.
-
-### Pair it with pi (the coding agent)
-
-[pi](https://pi.dev) is the agent this repo's boxes run daily, and it talks
-to this router natively — the llama.cpp project's own site uses exactly this
-pairing as its example. Two ways, both verified on this stack:
-
-1. **pi extension (what we run)** — [`pi-llama-cpp`](https://www.npmjs.com/package/pi-llama-cpp)
-   auto-discovers every recipe from the router's catalog, shows live
-   load/loading/failed state, and maps its thinking levels to configurable
-   `reasoning_budget_tokens` budgets (the same measured cap behind the
-   `coding` recipe):
-   ```bash
-   pi install npm:pi-llama-cpp
-   # point it at one or more routers (semicolon-separated):
-   # ~/.pi/agent/settings.json:  "llamaServerUrl": "http://127.0.0.1:8080;http://192.168.50.15:8080"
-   ```
-   Verified here (2026-08-23): both LAN boxes discovered — 10 recipes each
-   with correct per-recipe context windows and vision detection — and live
-   completions through the discovered names. Our `models.json` now carries
-   only load-bearing pins (the `Qwen38-27B` alias surfaces + the nightly
-   systemd pin); the extension carries the catalog, so a new `models.ini`
-   recipe appears in pi without any config edit.
-2. **pi built-in** — `/login llama.cpp` + `/llama` + `/model`: model
-   load/unload, live status, even Hugging Face downloads from the palette
-   (works against stock router servers; our fork speaks the same surface).
-
-### Running 24/7 agents: the margin rule
-
-The window (`c`) is a **fence**, not a target. A prompt larger than the window
-is rejected with a clean HTTP error — agent frameworks compact and retry, the
-service never notices. A prompt *under* the window gets prefilled — and on a
-default kernel, past ~137k positions the amdgpu watchdog kills the GPU child
-and wedges the router (observed; manual restart). With `lockup_timeout=-1`
-(the playbook setup) deep fills survive — but decode at that depth runs
-~9 t/s and falling, which no agent wants to pay per turn. So for a coding
-agent that manages its own context:
-
-- **agent soft ceiling ≈ 96k** (keeps sustained decode in the ≥13 t/s band and
-  leaves burst room for one huge tool output),
-- **window stays 128k** — the hard fence that converts "agent missed its
-  ceiling" into a graceful compact-and-retry,
-- **never** widen the window to "give the agent margin" (e.g. 192k): that
-  moves the fence past the crash band, so a runaway request dies at the GPU
-  instead of being rejected. The margin must live *below* the window.
-
-### How the primary author actually runs it (one operator's profile)
-
-Not a recommendation — an example of mapping the menu to a workflow:
-
-- **Interactive / keyboard-driven work → `balanced`.** The Q6 daily driver:
-  ~20 t/s sustained feels instant against typing speed, quality is plenty for
-  code review and editing loops, and the 128k window never gets in the way of
-  an interactive session (which rarely fills a quarter of it).
-- **Nightly / unattended agent batches → `quality@128k`, agent ceiling 100k.**
-  Q8 for max quality on long autonomous runs; the window at 128k and the
-  agent's own context budget at 100k implement the margin rule above — the
-  agent compacts well before the fence, and a buggy run that misses its
-  ceiling is rejected at 100k–128k and retries — never reaching the deep-fill
-  slow band (or, on a default-kernel box, the watchdog crash band).
-
-The split costs nothing to switch between: it's one model name in the client,
-with `--models-max 1` doing the load swap (~6–15 s) between request batches.
-
-Recipe names are plain roles — `Qwen38-27B-quality@64k…@256k | -balanced |
--speed | -vision`. No extra aliases are registered (they only clutter the
-llama-server WebUI model picker); older names from this repo's history
-(`-turbo`, `-fast`, `-Q8-192K-quality`, …) no longer resolve — update clients
-to the role names.
-Recipe-specific keys
-(weights, ctx, spec config, mmproj) live in `models.ini` sections — see the header
-of that file for the key reference and the CLI-vs-section precedence rule (lessons #8).
+Operations — serving all recipes via the router, the movable `Qwen38-27B`
+default alias, pairing with the [pi coding agent](docs/RUNNING.md#pair-it-with-pi-the-coding-agent),
+the 24/7 agent margin rule, one operator's profile, and GPU verification:
+**[docs/RUNNING.md](docs/RUNNING.md)** (the recipe deep-dive — fill-decay
+table, when-to-pick notes, relative costs — lives there too).
 
 ## Test — verify GPU, not silent CPU fallback
 
-The headline failure mode in BUILD.md: a Vulkan ICD manifest without `api_version`
-gets skipped by the loader and llama.cpp **silently falls back to CPU** (~7x slower).
-Not an issue with the system RADV, but always confirm the backend:
-
-```bash
-# backend must read GPU/Vulkan (AMD Radeon 8060S), not CPU
-./build-vk/bin/llama-cli --list-devices
-./build-vk/bin/llama-bench -m <model.gguf> -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
-```
-
-Quiet-box reference for that bench command (f16 KV): Q6 pp512 **~346** / tg32
-**~8.6**; Q8 pp512 **~366** / tg32 **~7.3**; shallow pp512 varies ±10% run-to-run at
-85 W. Note `llama-bench` measures bare decode only — it takes most server flags but
-not `-md`/`--spec-*` (no draft support), so spec-decode gains don't show here.
+[`llama-cli --list-devices` and the quiet-box reference bench](docs/RUNNING.md#test--verify-gpu-not-silent-cpu-fallback).
 
 ## Sweep findings at a glance
 
-How these were measured: [config research](#config-research-sweep_llama_configssh).
-
-| Axis | Winner | Evidence |
-|---|---|---|
-| KV type (target & draft) | **f16 / f16** | f16 is faster than q8_0 on both models (Q6 20.8 vs 19.2, Q8 16.6 vs 15.6 t/s) and higher fidelity — 128 GB unified makes it free |
-| KV quantization for long windows | **f16 default; q8_0 when the window is the point** | NIAH battery 2026-08-21 (two random codes at 25%/75% depth, 8k/32k/64k/96k ctx, f16→q4_0): **40/40 retrieved** — positional retrieval survives q4_0 even at 96k. Decode flat across types (26.6–29.6 t/s); only memory drops (~3.3 GiB GTT per 110k ctx f16→q8_0, ~5.0 f16→q4_0, ×~9.5 at 1M) |
-| `--spec-draft-n-max` | **6** | 6–7 plateau, 4 clearly worse (DFlash2 `block_size=8, n_extract=5`); committed Q5 single runs (`results/s1-Q5-n*.log`) show n3–n6 within noise (22.5–23.2 t/s) on that probe shape — the n4-worse gap shows on Q6 with the standard probe |
-| `-c` allocated ctx | **65536 default; allocation is free up to 256k** | decode flat 64k–256k (Q6 20.2 ±0.2 t/s, Q8 ~17.6); the ≥128k crash is deep-prefill-only, not an allocation limit |
-| `-b/-ub` | **4096** | tg flat ±2% across 2048/4096/8192; 4096 = +6% deep prefill over 2048; 8192 doubles compute buffers for nothing |
-| `-tb` | **32** | tb16 within ~1% — GPU-bound |
-| Model choice | **Q6 speed / Q8 quality** | decode favors Q6 at every ctx; Q8 prefill edges Q6 (pp512 366 vs 346 — Q8_0's symmetric blocks ride the fast kernel path). Q4 was evaluated and dropped — acceptance collapse, see Models |
-| Host state | **`-lm mmap+mlock`** | zram-swapped weight pages cost up to ~30% decode; mlock makes weights unswappable |
-| dflash fine-tuning | **inert beyond n-max** | `spec-draft-n-min` 2/3 and `spec-draft-p-min` 0.3/0.9 change nothing (bit-identical decodes, acceptance 0.647; independently confirmed upstream — the DFlash2 selector path never reads p-min). Single-shot `ngram-map-k` on dflash *hurts* (29.0 → 27.4 t/s). Draft quality sets acceptance — `n_max` is the only working knob |
-| **n-gram lookup stacked on DFlash (replay workloads)** | **opt-in, replay-shaped** | e6 battery (9-turn cumulative file-build + regen, [`results/e6-ngram.csv`](results/e6-ngram.csv)): `ngram-map-k4v` on dflash6 is flat while the file evolves (−1…+7%/turn), **+69% on the late re-emit turn and 91 t/s (2.3×) on pure regen** — but build mean only +12.2% (below our 15% adopt bar) and **n-max 5 *lost* 6%** here (bandwidth-bound APU: their dGPU "5 beats 7" doesn't transfer). Regime data points: ours (8060S iGPU) vs the [RTX PRO 6000 study](https://github.com/lukaLLM/DFlash2_Qwen3.8_3.6_27B_LlamaCPP) (4.68× multi-turn). Use: operators with replay-heavy agent sessions (file re-emission, quote-back) may stack `ngram-map-k4v` on the spec line; keep it off for one-shot and prose (their prose: −30%) |
-| `--kv-unified` | **no effect at `-np 1`** | measured 2026-08-21 on Q6@64k and Q8@192k (journal-confirmed `kv_unified='true'`): tg and RAM identical within noise. Its purpose is sharing one KV buffer across parallel slots; with a single slot (and the hybrid SSM's tiny KV) there is nothing to unify. It flips on by itself if slots ever go auto |
+The full config-research table — KV types, n-max, batch sizes, host state,
+n-gram replay findings: **[docs/BENCHMARKS.md](docs/BENCHMARKS.md#sweep-findings-at-a-glance)**.
 
 ## Threads (`-t`), batch threads (`-tb`) and two concurrent clients — measured
 
-Production pins `-t 16 -tb 32` (the box has 16C/32T), but with **full GPU
-offload** (`-ngl all`) CPU threads only orchestrate — so how little can you
-run with, and does it matter when two clients are hitting the server at once?
-Measured 2026-08-23 (`e5_threads_battery.py`, evidence
-[`results/e5-threads.csv`](results/e5-threads.csv)): standalone server in the
-balanced shape (Q6 + DFlash2 draft, f16 KV, `-c 131072 -np 2` → two 64k
-slots, fa on), **2 concurrent client threads** × 4 requests each; every
-request re-prefills 4,927 tokens (`cache_prompt=false`) then decodes 128
-(`ignore_eos`). n=8 per config.
-
-| Config | prefill per client (t/s) | decode per client (t/s) | vs baseline |
-|---|---:|---:|---|
-| `-t 16 -tb 32` (production) | 192 | 18.8 | — |
-| `-t 1 -tb 1` | 191 | 18.8 | **−0.4% / −0.1%** |
-| `-t 1 -tb 2` | 191 | 18.7 | −0.5% / −0.5% |
-| `-t 2 -tb 1` | 161–174 (2 runs) | 19.6–22.3 | **−9…−16% prefill** / decode: noise |
-| `-t 2 -tb 2` | 191 | 18.7 | −0.6% / −0.7% |
-
-Read it straight:
-
-- **One thread costs nothing.** With everything on the GPU, `-t 1 -tb 1`
-  serves two concurrent clients at baseline speed — CPU threads are pure
-  orchestration here. Practical use: if you co-locate CPU-heavy work with
-  the server (agent processes, builds), dropping to `-t 1 -tb 1` gifts ~15
-  cores to it with **zero measured serving cost** under this workload.
-- **The one bad shape is `-t 2 -tb 1`**: a reproducible 9–16% prefill loss
-  (both runs), while its decode moved within noise. Mechanism unproven —
-  avoid the combination; every other tested shape ties the baseline.
-- **Concurrency itself is nearly free in aggregate**: two clients each decode
-  at ~18.8 t/s *while both are running* — aggregate ~37.6 t/s vs ~19–20
-  single-stream (the batched 2-slot path packs both streams into one GPU
-  submission; the hybrid-SSM's tiny per-layer state makes this cheap).
-  Prefill is the shared resource: ~192 t/s per client concurrent vs ~300+
-  solo. If you need two consumers on one box, decode is the wrong thing to
-  worry about — long *prefills* queueing each other are.
-
-Caveats: n=8 per config, single box, decode scatter ±15% across configs
-(DFlash2 acceptance is content-dependent); thread findings apply to
-fully-offloaded serving — CPU-layer runs are a different regime. The
-`--models-max 1` router serializes *model* loading, not slots; to get two
-concurrent clients on one model you need `-np 2` (as here) — the recipe
-default stays `-np 1`.
+`-t 1 -tb 1` is free under full GPU offload; `-t 2 -tb 1` is the one bad
+shape; two clients nearly double aggregate decode:
+**[docs/BENCHMARKS.md](docs/BENCHMARKS.md#threads--t-batch-threads--tb-and-two-concurrent-clients--measured)**.
 
 ## The 1M-token context: what works, what doesn't, and what it costs
 
-Qwen3.8-27B's 1M-token window is a headline feature — here is everything this
-repo measured about it on a Strix Halo (gfx1151) box, in one place.
-
-**The promise.** The model card declares 262,144 native context, "extensible
-up to 1,000,000 tokens" via YaRN (factor 4.0 from the 262,144 training ctx),
-and the publisher's long-horizon guidance budgets 262k reasoning + 131k output
-*inside* the 1M window. Important framing: positions beyond 262k are
-YaRN-extrapolated, not trained — endorsed by the publisher, but expect gradual
-quality decay as you climb past 256k, on every server.
-
-**What this stack serves today: `quality@256k` at 262,144.** That number is the
-model's `n_ctx_train`, and llama-server caps every slot to it — a cap inherited
-from **mainline llama.cpp itself** (identical code verified in a stock clone),
-with no YaRN exemption. We load-tested a full 1M recipe
-(`rope-scaling = yarn`, `rope-scale = 4`, `yarn-orig-ctx = 262144`,
-`c = 1048576`): the KV allocated fine, then the journal printed the cap warning
-and the usable slot came back at 262,144 — full memory cost, zero extra window.
-The same test showed there is **no 512K middle ground**: the cap applies to any
-`c` above 262,144, so 512K would pay ~18 GiB more KV than 256k and still serve
-a capped slot. Separately, on a **default kernel** even inside a 262k window, content
-beyond ~137k positions dies at the amdgpu lockup watchdog (Vulkan reports
-it as `vk::DeviceLostError`; absolute-position, not per-batch — chunked
-fills crash at the same depth). `amdgpu.lockup_timeout=-1` removes the
-wall entirely — the same battery filled all 254,356 usable positions, zero
-errors (2026-08-23 intervention; the ROCm build survives the band on the
-default kernel by submission shape — next subsection). Big windows are for
-many medium contexts, or one giant prompt if you accept the prefill/decode
-time at depth.
+The 262k servable ceiling, the YaRN cap, what 1M costs in memory, and the
+three routes to a real 1M window: **[docs/DEEP-CONTEXT.md](docs/DEEP-CONTEXT.md)**.
 
 ### Deep positions: the amdgpu watchdog wall — and how to remove it
 
-A/B measured 2026-08-22 on the same box, same fork commit (`9b9ac3e38`),
-same battery (`fill_battery.sh`: Q8 target + DFlash2 draft, f16 KV,
-`-c 262144 -b/-ub 4096`, incremental 16k-token fills via cached prefixes):
-
-| Backend | bare bench (Q6 / Q8) | fill fate |
-|---|---|---|
-| Vulkan (production build, `9b9ac3e38`) | pp512 360.6 / 365.0 · tg32 8.78 / 7.27 | **default kernel:** 💥 dies at **136,965** filled (`vk::Queue::submit: ErrorDeviceLost` ← amdgpu ring watchdog) · **`lockup_timeout=-1`:** ✅ full window, **254,356**, zero errors — *same binary, only the kernel param differs* |
-| ROCm — TheRock 7.15.0a nightly | pp512 352.5 / 370.8 · tg32 8.57 / 7.18 | **default kernel:** ✅ survived **215,228** filled, zero errors (no boot param needed) |
-
-Reading it straight:
-
-- **The ~128k+ wall is the amdgpu lockup watchdog, full stop (causation, not
-  correlation).** Kernel forensics (2026-08-23, full detail in the
-  Vulkan-vs-ROCm chapter below) show every "device lost" that morning was an
-  **amdgpu compute-ring lockup timeout + ring reset** fired on llama-server's
-  own submission, seconds before the userspace error — and the intervention
-  sealed it: `lockup_timeout=-1`, same battery, same binary → the entire
-  window, zero ring events. Same weights, same flags, same commit — only the
-  backend differs on the default kernel because the backends shape GPU
-  submissions differently (ROCm's keep signaling; see below).
-- **Vulkan is the faster deep-prefiller at every depth** — not just while it
-  lives: with the watchdog off it holds the lead through the whole window
-  (177→144→119 t/s at 78k→98k→117k filled vs ROCm's 72→55→44 in the same band;
-  at 156k filled it's 86 vs 32 t/s; ROCm decays faster with depth throughout,
-  262 t/s at 20k → 22 at 215k).
-- **DFlash2 works on ROCm**: draft acceptance 0.34 on a matched probe; decode
-  14.5 t/s vs Vulkan's 16.9 t/s (Q6@128k) — Vulkan ~17% ahead with spec decode.
-- Upstream status (2026-08-23): the Vulkan device-lost class is still open
-  upstream ([#27076](https://github.com/ggml-org/llama.cpp/issues/27076),
-  [#27458](https://github.com/ggml-org/llama.cpp/issues/27458)); we also
-  filed [#27588](https://github.com/ggml-org/llama.cpp/issues/27588) —
-  trailing `assistant(tool_calls)` silently drops the calls in the
-  auto-prefill/continuation path (found by the T0.4 template probes,
-  reproduced on stock master `2115b73`); the fork's
-  [issue #9](https://github.com/Nathanw1014/strix-halo-llamacpp/issues/9)
-  shows a 491,520-token prefill *succeeding* on Vulkan with DeepSeek-V4 +
-  q8_0 KV + `-ub 1024` — consistent with the watchdog mechanism: those knobs
-  reshape dispatches, moving the timeout threshold rather than removing the
-  wall (`lockup_timeout` removes it).
-
-**To try the ROCm build yourself** (no root needed; userspace-only, sits
-beside the Vulkan one):
-
-```bash
-# TheRock nightly for gfx1151 (fixed line — the 7.14.0a20260609..0612 wheels
-# segfault in hsa_init on gfx1151; see TheRock issue #5763)
-curl -O https://rocm.nightlies.amd.com/tarball-multi-arch/therock-dist-linux-gfx1151-7.15.0a20260728.tar.gz
-mkdir -p ~/opt/rocm-7.15 && tar -xzf therock-dist-linux-gfx1151-*.tar.gz -C ~/opt/rocm-7.15
-export ROCM_PATH=~/opt/rocm-7.15 PATH=$HOME/opt/rocm-7.15/bin:$PATH LD_LIBRARY_PATH=$HOME/opt/rocm-7.15/lib
-cmake -B build-hip -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 -DCMAKE_BUILD_TYPE=Release \
-      -DGGML_NATIVE=ON -DLLAMA_CURL=OFF \
-      -DCMAKE_C_COMPILER=$ROCM_PATH/bin/hipcc -DCMAKE_CXX_COMPILER=$ROCM_PATH/bin/hipcc
-cmake --build build-hip --target llama-server llama-bench -j
-# then run any recipe with build-hip/bin/llama-server instead of build-vk —
-# and ./fill_battery.sh <label> ./llama.cpp/build-hip/bin/llama-server to
-# reproduce the deep-fill A/B
-```
-
-For official-release ROCm (7.2.4 era), expect the "way slower than Vulkan"
-reports to hold — upstream tracks the gfx1151 gaps
-([#21284](https://github.com/ggml-org/llama.cpp/issues/21284),
-[#24437](https://github.com/ggml-org/llama.cpp/issues/24437)); the 7.14+/TheRock
-line is where parity arrives. **Deep-context escape hatch, in order:
-(1) `amdgpu.lockup_timeout=-1`** — one kernel-cmdline parameter, verified
-here to unlock the full window with Vulkan's speed intact (fastest prefill
-at every depth); pair it with the
-[stability playbook](#stability-without-the-kernel-gpu-watchdog-lockup_timeout-1-playbook).
-**(2) The ROCm build** — no kernel change needed, survives the band on the
-default kernel, at 1.25–2.7× slower prefill: the fallback for boxes where
-boot params are off-limits.
-
-**What 1M costs in memory** (Q6 targets; f16 measured on a real 1M load, the
-rest derived from GTT deltas at 110k ctx scaled linearly — the derivation
-reproduces the f16 measurement within ~3%):
-
-| KV type | GTT at 1M ctx | verdict on this 124 GiB box |
-|---|---:|---|
-| f16 | ~104 GiB (measured 100.9; RAM avail 14.3 GiB) | cliff edge — barely |
-| q8_0 | ~72 GiB | comfortable ✅ |
-| q5_1 | ~63 GiB | comfortable |
-| q4_1 / q4_0 | ~57 / ~56 GiB | comfortable |
-
-A Q8 target adds ~7 GiB (q8_0 ≈ 80 — fits; f16 does not). Is quantized KV safe
-at long range? Yes: the NIAH battery ([findings](#sweep-findings-at-a-glance))
-retrieved **40/40 needles from f16 down to q4_0 at up to 96k ctx** — KV
-quantization does not break positional retrieval on this stack. That is why
-the parked 1M recipe pins q8_0.
-
-**How to actually get 1M today:**
-
-1. **vLLM on this very APU** — officially supported: vLLM's install docs list
-   `Ryzen AI MAX / AI 300 Series (gfx1151/1150)` (ROCm 7.0.2+), and vLLM serves
-   YaRN with PagedAttention. Costs: no GGUF support (separate HF/AWQ weights,
-   new fingerprints), DFlash2 spec decode is llama.cpp-only (the model's trained
-   MTP head may recover speed via vLLM's own spec paths — unverified), and the
-   memory budget above still applies.
-2. **A local cap-exemption patch** — we build the fork from source; skipping
-   the clamp when YaRN is active is a few lines and would make the parked
-   `Q6-1M-yarn` recipe live (single prompts still capped ~128k by the prefill
-   ceiling; the *window* would work).
-3. **Wait for upstream** — a llama.cpp PR exempting YaRN from the slot cap,
-   plus the deep-prefill fix. Note the fork→mainline merge does **not** lift
-   the cap (mainline has the same code); detection after any rebuild is a
-   5-second journal grep: load the parked recipe and check that the
-   `exceeds the training context - capping` warning is absent and
-   `n_ctx_slot = 1048576`.
-
-Everything needed for the day it unlocks is parked and ready at the bottom of
-`models.ini`: the full 1M recipe (q8_0 KV — NIAH-validated), the RAM budget
-above, and the two blockers documented inline.
-
-
+The 136,965 "Vulkan wall" was the kernel lockup watchdog — forensics and the
+`lockup_timeout=-1` intervention (full window, 254,356, verified):
+**[docs/DEEP-CONTEXT.md](docs/DEEP-CONTEXT.md#deep-positions-the-amdgpu-watchdog-wall--and-how-to-remove-it)**.
 
 ## Vulkan vs ROCm, which and why?
 
-Two GPU backends can drive the 8060S on Linux: **Vulkan** (via Mesa RADV — what
-this repo ships by default) and **ROCm/HIP** (AMD's compute stack). On Strix
-Halo the internet folklore says "ROCm is way slower than Vulkan" — that was
-true for the *official* ROCm releases (7.2.x era) but is **no longer true for
-the 7.14+/TheRock line**, and we measured it. This chapter is the plain-language
-tour of what we ran, what died, and what we now run for which job.
-
-### What we actually compared (all on this box, same models)
-
-Every number below comes from the same experiment rig: identical fork commit
-(`9b9ac3e38` unless noted), identical models (Q8 target + DFlash2 draft, f16 KV,
-`-c 262144 -b/-ub 4096 -fa on`), identical battery
-([`fill_battery.sh`](fill_battery.sh) — grows the context in 16k-token chunks
-through cached prefixes, i.e. true incremental fill). Only the backend — or the
-build — changes between rows. The A/B CSVs, server logs, and the 16k-token
-fill corpus are committed under `results/` (the repo's `.gitignore` hides the
-full ~80-file research tree; only the evidence set is versioned).
-
-**The four builds we tested:**
-
-1. **Fork, Vulkan** — our production build (the strix-halo-vulkan fork's tuned
-   Vulkan path: coopmat matmuls, wave32, LDS pad tuning).
-2. **Fork, ROCm** — same fork commit, HIP backend, built against **TheRock
-   7.15.0a nightly** (AMD's rolling source releases; userspace-only, no root).
-3. **Stock upstream master, Vulkan** — plain `ggml-org/llama.cpp` at `2115b73`
-   (2026-08-22), to answer "maybe the newest upstream already fixed it?"
-4. **Fork HEAD, Vulkan** — the fork's newest commits (incl. a fresh Vulkan
-   coopmat-pad gating fix), to answer the same for the fork.
-
-### The speed picture
-
-Bare bench (`llama-bench`, pp512 = prompt processing, tg32 = generation):
-
-| Build | Q6 pp512 | Q6 tg32 | Q8 pp512 | Q8 tg32 |
-|---|---:|---:|---:|---:|
-| Fork Vulkan (production) | 360.6 | 8.78 | 365.0 | 7.27 |
-| Fork ROCm TheRock 7.15 | 352.5 | 8.57 | **370.8** | 7.18 |
-| Stock master Vulkan | 316.9 | 8.78 | — | — |
-
-Decode with speculative decoding (Q6 @ 128k, fresh context, n=3 probes per
-cell, medians with min–max; raw rows in
-[`results/spec-battery-n3.csv`](results/spec-battery-n3.csv)):
-
-| Combination | sustained decode | draft acceptance |
-|---|---:|---:|
-| Vulkan + DFlash2 | **16.7 t/s** (16.57–16.91) | 0.29 |
-| Vulkan + MTP | 15.1 t/s (14.85–15.12) | 0.32 |
-| ROCm + MTP | 14.5 t/s (14.48–14.59) | 0.33 |
-| ROCm + DFlash2 | 14.2 t/s (14.07–14.32) | 0.34 |
-
-*Probe shape: fresh context, short prompt, 256 generated tokens. Draft
-acceptance sits ~0.3 on this shape vs ~0.38 on real router traffic, which is
-why the intro's 15–35 t/s band is wide. The ranking is the
-point of this table, not the absolutes.*
-
-Read it straight: **on the TheRock 7.15 line, ROCm reaches parity** (Q8 prefill
-even ahead) — the "way slower" folklore belongs to the official 7.2.x releases
-(upstream tracks those gaps: [#21284](https://github.com/ggml-org/llama.cpp/issues/21284),
-[#24437](https://github.com/ggml-org/llama.cpp/issues/24437)). With
-speculation armed, Vulkan+DFlash2 stays the fastest combination; MTP is viable
-everywhere and actually *prefers* ROCm here. (halofpx's much higher MTP numbers
-come from a 13.5 GiB FP4 quant — half our weights; see the comparison below.)
-
-### The stability picture — where the ~128–160k wall actually lives
-
-Same battery, deep fill, fate of the server:
-
-| Build | filled positions at death | signature |
-|---|---:|---|
-| Fork Vulkan (production pin) | **died at 136,965** | `vk::Queue::submit: ErrorDeviceLost` |
-| Fork HEAD Vulkan | died in the 117k–137k band | same |
-| Stock master Vulkan (`-ub 4096`) | **died at 19,571** (!) | same |
-| Stock master Vulkan (`-ub 1024`) | died in the 39k–58k band | same |
-| Fork ROCm TheRock 7.15 | **survived 215,228 filled — zero errors** (two runs: run 1's chunk-12 client-timeout cancelled at 98% progress ≈ 234k filled server-side; run 2 stopped manually mid-chunk-10 — server healthy both times) | — |
-| Fork Vulkan + `amdgpu.lockup_timeout=-1` | **survived 254,356 filled = full window** (2026-08-23 intervention run; rejected only the one-chunk-overflow request past the window with a clean 400) | **none — zero kernel ring events** |
-
-*Note on the stock rows: they ran without a draft model — stock's loader
-rejects the fork-format DFlash2 draft (`wrong number of tensors; expected 81,
-got 58`, [log](results/stock-dflash-loadfail.log)) — so stock-vs-fork differs
-in build **and** spec path; the fork-HEAD row is the clean same-spec
-comparison.*
-
-Three findings worth internalizing:
-
-- **The wall is real but its mechanism is the amdgpu lockup watchdog, not
-  (only) a Vulkan driver bug.** Kernel forensics (2026-08-23): the journal
-  shows **exactly four `ring comp_*.0 timeout → ring reset` events on
-  2026-08-22, 09:39–10:38 — the precise window of the four Vulkan
-  device-lost deaths above, 1:1, and nothing else in the window**. The first
-  names our process (`Process llama-server pid 21320`); the server log dies
-  at the same wall-second (`radv/amdgpu: The CS has been cancelled … This
-  context is innocent` → `device lost` → task 51 stops at 136,965).
-  Mechanism (INFERRED): a single deep-position dispatch goes quiet past the
-  ring timeout — dispatch duration grows with KV depth until it crosses the
-  threshold, which is why two independent fork runs died at the *identical*
-  136,965. Healthy chunks of 60–144 s never tripped it (many short,
-  progress-signaling submissions), so the trigger is one long no-signal
-  dispatch, not total runtime.
-- **Community confirmation (REPORTED → now VERIFIED here, 2026-08-23)**:
-  the intervention test ran on this box — kernel cmdline
-  `amdgpu.lockup_timeout=-1` (systemd-boot entry, backup kept), same
-  battery: **254,356 positions filled = the entire usable window in 45 min,
-  zero device-lost, zero kernel ring events** (journal confirms
-  `amdgpu: lockup timeout disabled` at boot). The twice-deterministic
-  136,965 death is gone → causation established, not just correlation.
-  Cost model of `-1` (reported by the same user): a *true* GPU hang then
-  needs a reboot — acceptable headless, a real tradeoff on a desktop. A
-  middle path (`lockup_timeout=600000`, 10 min) keeps some recovery and
-  would very likely also clear our ~2 s-class false positive, at the cost
-  of unverified-by-us behavior on 10-minute dispatches. Our unattended-
-  stability setup for living with `-1` (hardware TCO + GPU canary + scoped
-  reboot grant): the
-  [playbook chapter](#stability-without-the-kernel-gpu-watchdog-lockup_timeout-1-playbook).
-- **Why ROCm survived (INFERRED)**: the HIP path splits the same math into
-  differently-shaped submissions that keep signaling progress — so the
-  watchdog never fires — rather than being immune to the underlying depth
-  cost. The q8_0-KV/`-ub 1024` shape shifts (fork issue #9 user) likely move
-  the same threshold rather than remove it.
-- **Bleeding edge does not fix it (yet)**: neither upstream master nor the
-  fork's newest commits move the needle. In fact **stock master is 7× worse**
-  than our fork build — the fork's tuned Vulkan path is what carries you from
-  ~20k to ~137k. Do not swap our build for stock on this APU.
-- **The crash is config-shaped, not absolute**: `-ub 1024` stretched stock's
-  life 2–3× (and the fork-issue-#9 user prefilled 491,520 tokens on Vulkan
-  with q8_0 KV + `-ub 1024` on DeepSeek-V4). With the watchdog mechanism, the
-  suspects reorder: the real dial is *single-dispatch duration at depth* —
-  which `-ub`, KV dtype, and `lockup_timeout` all move. Upstream still has
-  the class open
-  ([#27076](https://github.com/ggml-org/llama.cpp/issues/27076),
-  [#27458](https://github.com/ggml-org/llama.cpp/issues/27458)); those
-  reports are plausibly the same watchdog mediation.
-
-### The chart: context-filling decay, deep into the 256k window
-
-Prompt-processing speed while the context fills (same 16k chunks, same
-flags; Q8 + DFlash2 + f16 KV). With the default kernel, **Vulkan's prefill
-edge widens with depth (1.25× at 20k → 2.7× at ~117k) — until the amdgpu
-watchdog kills it at ~137k.** With `amdgpu.lockup_timeout=-1` the same run
-sails through the death zone and fills the **entire window** (2026-08-23
-intervention run: 254,356 positions — window boundary, not a crash — in
-45 min, zero errors, zero kernel ring events). ROCm decays faster in
-absolute terms and survives on the default kernel:
-
-```mermaid
-xychart-beta
-    title "Incremental prefill t/s vs FILLED context — Vulkan with lockup_timeout=-1 vs ROCm"
-    x-axis "positions filled" ["19.5k","39k","58.7k","78k","97.8k","117k","137k","156k","176k","196k","215k","235k","254k"]
-    y-axis "prefill tok/s" 0 --> 350
-    line [328, 266, 218, 177, 144, 118, 100, 86, 75, 67, 60, 54, 49]
-    line [262, 165, 102, 71, 55, 44, 37, 32, 28, 25, 22]
-```
-
-*(upper line = Vulkan, `lockup_timeout=-1` — the 2026-08-23 full-window run;
-it matches the killed run's curve within ±1 t/s at every shared depth, then
-continues 6 more chunks past the old 136,965 death. Lower line = ROCm
-TheRock 7.15 through 215k. Decode speed decays with filled depth on both
-backends — see the
-fill-decay table in the 1M chapter.)*
-
-### So which one, and why?
-
-- **Daily driving (≤ ~100k of content): stay on Vulkan.** Faster decode with
-  DFlash2 (16.7 vs 14.2 t/s), 1.25–2.7× faster prefill by depth, one build, zero extra
-  setup — that's what `run_llama-server.sh` and the recipes assume.
-- **Deep context (> ~128k filled): set `amdgpu.lockup_timeout=-1`** —
-  verified to fill the entire 262k window on Vulkan with zero errors, keeping
-  Vulkan's prefill lead at every depth
-  ([deep-positions A/B](#deep-positions-the-amdgpu-watchdog-wall--and-how-to-remove-it),
-  [stability playbook](#stability-without-the-kernel-gpu-watchdog-lockup_timeout-1-playbook)).
-  **The ROCm build is the fallback** when the kernel cmdline can't be touched:
-  same models/flags/recipes, survives the band on the default kernel, 1.25–2.7×
-  slower prefill.
-- **Watch, don't switch, on stock upstream** — its Vulkan path is strictly
-  worse on this APU today (and its `draft-dflash` loader can't even read the
-  DFlash2 draft: "wrong number of tensors; expected 81, got 58" — the selector
-  format is fork-specific).
-- **MTP is the portable speculation option** (works on both backends, no
-  separate draft weights), but on Vulkan DFlash2 beats it 16.9 vs 13.1 t/s —
-  keep DFlash2 where it works, MTP where it doesn't.
+The measured A/B, speed/stability pictures, the fill-decay duel chart, and
+the practical ranking: **[docs/BACKENDS.md](docs/BACKENDS.md)**.
 
 ### How this compares with halofpx as of 2026-08-22
 
-Repos compared at this date: **halofpx** [`22dd3b54d`](https://github.com/julianmb/halofpx/commit/22dd3b54d)
-("feat(registry): mandatory quant provenance metadata" — they have started
-requiring quant provenance metadata, a step in the right direction) vs **this
-repo** [`5569eb2`](https://github.com/PieBru/Qwen-3.8-27B_Strix-Halo_gfx1151/commit/5569eb2)
-(the commit carrying the experiments above; you are reading its descendant).
-halofpx moves fast — re-check their numbers against their own current tip
-before relying on them.
-
-[halofpx](https://github.com/julianmb/halofpx) is the speed-first cousin of
-this repo: a slick model-zoo server for Strix Halo built around hand-tuned
-**ROCmFP4/FP8 quants**, MTP, and a Vulkan-decode + ROCm-prefill split. We
-measured nothing against it on this box (its weights are a separate download);
-this is a methodology comparison from their published numbers:
-
-- **Their speed is real but bought with quantization.** Their Qwen3.8-27B
-  default (`ROCmFP4_FAST`, 13.55 GiB, 4.26 bpw) decodes at 14.0 t/s bare /
-  30.6–36.0 t/s with MTP. Half-size weights on a bandwidth-bound APU *should*
-  be ~2× faster — that's the trade, not magic. Our Q6/Q8 recipes trade that
-  speed away for fidelity.
-- **Quality verification is thin where it matters.** Their published
-  perplexity is one number for *Ornith* (5.95 vs Q4_K_M's 5.64 — and the ±0.3
-  error bars nearly touch), measured on **9 chunks of wikitext-2 at n_ctx=512**
-  (~4.6k tokens). No perplexity is published for the Qwen FP4_FAST default at
-  all, and **no KLD-vs-reference anywhere** — the metric that catches the
-  drifts perplexity misses. Our spread (Q8 4.692 → Q6 4.706 on 200×512-token
-  chunks of a real corpus, KLD-checked) is an order of magnitude tighter than
-  the gap their own table shows for FP4.
-- **"Validated 262K" is the MoE sibling, not this model.** Their 262,144-token
-  validation load is Ornith 1.5 35B; their Qwen context table stops at 32k.
-- **Fork-format lock-in**: ROCmFP4/FAST GGUFs load only on their fork lineage —
-  a self-published format with one implementation. Standard K-quants (ours)
-  load everywhere, forever.
-
-Nothing wrong with choosing that point on the speed/quality curve *knowing
-you chose it* — but this repo's contract is measured-quality-first: every
-recipe we ship carries its PPL/KLD price tag, and we don't deliver formats
-whose fidelity we haven't measured ourselves.
+The measured-quality-first comparison with the speed-first cousin:
+**[docs/BACKENDS.md](docs/BACKENDS.md#how-this-compares-with-halofpx-as-of-2026-08-22)**.
 
 ## Stability without the kernel GPU watchdog (lockup_timeout=-1 playbook)
 
-Running with `amdgpu.lockup_timeout=-1` buys the full 256k Vulkan window
-(above) at a price: **the kernel will never report a GPU hang again**. A
-true wedge then means a box that looks alive but never computes. This
-chapter is the unattended-stability stack that makes `-1` safe on an
-inference appliance — three layers, each catching what the others can't:
-
-1. **Hardware watchdog (already there — verify, don't build).** The board's
-   SP5100 TCO timer is petted by systemd (`RuntimeWatchdogUSec=20s`,
-   `RebootWatchdogUSec=10min` — OBSERVED on this box via `systemctl show`).
-   Catches full-system hangs: if PID 1 stops petting, the firmware reboots
-   the box in 20 s. No action needed beyond checking it's on.
-2. **GPU canary (the new layer — `gpu_canary.py` + `systemd-units/gpu-canary.{service,timer}`).**
-   The gap the TCO can't cover: *kernel alive, GPU ring wedged* — systemd
-   keeps petting, HTTP health stays green, every inference hangs forever
-   (exactly the 2026-08-22 wedges, which `-1` now silences instead of
-   recovering). The canary probes every 10 min: **health green + a 1-token
-   completion dead = the wedge signature**. Two consecutive dead probes →
-   journal entry + reboot. Router inactive → planned offline, skip (batteries
-   don't trip it); health down → service restart only (not a GPU verdict).
-3. **Unattended reboot grant.** `/etc/sudoers.d/gpu-canary-reboot`:
-   `piero ALL=(root) NOPASSWD: /usr/bin/systemctl reboot` — exact-argv
-   scoped (one command, no arguments), so the canary can act while the
-   console is locked. Remove the file to revoke.
-
-Replication on another box: append `amdgpu.lockup_timeout=-1` to the boot
-entry (systemd-boot: `/boot/loader/entries/*.conf` — keep a `.bak`), copy
-the two units to `~/.config/systemd/user/`, `daemon-reload`, `enable --now
-gpu-canary.timer`, drop the sudoers file. Undo is the reverse of every
-step (boot-entry restore is the only reboot-requiring one). The softer
-alternative — `lockup_timeout=600000` (10 min, keeps kernel recovery) — is
-untested here; it's on the ledger as the desktop-friendly variant.
-
-Why this shape: under `-1`, wedge *detection* must move to userspace (the
-kernel has contractually given up reporting it), while wedge *recovery*
-was always the firmware's job (TCO) — the canary just connects the two.
+Three-layer unattended stability — hardware TCO, the GPU canary, the scoped
+reboot grant: **[docs/DEEP-CONTEXT.md](docs/DEEP-CONTEXT.md#stability-without-the-kernel-gpu-watchdog-lockup_timeout-1-playbook)**.
 
 ## Reasoning levels: cost and quality — measured
 
-Qwen3.8 steers reasoning depth in the *prompt* (`low` / `medium` / `xhigh`,
-aliases mapped by the template). Everyone repeats claims about what these
-levels cost and buy; almost nobody measures. We did — full harness in the
-repo (`e1_cost_battery.py`, `e2_quality_battery.py`, `e2b_hard_battery.py`,
-`e2c_frontier_battery.py`, evidence in `results/e1-cost.csv`,
-`results/e2-quality.csv`, `results/e2b-hard.csv`, `results/e2c-frontier.csv`;
-plan with pre-registered decision rules in `docs/PLAN-reasoning-economics.md`).
-Everything below: served through the router (DFlash2 active), temp 0, exact
-reasoning/visible token split via `/tokenize`, template v22.3.
-
-### Cost (E1: 24 prompts × 4 levels × 2 quants + variance + budget arms)
-
-Medians (p50, temp 0, n=8 per difficulty cell):
-
-| Cell | think p50 | think p90 | visible p50 | total p50 | wall p50 |
-|---|---|---|---|---|---|
-| Q8 off    | **0**   | 0   | **442** | 442 | 14.9 s |
-| Q8 low    | 208     | 659 | 179     | 424 | 14.2 s |
-| Q8 medium | 186     | 736 | 167     | 344 | 13.2 s |
-| Q8 xhigh  | 144     | 610 | **94**  | **238** | 17.5 s |
-| Q6 off    | 0       | 0   | 428     | 429 | 26.5 s |
-| Q6 low    | 197     | 489 | 140     | 340 | 23.6 s |
-| Q6 medium | 220     | 547 | 123     | 384 | 22.9 s |
-| Q6 xhigh  | 158     | 604 | **82**  | **248** | 15.7 s |
-
-Three things fall out:
-
-1. **The effort knob does not order thinking cost.** Median thinking tokens
-   are flat (or *lower* at xhigh!) across low/medium/xhigh — what the knob
-   changes is instruction text, not a budget. p90 spread is where the levels
-   differ, and it overlaps heavily.
-2. **`off` is not cheap on hard work.** Without a scratchpad the model
-   rambles: on hard prompts visible output p50 was 953 tokens (Q8) vs 296 at
-   medium. Thinking *shortens* the answer so much that **xhigh had the lowest
-   total tokens** (238 vs off's 442, Q8).
-3. **The reliable cost control is `reasoning_budget_tokens`, not the level.**
-   The budget arm (hard prompts, medium, cap 256) came in at ≤262 thinking
-   tokens 8/8 (6/8 printed the graceful "budget reached, answer now"
-   message, all finished `stop`). That's the fork's PR-#21141 lineage doing
-   exactly what the soft knob can't.
-
-The tinkerer anomaly ("low out-thinks medium/high") is real but statistical,
-not a no-op: at temp 1.0 on *hard* prompts, P(think_low > median think_medium)
-= **0.50** (easy 0.00, medium 0.17) — the distributions overlap; E0 confirmed
-the knob reaches the rendered prompt every time (16/16 matrix rows pass,
-`results/e0-matrix-*.json`).
-
-### Quality (E2 → E2b → E2c, deterministic checkers, no LLM judge)
-
-| Battery | Items | Q8@off | Q8@med | Q8@xhigh | Q6@off | Q6@xhigh |
-|---|---|---|---|---|---|---|
-| E2 routine (numeric/json/code/multihop) | 20/cell | 95% | 90% | 95% | 95% | 90% |
-| E2b hard (competition-style) | 10/cell | 100%* | 100%* | 100%* | 100%* | 100%* |
-| E2c frontier (olympiad, @4k budget) | 10/cell | **80%** | 60% | 60% | **100%** | 70% |
-| E2c same failures re-run @16k budget | 13 | — | 4/4 | 3/4 | — | 3/3 |
-
-\* after fixing a grader off-by-one (the model was right, the answer key
-wasn't — see honesty notes).
-
-Read that bottom row pair twice, it's the headline:
-
-- **At a bounded completion budget (4k, what agents and routers typically
-  allow), thinking mode is a liability on frontier items** — not because the
-  reasoning is wrong, but because it can burn the entire budget and return
-  *nothing* (`finish=length`, empty answer: 4/10 for Q8@medium and Q8@xhigh,
-  3/10 for Q6@xhigh — while Q6@off solved 10/10).
-- **Raise the budget to 16k and the same cells recover 10/13 instantly** —
-  thinking runs 631–8,481 tokens and finishes — at **125–541 s wall** vs the
-  off-mode's 46–52 s. One outlier (Q8@xhigh, primes-counting) burned even
-  16k. So: capability intact; *budget exhaustion* is the failure mode.
-- On everything short of frontier difficulty, **thinking-off costs nothing
-  measurable** (E2/E2b ceilings at 90–100% for every cell, both quants).
-  The 20–60 pt horror numbers from prior generations do not transfer to
-  this model on routine work.
-
-### What we run because of this
-
-- **No recipe effort pins** — the pre-registered rule (Δaccuracy ≥ 3 pts AND
-  wall ≤ 1.15×) is not met; anything it would buy is within noise. Default
-  `medium` stands for the router; clients can pass `reasoning_effort` or the
-  inline `<|think_low|>`/`<|think_xhigh|>`/`<|think_off|>` tags per request.
-- **For bounded-budget agent contexts** (pi, tool loops, routers with caps):
-  either ask without thinking for compute-shaped tasks, or send
-  `"reasoning_budget_tokens": 512` (measured: hard cap, graceful stop) so a
-  deep thinker can't starve the answer. This is a client-side body field —
-  no server restart, no recipe change.
-- **Never rely on the level name as a cost control** — it isn't one (table
-  above); it's a *style* steering.
-
-### Honesty notes (what the graders caught, in both directions)
-
-- One E1 prompt was mathematically impossible ("n² ends in 26" — no square
-  ends in 26 mod 100); the E2b selfcheck caught it before launch (replaced
-  with a solvable variant) and it explains that prompt's token blowups.
-- E2b's answer key had an off-by-one (8-candy stars-and-bars: key said 56,
-  truth 35 — the *model* was right in all 5 cells; key regenerated by
-  brute force, rows re-graded from stored outputs).
-- E2's json category "failures" are spec-ambiguity artifacts (per-disk vs
-  total TB; `#88117` vs `88117`), identical across cells — not extraction
-  errors. Treat json rows as 100%-±strictness.
-- Wall-clock on a models-max=1 router carries reload spikes; 18/236 E1 rows
-  flagged and excluded from wall claims. Token counts are reload-immune.
-- n is honest: 8/cell (E1), 5–10/cell (E2 tiers), single run at temp 0;
-  the frontier gap (100% vs 60–80%) is far outside that noise, the routine
-  tiers' differences are inside it — and reported as such.
+Levels are style, not cost; only `reasoning_budget_tokens` is a real cap;
+thinking inside a bounded budget can starve the answer — and what we run
+because of it: **[docs/REASONING.md](docs/REASONING.md)**.
 
 ## Models — Unsloth Dynamic GGUFs, aligned with the repo tip
 
-The target GGUFs are the Unsloth Dynamic **K_XL** quants, aligned with the
-unsloth repo **tip** (v3.0 re-quant run) as of 2026-08-21. A full tie-battery
-(fresh-slot decode, prefill, perplexity, KL-vs-Q8) showed the tip K_XL files
-tie the previous pinned v2 set within noise on every axis, so we track the tip;
-the v2 files were verified equivalent and then removed locally (their
-fingerprints remain in git history for refetching). `Q8_K_XL` was byte-identical
-between the two revisions.
+Which GGUFs we run and why, the v3.0 tie-battery, the Q4 drop:
+**[docs/BUILDING.md](docs/BUILDING.md#models--unsloth-dynamic-ggufs-aligned-with-the-repo-tip)**.
 
-**<https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/main>**
+## Environment · Dependencies · Build from source · The toolbox
 
-First-timers: `./download_models.sh` fetches all three (or pass `q5 q6 q8`),
-verifies each sha256, and warns if the repo tip has drifted from the
-fingerprints below; `./download_models.sh --check` re-verifies what's on disk.
-
-| File | Role | Exact size (bytes) | sha256 starts with |
-|---|---|---:|---|
-| `Qwen3.8-27B-UD-Q8_K_XL.gguf` | quality recipes | 31,457,991,680 | `af36ecb6b5db` |
-| `Qwen3.8-27B-UD-Q6_K_XL.gguf` | speed recipes + vision | 25,299,061,664 | `701d8fa9ed21` |
-| `Qwen3.8-27B-UD-Q5_K_XL.gguf` | turbo recipe | 20,876,938,144 | `8601193d3d57` |
-
-`UD-Q4_K_XL` is deliberately absent: evaluated and dropped — the measured case
-against it is below.
-
-Verify a download against the table (`ls -l` size, or `sha256sum` prefix).
-
-The `DFlash2-*` draft GGUFs live in
-[z-lab/Qwen3.8-27B-DFlash2-GGUF](https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF)
-(the `Q4_K_M` variant there measured ~+5% acceptance but needs re-fetching) and
-only load via `-md` next to a target — run standalone they fail with
-`dflash requires ctx_other to be set`. `mmproj-F16.gguf` is the vision projector
-(unsloth repo, sha `cbb841a9ee06…`), wired per-recipe via the `mmproj` key in
-`models.ini`. `download_models.sh` fetches and verifies all five files —
-targets, draft, mmproj — against the fingerprints above.
-
-### Context beyond 192k?
-
-Everything 1M — the cap (mainline-inherited), the measured RAM budget, the
-NIAH-validated quantized KV, the 512K verdict, and the vLLM/local-patch/
-upstream routes to a real 1M window — lives in
-[The 1M-token context](#the-1m-token-context-what-works-what-doesnt-and-what-it-costs).
-
-### Dynamic Quant v3.0 — `UD-Q6_K_M`: compatible alternative, not the default
-
-Unsloth's v3.0 `Qwen3.8-27B-UD-Q6_K_M.gguf` (23,088,409,504 bytes, sha256
-`493301830a59…`) loads cleanly on this stack (same tensor warnings as v2, identical
-arch/vocab/params) and serves with DFlash2:
-
-| | Q6_K_XL (v2.0, default) | Q6_K_M (v3.0) |
-|---|---:|---:|
-| file size | 24.1 GiB | 21.5 GiB |
-| decode tg / prefill pp4k | 29.0 t/s / 306 | 30.8 t/s / 293 |
-| DFlash2 acceptance | 0.64744 | 0.64744 |
-| GTT resident | 37.7 G | 35.0 G |
-| perplexity (local corpus) | 4.7062 | 4.7051 (tied) |
-| KL div vs Q8 ref / top-p agreement | 0.00734 / 96.5% | 0.00984 / 96.1% |
-
-Quality-first verdict: the v2 XL stays the default — v3.0's token distribution sits
-measurably further from the Q8 reference, and it loses at prefill. Pick v3.0 when
-2.8 GiB of RAM or decode t/s matter more; to adopt it, add a `models.ini` section
-pointing `model =` at the _M_ file (copy any Q6 section and edit).
-
-### `UD-Q4_K_XL`: evaluated and dropped (2026-08-21) — GGUF deleted locally
-
-The natural "warp speed" candidate (16.7 GiB weights, lightest possible target)
-loses in practice: DFlash2 acceptance collapses with the extra quant noise
-(0.41–0.59 vs 0.647 on Q5/Q6), so best-case decode is **28.2 t/s (n-max 4)** vs
-Q5-turbo's **~23** — the bandwidth advantage is eaten by rejected drafts. Quality
-is the set's floor (KLD 0.0266 vs Q8 ref — 2× Q5's 0.0137; top-p agreement
-94.7%). It also can't unlock 1M context: that's blocked by the slot cap and
-prefill ceiling (see above), both quant-independent, and KV dominates the
-memory budget anyway. All Q4 references are removed from the recipes/launcher;
-the quant remains fetchable from the unsloth repo history if ever re-needed.
-
-## Environment
-
-Everything below was verified on **Arch Linux installed as a minimal headless
-server** — no desktop environment, GPU used purely as a compute device — and that
-is what we **use and recommend for serving LLM inference**: latest compilers and
-Mesa/RADV with zero desktop drag, and nothing competing with the GPU for memory
-bandwidth. **Ubuntu may work but we didn't test it**; the package names in the
-dependencies section are Arch's, so translate them (`apt`/universe, possibly newer
-upstream packages for shaderc/RADV) before assuming parity.
-
-Adapted from [BUILD.md](https://github.com/Nathanw1014/strix-halo-llamacpp/blob/master/BUILD.md)
-for a box where **ROCm and Vulkan (system RADV) are already installed and proven working**.
-
-Verified on this machine (Arch Linux, Ryzen AI MAX+ 395 / Radeon 8060S, gfx1151):
-
-- `rocminfo` → gfx1151 ✔
-- `vulkaninfo` → RADV, ICD `radeon_icd.json` ✔
-- `glslc 2026.3` — meets the "current shaderc" requirement ✔
-- Vulkan + SPIRV headers present in `/usr/include` ✔
-
-## Dependencies (Arch Linux — pacman / paru)
-
-Everything is in the official repos; no AUR needed (`paru -S` works identically if
-that's your habit). Package set verified against this working box (`pacman -Qo`):
-
-```bash
-# Vulkan build (required) — versions OBSERVED working:
-#   shaderc 2026.3-1 (glslc)  vulkan/spirv-headers 1.4.357  libdrm 2.4.134
-sudo pacman -S --needed base-devel cmake ninja git \
-  shaderc vulkan-headers spirv-headers vulkan-icd-loader vulkan-radeon \
-  vulkan-tools libdrm
-
-# ROCm / HIP (optional, for the decode-fix build) — OBSERVED set is 7.2.4:
-#   rocm-hip-sdk pulls hipcc + runtime, comgr, rocblas, rocm-llvm
-sudo pacman -S --needed rocm-hip-sdk rocm-cmake
-```
-
-`vulkan-radeon` (system RADV) is the driver llama.cpp actually runs on — no bundled
-Mesa needed on this box. `vulkan-tools` provides `vulkaninfo` for the checks above.
-
-## Build from source — for testing improvements
-
-```bash
-git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp
-git checkout strix-halo-vulkan
-cmake -B build-vk -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release \
-  -DGGML_NATIVE=ON -DLLAMA_CURL=OFF
-cmake --build build-vk --target llama-server llama-cli llama-bench -j
-```
-
-No `-DVulkan_*` overrides needed: the system glslc (2026.3) and headers already meet
-the toolchain requirements. `GGML_NATIVE=ON` is correct here because this CPU *is*
-Strix Halo (CI replaces it with explicit Zen 5 toggles only because GitHub runners
-aren't).
-
-## The toolbox behind it (BUILD.md)
-
-The upstream repo assembles a portable *toolbox* from 3 (4 with HIP) build outputs
-via `build-from-source.sh`:
-
-1. **libdrm ≥ 2.4.133** — meson build, `--prefix=/usr` (the `amdgpu.ids` path is baked
-   in at build time), staged with `DESTDIR`.
-2. **Mesa RADV (compute-only)** — from Mesa main, `-Dvulkan-drivers=amd`, no
-   gallium/llvm. Exists so the tarball ships its own known-good driver.
-3. **llama.cpp Vulkan (the actual fixes)** — fork branch **`strix-halo-vulkan`**
-   (dequant-once + all-quant transpose + full mmid stack).
-4. **llama.cpp HIP (optional decode fix)** — branch `fa-tile-dequant-on-load`,
-   built in a ROCm 7.2.4 container targeting gfx1151.
-
-Steps 1–2 only matter for *portability to other machines*. On this box, with working
-system RADV, you only need **step 3**.
-
-**Why the fork, measured** (back-to-back `llama-bench` vs mainline, quiet box):
-
-| Metric | fork | stock mainline | fork Δ |
-|---|---:|---:|---:|
-| Q6 pp512 / @d8192 | 355.8 / 314.8 | 301.0 / 263.7 | **+18% / +19%** |
-| Q8 pp512 / @d8192 | 371.6 / 326.1 | 302.9 / 267.0 | **+23% / +22%** |
-| tg32 (Q6 / Q8) | 8.60 / 7.30 | 8.55 / 7.27 | parity |
-
-Stock also has no DFlash2 spec-decode at all — the 20→29 t/s layer. **The fork stays
-mandatory** until the prefill PRs land upstream
-([ggml-org/llama.cpp#25494](https://github.com/ggml-org/llama.cpp/pull/25494) and
-follow-ups); when they do, stock inherits the wins and the fork becomes redundant.
+Environment notes, the OBSERVED dependency set, building the fork, the
+prebuilt toolbox: **[docs/BUILDING.md](docs/BUILDING.md#environment)**.
 
 ## Optional: HIP variant (ROCm build)
 
-Two ways to get a ROCm/HIP binary — for when you need the deep-context escape
-hatch (see [Vulkan vs ROCm](#vulkan-vs-rocm-which-and-why)):
-
-- **TheRock nightly (recommended, 2026-08-22 measured)** — userspace-only,
-  no root, sits in `~/opt`; reaches Vulkan bench parity and survives fills
-  past 215k on the default kernel (where Vulkan hits the amdgpu watchdog
-  wall). Full recipe in
-  [the deep-positions A/B](#deep-positions-the-amdgpu-watchdog-wall--and-how-to-remove-it).
-  ⚠️ Avoid the `v2/gfx1151` wheel feed's 7.14.0a20260609..0612 builds — they
-  segfault in `hsa_init` on gfx1151 (TheRock issue #5763); use
-  `tarball-multi-arch/` builds (7.15.0a20260728 verified here).
-- **Official ROCm 7.2.4** (pacman `rocm-hip-sdk`) + the fork's
-  `fa-tile-dequant-on-load` branch — the older path, kept for reference; expect
-  the "way slower than Vulkan" behavior of pre-7.14 ROCm:
-
-```bash
-git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp
-git checkout fa-tile-dequant-on-load
-cmake -B build-hip -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 \
-      -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF
-cmake --build build-hip --target llama-server llama-cli llama-bench -j
-```
+The no-root TheRock build recipe: **[docs/BACKENDS.md](docs/BACKENDS.md#optional-hip-variant-rocm-build)**.
 
 ## Config research (`sweep_llama_configs.sh`)
 
-A staged, one-axis-at-a-time search for the optimal server config per target quant
-(winners carried forward; every result appended to `results/sweep.csv`, one log per
-config under `results/`). Results: [findings at a glance](#sweep-findings-at-a-glance).
-
-```bash
-./sweep_llama_configs.sh 0                                # capacity probe
-./sweep_llama_configs.sh 1                                # --spec-draft-n-max 3-9, both models
-./sweep_llama_configs.sh 2 <best-n6> <best-n8>            # KV types 2x2 (target x draft)
-./sweep_llama_configs.sh 3 "Q6 - - 6" "Q8 - - 6"   # ctx ladder 64k(control)→128k→192k→256k
-#  (`-` = default f16 KV; SWEEP_TAG_PREFIX=r2- tags repeat passes; optional 6th+
-#   fields override the ctx list/order — use to break run-order confounds)
-./sweep_llama_configs.sh 4 "Q6 q8_0 q8_0 <n6> <ctx>" ... # -b/-ub 2048/4096/8192
-./sweep_llama_configs.sh 5 ...                            # -tb 16 vs 32
-```
-
-Guards built in: per-server wait ceiling, fail-fast on dead loads, process-group
-cleanup (no orphans), crash-tolerant CSV (status column).
-
-**Methodology:** absolute t/s drifts up to ±25% across a day on this box (zram under
-memory churn — lessons #1–2), so every ranking comes from back-to-back runs inside
-tight windows, with reversed-order passes to break run-order confounds. Trust only
-interleaved comparisons, never numbers from different sessions.
-
+The staged sweep harness and how every table number was produced:
+**[docs/BENCHMARKS.md](docs/BENCHMARKS.md#config-research-sweep_llama_configssh)**.
 ## Lessons learned
 
 1. **Measure back-to-back or not at all.** Absolute t/s drifts with box state; only
@@ -1420,7 +401,6 @@ interleaved comparisons, never numbers from different sessions.
     **Workaround (verified): per-request `"cache_prompt": false` on re-sent
     identical prompts.** Benchmarking corollary: only fresh-slot (first task after
     load) numbers are honest.
-
 ## 🙏 Thanks to the authors of this software stack
 
 This experiment stands entirely on other people's work:
@@ -1459,7 +439,6 @@ This experiment stands entirely on other people's work:
   (`qwen3.8-froggeric-v22.1.1`) — it fixed the broken tool-call/thinking formatting
   that stock templates produce for this model family. Without it the server output
   would be garbage with tools enabled.
-
 ## License
 
 [MIT](LICENSE) © 2026 PieBru. The configs and notes here are MIT; the
