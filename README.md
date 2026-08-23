@@ -548,16 +548,24 @@ same battery (`fill_battery.sh`: Q8 target + DFlash2 draft, f16 KV,
 
 Reading it straight:
 
-- **The ~128k+ wall is a Vulkan-path bug, not the model or the hardware.**
-  Same weights, same flags, same commit — only the backend differs.
+- **The ~128k+ wall is (at minimum) watchdog-mediated, not a plain Vulkan
+  bug** — kernel forensics (2026-08-23, below) show every "device lost" that
+  morning was an **amdgpu compute-ring lockup timeout + ring reset** fired on
+  llama-server's own submission, seconds before the userspace error. Same
+  weights, same flags, same commit — only the backend differs, because the
+  backends shape GPU submissions differently.
 - **Vulkan stays the faster deep-prefiller while it lives**: incremental fill
   177→144→119 t/s at 78k→98k→117k filled, vs ROCm's 72→55→44 t/s in the same
   band (ROCm decays faster with depth: 262 t/s at 20k → 28 t/s at 176k).
 - **DFlash2 works on ROCm**: draft acceptance 0.34 on a matched probe; decode
   14.5 t/s vs Vulkan's 16.9 t/s (Q6@128k) — Vulkan ~17% ahead with spec decode.
-- Upstream status (2026-08-22): the Vulkan device-lost class is still open
+- Upstream status (2026-08-23): the Vulkan device-lost class is still open
   upstream ([#27076](https://github.com/ggml-org/llama.cpp/issues/27076),
-  [#27458](https://github.com/ggml-org/llama.cpp/issues/27458)); the fork's
+  [#27458](https://github.com/ggml-org/llama.cpp/issues/27458)); we also
+  filed [#27588](https://github.com/ggml-org/llama.cpp/issues/27588) —
+  trailing `assistant(tool_calls)` silently drops the calls in the
+  auto-prefill/continuation path (found by the T0.4 template probes,
+  reproduced on stock master `2115b73`); the fork's
   [issue #9](https://github.com/Nathanw1014/strix-halo-llamacpp/issues/9)
   shows a 491,520-token prefill *succeeding* on Vulkan with DeepSeek-V4 +
   q8_0 KV + `-ub 1024` — the wall is config-shaped, and the suspects are
@@ -716,19 +724,48 @@ comparison.*
 
 Three findings worth internalizing:
 
-- **The wall is a Vulkan-path bug, not the model or the hardware** — same
-  weights, same flags, same commit; only the backend flips death into survival.
+- **The wall is real but its mechanism is the amdgpu lockup watchdog, not
+  (only) a Vulkan driver bug.** Kernel forensics (2026-08-23): the journal
+  shows **exactly four `ring comp_*.0 timeout → ring reset` events on
+  2026-08-22, 09:39–10:38 — the precise window of the four Vulkan
+  device-lost deaths above, 1:1, and nothing else in the window**. The first
+  names our process (`Process llama-server pid 21320`); the server log dies
+  at the same wall-second (`radv/amdgpu: The CS has been cancelled … This
+  context is innocent` → `device lost` → task 51 stops at 136,965).
+  Mechanism (INFERRED): a single deep-position dispatch goes quiet past the
+  ring timeout — dispatch duration grows with KV depth until it crosses the
+  threshold, which is why two independent fork runs died at the *identical*
+  136,965. Healthy chunks of 60–144 s never tripped it (many short,
+  progress-signaling submissions), so the trigger is one long no-signal
+  dispatch, not total runtime.
+- **Community confirmation (REPORTED, 2026-08-23)**: a Strix-Halo user ran
+  the same class of deep fills with `amdgpu.lockup_timeout=-1` (kernel
+  cmdline) and now sustains **2–3 concurrent Q6 instances at 256k context on
+  Vulkan, no device-lost** (slow — a few t/s — but stable; consistent with
+  the watchdog theory: given infinite patience the dispatch completes).
+  Not yet verified on this box — the test needs a grub edit + reboot
+  (operator gate). Side effects are real: `-1` disables GPU hang recovery,
+  so a *true* hang then requires a reboot — acceptable headless, riskier on
+  a desktop box. A middle path (`lockup_timeout=600000`, 10 min) keeps some
+  recovery.
+- **Why ROCm survived (INFERRED)**: the HIP path splits the same math into
+  differently-shaped submissions that keep signaling progress — so the
+  watchdog never fires — rather than being immune to the underlying depth
+  cost. The q8_0-KV/`-ub 1024` shape shifts (fork issue #9 user) likely move
+  the same threshold rather than remove it.
 - **Bleeding edge does not fix it (yet)**: neither upstream master nor the
   fork's newest commits move the needle. In fact **stock master is 7× worse**
   than our fork build — the fork's tuned Vulkan path is what carries you from
   ~20k to ~137k. Do not swap our build for stock on this APU.
 - **The crash is config-shaped, not absolute**: `-ub 1024` stretched stock's
-  life 2–3× (and a fork user prefilled 491,520 tokens on Vulkan with q8_0 KV +
-  `-ub 1024` on DeepSeek-V4 — [fork issue #9](https://github.com/Nathanw1014/strix-halo-llamacpp/issues/9)).
-  Suspects: f16 KV at depth, the 4096 microbatch, and this model's few
-  full-attention layers. Upstream still has the class open
+  life 2–3× (and the fork-issue-#9 user prefilled 491,520 tokens on Vulkan
+  with q8_0 KV + `-ub 1024` on DeepSeek-V4). With the watchdog mechanism, the
+  suspects reorder: the real dial is *single-dispatch duration at depth* —
+  which `-ub`, KV dtype, and `lockup_timeout` all move. Upstream still has
+  the class open
   ([#27076](https://github.com/ggml-org/llama.cpp/issues/27076),
-  [#27458](https://github.com/ggml-org/llama.cpp/issues/27458)).
+  [#27458](https://github.com/ggml-org/llama.cpp/issues/27458)); those
+  reports are plausibly the same watchdog mediation.
 
 ### The chart: context-filling decay, deep into the 256k window
 
