@@ -101,7 +101,7 @@ and the [stability playbook](#stability-without-the-kernel-gpu-watchdog-lockup_t
 (ROCm/TheRock 7.15 needs no kernel change and survived 215,228 on the same
 battery — the fallback when boot params are off-limits.)
 Once verified, pick your workload recipe from the
-[**Recommended configs (per goal)**](#recommended-configs-per-goal) table.
+[**recipe menu**](docs/RECIPES.md) table.
 ## Headline findings (the counterintuitive ones)
 
 Seven results from this setup that invert what most LLM users expect — each
@@ -123,7 +123,7 @@ measured, each linked to its evidence:
 3. **Sampling penalties are poison for speculative decode.** A mild
    `repeat_penalty 1.05` costs **23–28% decode t/s** on every spec recipe —
    penalized logits stop agreeing with the draft (acceptance 0.647 → 0.450).
-   Prefill is immune; use it per-request only. [Lesson #9](#lessons-learned)
+   Prefill is immune; use it per-request only. [Lesson #9](docs/LESSONS.md)
 4. **f16 KV is both faster *and* higher-fidelity here.** 128 GiB of unified
    memory inverts the usual trade: q8_0 KV measured slower than f16 (Q6 19.2
    vs 20.8 t/s) — so the quality choice is also the speed choice. And if you
@@ -133,12 +133,12 @@ measured, each linked to its evidence:
    mmap shares the file pages, but each recipe's process uploads its own GTT
    weights copy — measured 41.0 → 71.5 GiB RAM when vision loaded next to
    balanced (same Q6 file). No flag or Linux trick dedups device memory
-   across processes. (Concurrency note, [recipes](#recommended-configs-per-goal))
+   across processes. (Concurrency note, [recipes](docs/RECIPES.md))
 6. **Vision is free until the first image arrives.** Attaching mmproj costs
    ~nothing statically and text runs at full speed — but image tokens crash
    the DFlash2 speculative batch, so the vision recipe rides without spec
    decode (8.4 t/s vs 29 for the same weights). "It loads" ≠ "it works".
-   [Lesson #7](#lessons-learned)
+   [Lesson #7](docs/LESSONS.md)
 7. **Thinking is not the expensive part — running out of it is.** On
    olympiad-style items at a 4k completion budget, *thinking* modes failed
    30–40% by burning the whole budget on reasoning and returning **nothing**,
@@ -152,97 +152,20 @@ story (262k servable ceiling, measured RAM budget, three routes to 1M) has
 [its own chapter](#the-1m-token-context-what-works-what-doesnt-and-what-it-costs).
 ## Quick start: run the prebuilt release (time-saving)
 
-Skip the build entirely — the toolbox releases ship a portable, self-contained stack
-(latest `v0.6.6`, `strix-halo-llamacpp-vulkan-portable.tar.gz`) that bundles its own
-RADV + libdrm, so it won't touch the system driver and needs no compile toolchain:
+No build, no toolchain: the toolbox tarball bundles its own RADV + libdrm
+and is verified perf-identical to the fork tip —
+**[docs/QUICKSTART.md](docs/QUICKSTART.md)**, or build from source in the
+[TL;DR](#tldr--reproduce-on-any-gfx1151-strix-halo-box).
 
-```bash
-curl -L https://github.com/Nathanw1014/strix-halo-llamacpp/releases/download/v0.6.6/strix-halo-llamacpp-vulkan-portable.tar.gz | tar xz
-# the tarball's launcher self-sets the perf env; run its server directly with the
-# preset flags (the repo's run_llama-server.sh hardcodes the local build path):
-#   ./vulkan/llama-server -m <UD-Q6_K_XL.gguf> -md <DFlash2-Q8_0.gguf> -ngl all -fa on \
-#       -c 65536 -b 4096 -ub 4096 --spec-type draft-dflash --spec-draft-n-max 6 --host 0.0.0.0
-```
-
-Verified on this box: the tarball pins commit `7b6c613`; the fork tip is
-perf-identical within 1% (chat-parser-only delta since). Read on only if you want
-to build from source.
-## What's in this repo
-
-Model weights (`.gguf`) and the `llama.cpp/` clone are local-only; this repo holds
-the serving setup and notes:
-
-- `run_llama-server.sh` — **unified launcher**: `--goal quality|balanced|speed`
-  single-model presets, or `--router` to serve every recipe; every field overridable
-  (`--model`, `--ctx`, `--nmax`, `--kv`, `--port`, `--draft`, `--no-mlock`, `--dry-run`;
-  agent surface opt-in: `--agent`, `--tools`, `--mcp-config`, `--tools-runtime`;
-  `--help` explains each)
-- `models.ini` — the router recipes (the names in the table below)
-- `llama-router.service` — systemd user unit (installs to `~/.config/systemd/user/`)
-- `sharp.jinja` — fixed chat template for this model family (see Thanks)
-- `download_models.sh` — **fetch the target GGUFs**: parallel-range downloads
-  (~8× faster), sha256-verified against the table below, atomic install,
-  tip-drift warning; `--check` re-verifies files already on disk
-- `update_strix-halo-llamacpp_vulkan.sh` — pull/rebuild the fork + backend check
-- `sweep_llama_configs.sh` — staged config search ([config research](#config-research-sweep_llama_configssh))
-
-**The detail pages** (each opens from the front page where it's summarized):
-
-- [docs/RUNNING.md](docs/RUNNING.md) — operations: router, alias, pi pairing,
-  margin rule, recipe deep-dive, verification
-- [docs/DEEP-CONTEXT.md](docs/DEEP-CONTEXT.md) — the 256k/1M window, the
-  watchdog wall, unattended stability
-- [docs/BACKENDS.md](docs/BACKENDS.md) — Vulkan vs ROCm A/B, halofpx, HIP build
-- [docs/REASONING.md](docs/REASONING.md) — reasoning cost/quality batteries
-- [docs/BENCHMARKS.md](docs/BENCHMARKS.md) — sweep findings, threads study,
-  config research
-- [docs/BUILDING.md](docs/BUILDING.md) — models, quants, deps, builds
 ## Recommended configs (per goal)
 
-| Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | context | RAM (GiB) | left (GiB) | tg (t/s) | pp4k (t/s) | PPL / KLD↑ |
-|---|---|---|---|---:|---:|---:|---:|---:|
-| **Quality @256k** | `Qwen38-27B-quality@256k` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 | ~63 | ~25 | ~330 | 4.692 / ref |
-| **Quality** | `Qwen38-27B-quality@64k` (+`@96k`, `@128k`, `@192k`) | `--goal quality` (Q8) | 65536 window; presets to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
-| **Balanced** | `Qwen38-27B-balanced` (+`@96k` fence variant) | `run_llama-server.sh` (Q6) | 131072 window (agentic-sized); flat to 256k | ~42 | ~80 | **~17–21** | ~306 | 4.706 / 0.0073 |
-| **Coding** | `Qwen38-27B-coding` (alias `coding`) | router-only (Q6, 128k, reasoning-budget 2048) | 131072 | ~42 | ~80 | ~17–21 | ~306 | 4.706 / 0.0073 |
-| **Speed** | `Qwen38-27B-speed` | `--goal speed` (Q5, n-max 5) | 65536 | ~35 | ~88 | **~23** | ~297 | 4.722 / 0.0137 |
-| **Vision** | `Qwen38-27B-vision` | router-only (mmproj, no spec) | 65536 | ~32 | ~91 | ~8.4 | — | 4.706 / 0.0073 |
-
-**Coding = balanced + a measured guard.** Same Q6 weights, window and
-speed as balanced; the only difference is a server-side
-`reasoning-budget 2048` default — insurance against the one failure mode
-the reasoning batteries actually found: thinking that eats a bounded
-`max_tokens` whole and returns an *empty* answer (60–70% of frontier items
-at a 4k budget). 2048 sits above hard-routine thinking p90 (~610–736), so
-normal work never touches it. Override per request: body
-`reasoning_budget_tokens` — `32768` for effectively-unrestricted deep work,
-`0` to end thinking immediately, absent/`-1` inherits 2048. Rationale and
-verifications: models.ini `[Qwen38-27B-coding]` section comment and the
-[reasoning chapter](#reasoning-levels-cost-and-quality--measured).
-
-**The context dial.** All `quality@NNk` presets are the same weights, quality
-and decode speed — allocation is free (headline #1), so `NN` buys only the
-window and its RAM price (~45 → ~61 GiB from @64k to @256k). Switch presets
-per **request**, even mid-session: standard clients resend the full history
-every call, so the new preset's first request rebuilds ("renews") the context
-after one ~6–15 s on-demand load — verified with a needle set on @64k and
-recalled on @192k. For fully-local users this makes the context window a
-dial much like the reasoning-level switch (none/low/medium/high), trading
-free RAM for window on the fly; `--models-max 1` serializes the switch (the
-old preset unloads first — switch between requests, not during one).
-
-```mermaid
-xychart-beta
-    title "The context dial: quality@NNk presets, % of the @64k baseline"
-    x-axis "window preset" ["@64k", "@128k", "@192k", "@256k"]
-    y-axis "% of @64k baseline" 0 --> 150
-    bar [100, 111, 120, 136]
-    line [100, 100, 100, 100]
-```
-
-Bars = RAM occupied; line = decode speed (quality is likewise flat) — the window
-costs memory and nothing else. (Fill-depth decay, above, is the separate price
-of actually *using* the window.)
+Five roles, one menu: **quality** (Q8, correctness-first) · **balanced**
+(Q6 @ 128k, the daily driver, ~17–21 t/s) · **coding** (balanced + a
+measured reasoning-budget guard) · **speed** (Q5, fastest decode) ·
+**vision** (images, no spec decode by design) — plus the **context dial**
+(`quality@NNk`, the window per request, allocation is free). The full
+table with RAM/throughput/quality columns, when-to-pick notes, and the
+dial explained: **[docs/RECIPES.md](docs/RECIPES.md)**.
 
 ## Running it
 
@@ -336,88 +259,11 @@ The staged sweep harness and how every table number was produced:
 **[docs/BENCHMARKS.md](docs/BENCHMARKS.md#config-research-sweep_llama_configssh)**.
 ## Lessons learned
 
-1. **Measure back-to-back or not at all.** Absolute t/s drifts with box state; only
-   interleaved pairs give trustworthy rankings. Mind **run order** too: the first
-   server after a cold start pays page-cache warm-up, so sequential ladders lean
-   toward whatever ran last. Reversed-order passes are how you catch both biases.
-2. **zram eats inference.** GTT weight pages are shmem-backed → swappable → they
-   compress into zram under load churn, and decode then pays per-token
-   decompression (up to ~30%). Fixes, best first: (a) `-lm mmap+mlock` so the
-   weights can never be swapped (needs `memlock` unlimited — see next);
-   (b) tune the pressure that triggers swapping instead of disabling it:
-   `vm.swappiness` (default 60 biases toward swapping anon pages; 1–10 makes zram
-   a last resort) and `vm.watermark_scale_factor` (how early kswapd wakes);
-   (c) `sudo swapoff -a` disables zram entirely until reboot — safe on 128 GB with
-   the box otherwise quiet, but it removes the safety net and makes the kernel's
-   precautional OOM killer trigger earlier under pressure. We prefer (a)+(b).
+Ten hard-won rules — measure back-to-back, zram eats inference, mlock fails
+silently, penalties poison speculative decode, the KV-contamination trap,
+and the "it loads ≠ it works" vision lesson:
+**[docs/LESSONS.md](docs/LESSONS.md)**.
 
-   The exact (b) we run on both boxes — `/etc/sysctl.d/99-llama-inference.conf`:
-   `vm.swappiness = 10` (zram a last resort) and `vm.watermark_scale_factor = 125`
-   (wake kswapd earlier — the install-time value of 10 gives a ~13 MiB wake gap
-   on 124 GiB, i.e. almost never, which caused late direct-reclaim stalls; 125
-   gives ~158 MiB of background-reclaim headroom). Apply with
-   `sudo sysctl --system`; flush a filled zram without rebooting with
-   `sudo swapoff /dev/zram0 && sudo systemctl restart
-   systemd-zram-setup@zram0.service` (checked RAM headroom first). Monitor with
-   `swapon --show` and `/sys/block/zram0/mm_stat` — the first column should stay
-   near 0 during normal serving; anything growing means something swapped and
-   decode is paying for it.
-3. **mlock needs a limit raise — and fails SILENTLY without it.** Default
-   `ulimit -l` here was 8192 KB (8 MB-class) and multi-GB buffers then fail with
-   `Cannot allocate memory`. One-time, then re-login:
-   `echo -e 'piero soft memlock unlimited\npiero hard memlock unlimited' | sudo tee /etc/security/limits.d/99-llama-mlock.conf`
-   ⚠️ The server only *warns* on mlock ENOMEM and keeps serving **unprotected** —
-   it does not abort. After re-login verify: `ulimit -l` must print `unlimited`.
-4. **Power is a throttling detector, not a cost metric.** We log PPT only to
-   confirm the box holds a flat 85 W (no throttle). A Strix Halo's max draw is more
-   than an order of magnitude below a pre-Blackwell NVIDIA desktop part — the
-   interesting wattage story is elsewhere.
-5. **A clean box is part of the benchmark.** You don't need to dedicate the machine
-   to inference — but if you want SOTA-at-home, privilege inference quality over
-   co-located niceties (a SQL server, several heavy LLMs on the same box). One
-   model, mlocked, on quiet unified memory.
-6. **Trust but verify the fork's failure modes.** The `vk::DeviceLostError` ceiling
-   (deep prefill ≥128k) and the one-off KV core dump were found by sweeping —
-   neither appears in casual use. Allocation ≠ prefill: 256k ctx loads in 20 s.
-   (The ceiling later root-caused to the amdgpu lockup watchdog — kernel
-   forensics + `lockup_timeout=-1` intervention; see the Vulkan-vs-ROCm
-   chapter. The lesson stands: sweep, don't trust.)
-7. **Vision is cheap — until an image actually arrives.** Attaching `mmproj-F16`
-   to a spec recipe costs almost nothing statically (+~1.2 GB GTT, +~0.6 s load;
-   text decode neutral) and the recipe serves text at full speed — but the first
-   real image request dies with `decode() failed: failed to process speculative
-   batch`: image embeddings are incompatible with the DFlash2 spec path in this
-   fork. Hence vision is its own `Qwen38-27B-vision` recipe with `spec-type = none` —
-   it pays the no-spec decode tax (8.4 t/s vs 21–29 for the same weights with
-   spec; image encode itself is fast, <0.5 s warm for 512 px) so every text recipe
-   keeps its speed, and it's the lightest resident recipe (~32 GiB, no draft
-   model). **"It loads" ≠ "it works"** — a vision setup that was never probed with
-   a real image is unverified. (`--mmproj` is a per-section ini key by design; the
-   router strips it from the shared CLI.)
-8. **Router CLI args silently override per-recipe ini keys.** The router overlays
-   its own command line onto every `models.ini` section: a key present in both is
-   always won by the CLI and the section key is dead — no warning is logged. The
-   per-child `n_max=` journal line is the ground truth. Rule: shared flags ride the
-   router CLI, divergent keys (`spec-type`, `spec-draft-n-max`, `model-draft`,
-   `mmproj`) live *only* in the sections.
-9. **Sampling penalties are poison for speculative decode.** `repeat_penalty 1.05`
-   collapses DFlash2 draft acceptance from 0.647 to 0.450 (mean accepted run
-   4.8 → 3.4 tokens) — the penalized logits stop agreeing with the draft's
-   continuations, so most drafted tokens get rejected and decode reverts toward
-   no-spec speed. Measured cost (same loaded model, temp 0): Q6 29.0 → 21.0 (−28%),
-   Q5-turbo ~23 → ~17 (−25%), Q8 ~17 → ~13 (−23%). Prefill is immune (no
-   sampling) and no-spec recipes (vision) are unaffected. Per-request only, when
-   repetition actually bites.
-10. **Re-sending an identical prompt after a long-prompt task serves garbage
-    (slot-KV contamination).** Repro (any quant, single-slot router): send prompt
-    A (short) → send prompt B (~5k tokens) → send A again. The third request's
-    prefix-match trusts a KV that no longer holds A, evaluates only ~3–4 of A's
-    12 tokens, and decodes from a corrupted context: one quant degenerates to
-    garbage (acceptance 0.02), another echoes prior content deterministically
-    (acceptance 0.95 — fast *and* wrong). A different prompt recovers immediately.
-    **Workaround (verified): per-request `"cache_prompt": false` on re-sent
-    identical prompts.** Benchmarking corollary: only fresh-slot (first task after
-    load) numbers are honest.
 ## 🙏 Thanks to the authors of this software stack
 
 This experiment stands entirely on other people's work:

@@ -2,7 +2,7 @@
 
 > From [Qwen3.8-27B on Strix Halo](../README.md) — the router, recipes deep-dive, pairing with pi, the 24/7 margin rule, verification.
 
-## Recipe deep-dive (continued from the front-page table)
+## Recipe deep-dive (continued from the [recipe menu](RECIPES.md) table)
 
 **Two measured realities temper the dial** (re-measured end-to-end
 2026-08-23, Q8 `quality@256k`-shape standalone, DFlash2, f16 KV — raw CSV
