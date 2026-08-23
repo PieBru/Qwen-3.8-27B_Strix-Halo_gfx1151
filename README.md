@@ -74,20 +74,23 @@ curl -s localhost:8081/completion -H 'Content-Type: application/json' \
      -d '{"prompt":"Explain briefly why the sky is blue at sunset.","n_predict":64}'
 ```
 
-Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. On the
-Vulkan build, *filling* a window deep does not survive: prefill past ~128k
-total positions **crashes** (`vk::DeviceLostError`; verified OK at 128,209
-filled; death at 136,965 in the same-shape 2026-08-22 control) — plan ~128k of real content per session on
-Vulkan. (ROCm/TheRock 7.15 build of the same commit: same-day A/B survived
-215,228 filled positions — see
-[Vulkan vs ROCm](#vulkan-vs-rocm-which-and-why) and
-[the deep-positions A/B](#deep-positions-the-vulkan-wall-vs-rocm-survival).)
+Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. On a
+**default kernel**, deep Vulkan fills die at ~137k positions — but that wall
+is the **amdgpu lockup watchdog**, not Vulkan (kernel forensics 2026-08-23:
+every "device lost" was a ring timeout + reset on our own submission). With
+`amdgpu.lockup_timeout=-1` on the cmdline, the same battery filled the
+**entire 262k window** (254,356 positions, zero errors) — see
+[Vulkan vs ROCm](#vulkan-vs-rocm-which-and-why),
+[the deep-positions A/B](#deep-positions-the-amdgpu-watchdog-wall--and-how-to-remove-it),
+and the [stability playbook](#stability-without-the-kernel-gpu-watchdog-lockup_timeout-1-playbook).
+(ROCm/TheRock 7.15 needs no kernel change and survived 215,228 on the same
+battery — the fallback when boot params are off-limits.)
 Once verified, pick your workload recipe from the
 [**Recommended configs (per goal)**](#recommended-configs-per-goal) table.
 
 ## Headline findings (the counterintuitive ones)
 
-Six results from this setup that invert what most LLM users expect — each
+Seven results from this setup that invert what most LLM users expect — each
 measured, each linked to its evidence:
 
 1. **Context allocation is free; filling it is not.** Decode speed does not
@@ -219,12 +222,13 @@ of actually *using* the window.)
 **Two measured realities temper the dial** (fill battery 2026-08-21, Q8,
 f16 KV, chunked incremental fill): decode falls with FILLED depth —
 **24.7 t/s fresh → 13.1 @64k → 9.8 @128k filled** (incremental prefill
-likewise: ~218 → ~113 t/s from 32k to 96k depth) — and content beyond
-**~128k positions crashes the Vulkan path even for incremental fills**
-(128,209-token fill OK; ~160k `vk::DeviceLostError` — a same-day control
-re-run pinned the actual death at **136,965** filled). So `@64k…@128k` are
-fully usable presets; `@192k`/`@256k` are allocation headroom until deep
-positions are fixed — plan sessions around ~128k of real content.
+likewise: ~218 → ~113 t/s from 32k to 96k depth) — and on a **default
+kernel**, content beyond ~128k positions dies at the amdgpu watchdog
+(death measured at **136,965** filled; forensics in the Vulkan-vs-ROCm
+chapter). With `amdgpu.lockup_timeout=-1` (this box, 2026-08-23) the same
+battery fills the whole window — **254,356 positions, zero errors** — so
+`@192k`/`@256k` are real, usable windows, priced in prefill/decode time at
+depth, not in crashes. Default-kernel boxes: plan ~128k of real content.
 
 Measured decode vs fill (`quality@256k`, Q8, temp 0; both reference frames
 shown — of the 262,144-token window, and of the ~128k usable-content ceiling):
@@ -250,15 +254,18 @@ xychart-beta
     bar [24.7, 21, 16.8, 13.1, 13.7, 9.8]
 ```
 
-The wall is not chartable: the ~160k-target fill died en route with
-`vk::DeviceLostError` (child crash, router wedge; a same-shape 2026-08-22
-control pinned the death at 136,965) — the table row above marks it.
+The wall row is the default-kernel story: that fill died en route with
+`vk::DeviceLostError` (child crash, router wedge; same-shape control pinned
+the death at 136,965 — later root-caused to the amdgpu watchdog). With
+`amdgpu.lockup_timeout=-1` the fill completes (254,356, zero errors); the
+price at depth is time, not death.
 
 When to pick which:
 
 - **Quality @256k** — the flagship window: the servable ceiling, for many/long
-  contexts (NOT one ≥128k-position prompt — Vulkan prefill ceiling); loads can
-  be slow on an uptimed box. Same weights/quality/speed as Quality @64k — the
+  contexts. One ≥128k-position prompt is fine **with** `lockup_timeout=-1`
+  (full-window fill verified 2026-08-23); on a default kernel it is a crash
+  (watchdog death band ~137k). Loads can be slow on an uptimed box. Same weights/quality/speed as Quality @64k — the
   difference is purely RAM for window (see the context-dial note above).
 - **Quality (@64k) — correctness-first answers, code, synthesis; the
   `@96k`/`@128k`/`@192k`/`@256k` presets are one model-field away when the window is
@@ -270,11 +277,12 @@ When to pick which:
 - **Balanced** — the all-rounder: best quality/speed balance
   (28.1–29.6 t/s across the whole 32k–256k ladder). Default window 128k: sized
   for agentic coding sessions — the primary Qwen3.8-27B workload — at ~+4 GiB
-  RAM over 64k and zero decode cost, while staying under the crash zone
-  (window caps at 131,072 filled: 5.9k under the measured death at 136,965,
-  though 2.9k past the largest verified-OK fill of 128,209 — the last sliver
-  of a completely full window is unverified; the `@96k` fence recipes keep
-  every fill in verified territory).
+  RAM over 64k and zero decode cost. On a default kernel the 131,072 cap is
+  also a safety fence (5.9k under the watchdog death at 136,965); with
+  `lockup_timeout=-1` deep fills survive and the reason to stay at 128k is
+  decode economics (~9.8 t/s at 128k filled and falling), not crashes. The
+  `@96k` fence recipes keep every fill in fast, doubly-verified territory
+  either way.
 - **Balanced@96k** — the Q6 fence: same reasoning as `quality@96k` applied to
   the daily driver — identical Q6 weights, quality and ~29 t/s decode (the
   fastest decoder behind a physical window cap), max fill 98,304 entirely in
@@ -433,10 +441,12 @@ want a different tradeoff.
 
 The window (`c`) is a **fence**, not a target. A prompt larger than the window
 is rejected with a clean HTTP error — agent frameworks compact and retry, the
-service never notices. A prompt *under* the window gets prefilled — and past
-~128k–160k positions prefill crashes the GPU child and wedges the router
-(observed; manual restart needed). So for a coding agent that manages its own
-context:
+service never notices. A prompt *under* the window gets prefilled — and on a
+default kernel, past ~137k positions the amdgpu watchdog kills the GPU child
+and wedges the router (observed; manual restart). With `lockup_timeout=-1`
+(the playbook setup) deep fills survive — but decode at that depth runs
+~9 t/s and falling, which no agent wants to pay per turn. So for a coding
+agent that manages its own context:
 
 - **agent soft ceiling ≈ 96k** (keeps sustained decode in the ≥13 t/s band and
   leaves burst room for one huge tool output),
@@ -458,7 +468,8 @@ Not a recommendation — an example of mapping the menu to a workflow:
   Q8 for max quality on long autonomous runs; the window at 128k and the
   agent's own context budget at 100k implement the margin rule above — the
   agent compacts well before the fence, and a buggy run that misses its
-  ceiling is rejected at 100k–128k and retries, never reaching the crash band.
+  ceiling is rejected at 100k–128k and retries — never reaching the deep-fill
+  slow band (or, on a default-kernel box, the watchdog crash band).
 
 The split costs nothing to switch between: it's one model name in the client,
 with `--models-max 1` doing the load swap (~6–15 s) between request batches.
@@ -527,15 +538,17 @@ with no YaRN exemption. We load-tested a full 1M recipe
 and the usable slot came back at 262,144 — full memory cost, zero extra window.
 The same test showed there is **no 512K middle ground**: the cap applies to any
 `c` above 262,144, so 512K would pay ~18 GiB more KV than 256k and still serve
-a capped slot. Separately, even inside a 262k window, content beyond
-**~128k positions** hits the Vulkan `vk::DeviceLostError` — and this is an
-**absolute-position** limit, not a per-batch one: chunked/incremental fills
-crash at the same depth (measured: 128,209-token fill OK, ~160k crash). Big
-windows are for many medium contexts, not one giant prompt — and on the Vulkan
-build not for more than ~128k of content at all (the ROCm build survives this
-band — next subsection).
+a capped slot. Separately, on a **default kernel** even inside a 262k window, content
+beyond ~137k positions dies at the amdgpu lockup watchdog (Vulkan reports
+it as `vk::DeviceLostError`; absolute-position, not per-batch — chunked
+fills crash at the same depth). `amdgpu.lockup_timeout=-1` removes the
+wall entirely — the same battery filled all 254,356 usable positions, zero
+errors (2026-08-23 intervention; the ROCm build survives the band on the
+default kernel by submission shape — next subsection). Big windows are for
+many medium contexts, or one giant prompt if you accept the prefill/decode
+time at depth.
 
-### Deep positions: the Vulkan wall vs ROCm survival
+### Deep positions: the amdgpu watchdog wall — and how to remove it
 
 A/B measured 2026-08-22 on the same box, same fork commit (`9b9ac3e38`),
 same battery (`fill_battery.sh`: Q8 target + DFlash2 draft, f16 KV,
@@ -568,8 +581,9 @@ Reading it straight:
   reproduced on stock master `2115b73`); the fork's
   [issue #9](https://github.com/Nathanw1014/strix-halo-llamacpp/issues/9)
   shows a 491,520-token prefill *succeeding* on Vulkan with DeepSeek-V4 +
-  q8_0 KV + `-ub 1024` — the wall is config-shaped, and the suspects are
-  f16 KV at depth, `-ub 4096`, and this model's full-attention layers.
+  q8_0 KV + `-ub 1024` — consistent with the watchdog mechanism: those knobs
+  reshape dispatches, moving the timeout threshold rather than removing the
+  wall (`lockup_timeout` removes it).
 
 **To try the ROCm build yourself** (no root needed; userspace-only, sits
 beside the Vulkan one):
@@ -593,9 +607,14 @@ For official-release ROCm (7.2.4 era), expect the "way slower than Vulkan"
 reports to hold — upstream tracks the gfx1151 gaps
 ([#21284](https://github.com/ggml-org/llama.cpp/issues/21284),
 [#24437](https://github.com/ggml-org/llama.cpp/issues/24437)); the 7.14+/TheRock
-line is where parity arrives. Until the Vulkan fix lands, **ROCm is the
-deep-context escape hatch: slower prefill at every depth (1.25–2.7×), but it
-doesn't die.**
+line is where parity arrives. **Deep-context escape hatch, in order:
+(1) `amdgpu.lockup_timeout=-1`** — one kernel-cmdline parameter, verified
+here to unlock the full window with Vulkan's speed intact (fastest prefill
+at every depth); pair it with the
+[stability playbook](#stability-without-the-kernel-gpu-watchdog-lockup_timeout-1-playbook).
+**(2) The ROCm build** — no kernel change needed, survives the band on the
+default kernel, at 1.25–2.7× slower prefill: the fallback for boxes where
+boot params are off-limits.
 
 **What 1M costs in memory** (Q6 targets; f16 measured on a real 1M load, the
 rest derived from GTT deltas at 110k ctx scaled linearly — the derivation
@@ -805,11 +824,14 @@ fill-decay table in the 1M chapter.)*
 - **Daily driving (≤ ~100k of content): stay on Vulkan.** Faster decode with
   DFlash2 (16.7 vs 14.2 t/s), 1.25–2.7× faster prefill by depth, one build, zero extra
   setup — that's what `run_llama-server.sh` and the recipes assume.
-- **Deep-context escape hatch: the ROCm build.** When a session genuinely
-  needs > ~128k of *filled* context today, swap the binary — same models, same
-  flags, same recipe file — and it does not die. Slower prefill at every depth
-  (1.25–2.7×), but alive. Build recipe in
-  [the deep-positions A/B](#deep-positions-the-vulkan-wall-vs-rocm-survival).
+- **Deep context (> ~128k filled): set `amdgpu.lockup_timeout=-1`** —
+  verified to fill the entire 262k window on Vulkan with zero errors, keeping
+  Vulkan's prefill lead at every depth
+  ([deep-positions A/B](#deep-positions-the-amdgpu-watchdog-wall--and-how-to-remove-it),
+  [stability playbook](#stability-without-the-kernel-gpu-watchdog-lockup_timeout-1-playbook)).
+  **The ROCm build is the fallback** when the kernel cmdline can't be touched:
+  same models/flags/recipes, survives the band on the default kernel, 1.25–2.7×
+  slower prefill.
 - **Watch, don't switch, on stock upstream** — its Vulkan path is strictly
   worse on this APU today (and its `draft-dflash` loader can't even read the
   DFlash2 draft: "wrong number of tensors; expected 81, got 58" — the selector
@@ -1171,8 +1193,9 @@ hatch (see [Vulkan vs ROCm](#vulkan-vs-rocm-which-and-why)):
 
 - **TheRock nightly (recommended, 2026-08-22 measured)** — userspace-only,
   no root, sits in `~/opt`; reaches Vulkan bench parity and survives fills
-  past 215k where Vulkan dies. Full recipe in
-  [the deep-positions A/B](#deep-positions-the-vulkan-wall-vs-rocm-survival).
+  past 215k on the default kernel (where Vulkan hits the amdgpu watchdog
+  wall). Full recipe in
+  [the deep-positions A/B](#deep-positions-the-amdgpu-watchdog-wall--and-how-to-remove-it).
   ⚠️ Avoid the `v2/gfx1151` wheel feed's 7.14.0a20260609..0612 builds — they
   segfault in `hsa_init` on gfx1151 (TheRock issue #5763); use
   `tarball-multi-arch/` builds (7.15.0a20260728 verified here).
@@ -1258,6 +1281,9 @@ interleaved comparisons, never numbers from different sessions.
 6. **Trust but verify the fork's failure modes.** The `vk::DeviceLostError` ceiling
    (deep prefill ≥128k) and the one-off KV core dump were found by sweeping —
    neither appears in casual use. Allocation ≠ prefill: 256k ctx loads in 20 s.
+   (The ceiling later root-caused to the amdgpu lockup watchdog — kernel
+   forensics + `lockup_timeout=-1` intervention; see the Vulkan-vs-ROCm
+   chapter. The lesson stands: sweep, don't trust.)
 7. **Vision is cheap — until an image actually arrives.** Attaching `mmproj-F16`
    to a spec recipe costs almost nothing statically (+~1.2 GB GTT, +~0.6 s load;
    text decode neutral) and the recipe serves text at full speed — but the first
