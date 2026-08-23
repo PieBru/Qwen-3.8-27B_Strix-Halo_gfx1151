@@ -197,3 +197,13 @@ Pre-registered rules:
   medium's by >25%.
 Metrics: success, total completion tokens, wall, tool calls, retries,
 empty-answer turns.
+
+Upstream version checks: **stock master b10597 `95b8e33e1` reviewed
+2026-08-24** — 16 commits past our A/B pick (`2115b73`): mostly WebUI tabs,
+a slot-diff debug env var (#27600 — diagnostics tooling, not the lesson-#10
+fix), a json.h refactor, one new Vulkan op (PAD_REFLECT_1D, audio models),
+CUDA pool1d, an mtmd rope fix, a DeepseekV4 multi-seq rollback fix, fit
+n_streams. None of the watch triggers fired (#27342 DFlash2, #27210
+adaptive MTP, #27588 ours — all still open, ours 0 comments); no rebuild or
+bench warranted. The fork stays ahead for our use (DFlash2 loader + 18–23%
+pp512).

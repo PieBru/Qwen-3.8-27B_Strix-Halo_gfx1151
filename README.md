@@ -280,8 +280,25 @@ The 136,965 "Vulkan wall" was the kernel lockup watchdog — forensics and the
 
 ## Vulkan vs ROCm, which and why?
 
-The measured A/B, speed/stability pictures, the fill-decay duel chart, and
-the practical ranking: **[docs/BACKENDS.md](docs/BACKENDS.md)**.
+The measured A/B, speed/stability pictures, and the practical ranking — in
+one chart, incremental prefill while the context fills, our two GPU
+backends head-to-head:
+
+```mermaid
+xychart-beta
+    title "Incremental prefill t/s vs FILLED context — Vulkan (lockup_timeout=-1) vs ROCm"
+    x-axis "positions filled" ["19.5k","39k","58.7k","78k","97.8k","117k","137k","156k","176k","196k","215k","235k","254k"]
+    y-axis "prefill tok/s" 0 --> 350
+    line [328, 266, 218, 177, 144, 118, 100, 86, 75, 67, 60, 54, 49]
+    line [262, 165, 102, 71, 55, 44, 37, 32, 28, 25, 22]
+```
+
+Vulkan leads at every depth (2.7× by 117k) and, with the amdgpu watchdog
+out of the way, fills the **entire 262k window** — the old "Vulkan dies at
+137k" was the kernel killing slow-but-legal dispatches, not a driver bug
+(forensics + intervention in the page below). The full story — bare-bench
+parity, DFlash2-on-ROCm, the halofpx comparison, the HIP build recipe:
+**[docs/BACKENDS.md](docs/BACKENDS.md)**.
 
 ### How this compares with halofpx as of 2026-08-22
 
