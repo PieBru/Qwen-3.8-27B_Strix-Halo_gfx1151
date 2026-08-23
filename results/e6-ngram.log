@@ -1,0 +1,37 @@
+[dflash6] up (draft-dflash n=6)
+[dflash6] turn  1         prompt=   107 gen=  192 decode=  22.8 t/s wall=   10s
+[dflash6] turn  2         prompt=   183 gen=  900 decode=  20.8 t/s wall=   44s
+[dflash6] turn  3         prompt=   213 gen=  900 decode=  20.6 t/s wall=   44s
+[dflash6] turn  4         prompt=   237 gen=  900 decode=  20.3 t/s wall=   45s
+[dflash6] turn  5         prompt=   262 gen=  900 decode=  21.6 t/s wall=   42s
+[dflash6] turn  6         prompt=   292 gen=  900 decode=  18.8 t/s wall=   48s
+[dflash6] turn  7         prompt=   321 gen=  900 decode=  20.4 t/s wall=   45s
+[dflash6] turn  8         prompt=   347 gen=  850 decode=  29.2 t/s wall=   30s
+[dflash6] turn  9         prompt=  1010 gen=  819 decode=  35.3 t/s wall=   26s
+[dflash6] turn 10 (REGEN) prompt=  1714 gen=  712 decode=  39.0 t/s wall=   21s
+[dflash6] MEAN build decode 23.3 t/s | regen 39.0 t/s
+[dflash6k4v] up (draft-dflash,ngram-map-k4v n=6)
+[dflash6k4v] turn  1         prompt=   107 gen=  192 decode=  22.7 t/s wall=    9s
+[dflash6k4v] turn  2         prompt=   183 gen=  900 decode=  21.0 t/s wall=   44s
+[dflash6k4v] turn  3         prompt=   213 gen=  900 decode=  20.3 t/s wall=   45s
+[dflash6k4v] turn  4         prompt=   237 gen=  900 decode=  20.1 t/s wall=   45s
+[dflash6k4v] turn  5         prompt=   262 gen=  900 decode=  23.1 t/s wall=   40s
+[dflash6k4v] turn  6         prompt=   292 gen=  900 decode=  18.9 t/s wall=   48s
+[dflash6k4v] turn  7         prompt=   321 gen=  900 decode=  20.5 t/s wall=   45s
+[dflash6k4v] turn  8         prompt=   347 gen=  850 decode=  29.3 t/s wall=   30s
+[dflash6k4v] turn  9         prompt=  1010 gen=  819 decode=  59.5 t/s wall=   17s
+[dflash6k4v] turn 10 (REGEN) prompt=  1714 gen=  712 decode=  91.0 t/s wall=   11s
+[dflash6k4v] MEAN build decode 26.2 t/s | regen 91.0 t/s
+[dflash5k4v] up (draft-dflash,ngram-map-k4v n=5)
+[dflash5k4v] turn  1         prompt=   107 gen=  249 decode=  21.3 t/s wall=   13s
+[dflash5k4v] turn  2         prompt=   178 gen=  900 decode=  21.8 t/s wall=   42s
+[dflash5k4v] turn  3         prompt=   208 gen=  900 decode=  20.1 t/s wall=   46s
+[dflash5k4v] turn  4         prompt=   232 gen=  900 decode=  19.6 t/s wall=   47s
+[dflash5k4v] turn  5         prompt=   257 gen=  900 decode=  19.7 t/s wall=   46s
+[dflash5k4v] turn  6         prompt=   287 gen=  900 decode=  22.1 t/s wall=   42s
+[dflash5k4v] turn  7         prompt=   316 gen=  900 decode=  20.3 t/s wall=   45s
+[dflash5k4v] turn  8         prompt=   342 gen=  900 decode=  28.7 t/s wall=   32s
+[dflash5k4v] turn  9         prompt=   369 gen=  900 decode=  24.2 t/s wall=   38s
+[dflash5k4v] turn 10 (REGEN) prompt=   398 gen= 1200 decode=  21.5 t/s wall=   57s
+[dflash5k4v] MEAN build decode 22.0 t/s | regen 21.5 t/s
+e6 complete
