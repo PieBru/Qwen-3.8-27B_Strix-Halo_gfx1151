@@ -127,8 +127,9 @@ def pill(ok, label_ok, label_bad="DOWN"):
     return PILL.format("ok" if ok else "bad", label_ok if ok else label_bad)
 
 def halo_card(m):
-    if m is None:
-        return f'<div class="card"><h3>{PEER_NAME}</h3>{PILL.format("bad","UNREACHABLE")}</div>'
+    if m is None or m.get("unreachable"):
+        name = (m or {}).get("halo", PEER_NAME)
+        return f'<div class="card"><h3>{name}</h3>{PILL.format("bad","UNREACHABLE")}</div>'
     up_h, up_m = divmod(m["uptime_s"], 3600)
     rows = [
         ("router", pill(m["router_health"], f'OK · {m["recipes"]} recipes')),
@@ -169,23 +170,36 @@ def load_split(local):
     st = (local or {}).get("haproxy_stats") or {}
     t = sum(v["stot"] for v in st.values())
     rows = ""
+    # haproxy server names -> real hostnames so the operator can correlate
+    DISPLAY = {"halo1": "strixy2", "halo2": "strixy-9ad3"}
     for b in ("halo1", "halo2"):
         s = st.get(b)
+        disp = DISPLAY.get(b, b)
         if s:
             share = 100 * s["stot"] / t if t else 0
-            rows += (f'<tr><td class="k">{b}</td><td>{PILL.format("ok", s["status"]) if s["status"]=="UP" else PILL.format("bad", s["status"])}</td>'
+            rows += (f'<tr><td class="k">{disp}</td><td>{PILL.format("ok", s["status"]) if s["status"]=="UP" else PILL.format("bad", s["status"])}</td>'
                      f'<td>{s["stot"]} req</td><td>{share:.0f}%</td></tr>')
         else:
-            rows += f'<tr><td class="k">{b}</td><td>{PILL.format("bad","no stats")}</td><td>—</td><td>—</td></tr>'
+            rows += f'<tr><td class="k">{disp}</td><td>{PILL.format("bad","no stats")}</td><td>—</td><td>—</td></tr>'
     return f'<div class="card"><h3>load split (haproxy)</h3><table>{rows}</table></div>'
 
 def fragment():
     local = local_metrics()
     peer = fetch_json(f"http://{PEER_IP}:{PORT}/.metrics", 3)
-    vip = HALO if local["vip_owner"] else PEER_NAME
-    h = (f'<div class="hdr">fleet · VIP {VIP}:8081 · dashboard served by <b>{HALO}</b> · '
-         f'VIP owner <b>{vip}</b> · {time.strftime("%H:%M:%S")}</div>'
-         f'<div class="grid">{halo_card(local)}{halo_card(peer)}</div>'
+    # STABLE card order: sort by halo hostname so the cards never swap
+    # sides when the dashboard-serving halo changes (operator request).
+    cards = sorted([m for m in (local, peer) if m], key=lambda m: m["halo"])
+    names = [c["halo"] for c in cards]
+    # peer placeholder card keeps the slot when unreachable
+    if len(cards) < 2:
+        missing = PEER_NAME if (local and len(cards) == 1) else "peer"
+        from html import escape as esc
+        cards.append({"halo": missing, "unreachable": True})
+    vip_owner = next((c["halo"] for c in cards if c.get("vip_owner")), "?")
+    hdr = (f'fleet · VIP {VIP}:8081 · dashboard served by <b>{HALO}</b> · '
+           f'VIP owner <b>{vip_owner}</b> · {time.strftime("%H:%M:%S")}')
+    h = (f'<div class="hdr">{hdr}</div>'
+         f'<div class="grid">{halo_card(cards[0])}{halo_card(cards[1])}</div>'
          f'<div class="grid">{doctor(local, peer)}{load_split(local)}</div>')
     return h
 
