@@ -561,15 +561,20 @@ same battery (`fill_battery.sh`: Q8 target + DFlash2 draft, f16 KV,
 
 Reading it straight:
 
-- **The ~128k+ wall is (at minimum) watchdog-mediated, not a plain Vulkan
-  bug** — kernel forensics (2026-08-23, below) show every "device lost" that
-  morning was an **amdgpu compute-ring lockup timeout + ring reset** fired on
-  llama-server's own submission, seconds before the userspace error. Same
-  weights, same flags, same commit — only the backend differs, because the
-  backends shape GPU submissions differently.
-- **Vulkan stays the faster deep-prefiller while it lives**: incremental fill
-  177→144→119 t/s at 78k→98k→117k filled, vs ROCm's 72→55→44 t/s in the same
-  band (ROCm decays faster with depth: 262 t/s at 20k → 28 t/s at 176k).
+- **The ~128k+ wall is the amdgpu lockup watchdog, full stop (causation, not
+  correlation).** Kernel forensics (2026-08-23, full detail in the
+  Vulkan-vs-ROCm chapter below) show every "device lost" that morning was an
+  **amdgpu compute-ring lockup timeout + ring reset** fired on llama-server's
+  own submission, seconds before the userspace error — and the intervention
+  sealed it: `lockup_timeout=-1`, same battery, same binary → the entire
+  window, zero ring events. Same weights, same flags, same commit — only the
+  backend differs on the default kernel because the backends shape GPU
+  submissions differently (ROCm's keep signaling; see below).
+- **Vulkan is the faster deep-prefiller at every depth** — not just while it
+  lives: with the watchdog off it holds the lead through the whole window
+  (177→144→119 t/s at 78k→98k→117k filled vs ROCm's 72→55→44 in the same band;
+  at 156k filled it's 86 vs 32 t/s; ROCm decays faster with depth throughout,
+  262 t/s at 20k → 22 at 215k).
 - **DFlash2 works on ROCm**: draft acceptance 0.34 on a matched probe; decode
   14.5 t/s vs Vulkan's 16.9 t/s (Q6@128k) — Vulkan ~17% ahead with spec decode.
 - Upstream status (2026-08-23): the Vulkan device-lost class is still open
