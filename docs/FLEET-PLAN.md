@@ -126,7 +126,7 @@ As-built (differs from the sketch in useful ways):
 
 ### Phase B — RPC smoke test — ✅ COMPLETE (2026-08-24, verdict: TECHNICALLY SOUND, not adopted)
 
-Setup: `build-rpc` (Vulkan+RPC, fork pin 9b9ac3e38) on both halos;
+Setup: `build-rpc` (Vulkan+RPC, fork pin 0eb528051) on both halos;
 `ggml-rpc-server` on .15 over the USB4 link (10.180.243.2:50052);
 llama-server on strixy2 with `--rpc`. **Measured (OBSERVED):**
 - **Correctness**: 10 fixed prompts temp-0 vs local single-box: 9/10

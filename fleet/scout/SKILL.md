@@ -37,7 +37,7 @@ first and carry it as the baseline).
      #27210 (adaptive MTP), #27342 (DFlash2 upstream), plus any new issues
      naming gfx1151/Strix/Vulkan-device-lost.
 2. **The fork** (Nathanw1014/llama.cpp, branch strix-halo-vulkan): new
-   commits vs our pin (9b9ac3e38).
+   commits vs our pin (0eb528051).
 3. **Engine newborns**: ds4 (antirez/ds4), vllm.cpp (mudler/vllm.cpp) —
    new releases/tags; issues mentioning strix/gfx1151/ROCm;
    audio.cpp (0xShug0/audio.cpp) — releases, AMD/ROCm notes.

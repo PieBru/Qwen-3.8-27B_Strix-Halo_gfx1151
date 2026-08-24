@@ -35,13 +35,13 @@ time at depth.
 
 ### Deep positions: the amdgpu watchdog wall — and how to remove it
 
-A/B measured 2026-08-22 on the same box, same fork commit (`9b9ac3e38`),
+A/B measured 2026-08-22 on the same box, same fork commit (`0eb528051`),
 same battery (`fill_battery.sh`: Q8 target + DFlash2 draft, f16 KV,
 `-c 262144 -b/-ub 4096`, incremental 16k-token fills via cached prefixes):
 
 | Backend | bare bench (Q6 / Q8) | fill fate |
 |---|---|---|
-| Vulkan (production build, `9b9ac3e38`) | pp512 360.6 / 365.0 · tg32 8.78 / 7.27 | **default kernel:** 💥 dies at **136,965** filled (`vk::Queue::submit: ErrorDeviceLost` ← amdgpu ring watchdog) · **`lockup_timeout=-1`:** ✅ full window, **254,356**, zero errors — *same binary, only the kernel param differs* |
+| Vulkan (production build, `0eb528051`) | pp512 360.6 / 365.0 · tg32 8.78 / 7.27 | **default kernel:** 💥 dies at **136,965** filled (`vk::Queue::submit: ErrorDeviceLost` ← amdgpu ring watchdog) · **`lockup_timeout=-1`:** ✅ full window, **254,356**, zero errors — *same binary, only the kernel param differs* |
 | ROCm — TheRock 7.15.0a nightly | pp512 352.5 / 370.8 · tg32 8.57 / 7.18 | **default kernel:** ✅ survived **215,228** filled, zero errors (no boot param needed) |
 
 Reading it straight:

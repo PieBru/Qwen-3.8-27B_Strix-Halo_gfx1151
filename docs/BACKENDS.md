@@ -14,7 +14,7 @@ tour of what we ran, what died, and what we now run for which job.
 ### What we actually compared (all on this box, same models)
 
 Every number below comes from the same experiment rig: identical fork commit
-(`9b9ac3e38` unless noted), identical models (Q8 target + DFlash2 draft, f16 KV,
+(`0eb528051` unless noted), identical models (Q8 target + DFlash2 draft, f16 KV,
 `-c 262144 -b/-ub 4096 -fa on`), identical battery
 ([`fill_battery.sh`](../scripts/fill_battery.sh) — grows the context in 16k-token chunks
 through cached prefixes, i.e. true incremental fill). Only the backend — or the
