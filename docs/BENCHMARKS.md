@@ -1,6 +1,6 @@
-# Benchmarks & config research
+# Benchmarks — sweet spots, threads & the sweep method
 
-> From [Qwen3.8-27B on Strix Halo](../README.md) — sweep findings at a glance, threads-vs-concurrency, and the sweep harness.
+> From [Qwen3.8-27B on Strix Halo](../README.md) — the config sweet spots, the threads-vs-concurrency study, and how the sweep found them.
 
 ## Sweep findings at a glance
 
@@ -67,7 +67,9 @@ concurrent clients on one model you need `-np 2` (as here) — the recipe
 default stays `-np 1`.
 
 
-## Config research (`sweep_llama_configs.sh`)
+## The sweep harness — how the sweet spots were found
+
+`sweep_llama_configs.sh`: staged config search (interleaved pairs, order-bias controls).
 
 A staged, one-axis-at-a-time search for the optimal server config per target quant
 (winners carried forward; every result appended to `results/sweep.csv`, one log per

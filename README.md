@@ -179,10 +179,15 @@ prebuilt toolbox: **[docs/BUILDING.md](docs/BUILDING.md#environment)**.
 
 The no-root TheRock build recipe: **[docs/BACKENDS.md](docs/BACKENDS.md#optional-hip-variant-rocm-build)**.
 
-## Config research (`sweep_llama_configs.sh`)
+## Finding the sweet spots — the config sweep
 
-The staged sweep harness and how every table number was produced:
-**[docs/BENCHMARKS.md](docs/BENCHMARKS.md#config-research-sweep_llama_configssh)**.
+Every flag in our recipes earned its place: we swept KV types, draft
+widths, batch sizes, thread counts, host state — dozens of back-to-back
+duels — and kept only what measured faster *without* a quality cost.
+The surprising wins live here too: why f16 KV beats quantized KV on
+speed AND quality, the exact draft width where DFlash2 peaks, and which
+"obvious" tuning knobs turned out to be inert.
+**[docs/BENCHMARKS.md](docs/BENCHMARKS.md#sweep-findings-at-a-glance)**.
 ## Lessons learned
 
 Ten hard-won rules — measure back-to-back, zram eats inference, mlock fails
