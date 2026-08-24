@@ -186,8 +186,46 @@ fill-decay table in the 1M chapter.)*
 
 ### How this compares with sibling projects
 
-*Each comparison pins the other repo's commit; re-check against their
-current tip before relying on any number. Siblings so far: halofpx.*
+*Each comparison pins the other repo's state; re-check against their
+current tip before relying on any number. The at-a-glance table first,
+then per-project notes.*
+
+| Project | What it is | Fits our gfx1151 today? | Overlap with us | Verdict for us |
+|---|---|---|---|---|
+| [halofpx](https://github.com/julianmb/halofpx) | Strix-Halo model-zoo server, hand-tuned ROCmFP4/FP8 quants + MTP | ✅ (ROCm path) | recipes/quant philosophy (opposite corner: speed-first) | measured-quality-first contrast, pinned 2026-08-22 (below) |
+| [ds4 (DwarfStar)](https://github.com/antirez/ds4) | DSV4-Flash/GLM-5.2 specialty engine; two-Halo layer-split; SSD expert streaming | ✅ **builds first-try** on our boxes (TheRock 7.15, `make strix-halo`) | the big-model/two-Halo frontier | bake-off candidate C′; quant download pending |
+| [vllm.cpp](https://github.com/mudler/vllm.cpp) | vLLM serving core in one C++ binary (continuous batching, RadixAttention) | ❌ Vulkan #125 / ROCm skeleton / #937 | multi-client serving — our e5 question, properly | watch (Phase D); smoke on AMD-integrated support |
+| [FreeToken](https://github.com/FlashML-org/FreeToken) | Edge-native MoE serving: CPU–GPU co-execution, expert caching, semantic-anchor KV edits; 290B+ MoE on consumer rigs | ❌ NVIDIA-first (RTX 30/40/50); **AMD = open PRs** (#60/#23/#53/#132, RDNA3/4 ports in flight) | DSV4-Flash big-model goal — same payload, different engine; the i9/4090Ti backend could run it TODAY | watch for gfx1151; pilot on the i9 when it joins the fleet |
+| [Lemonade](https://github.com/lemonade-sdk/lemonade) | AMD-backed local-AI server: OpenAI/Anthropic/Ollama APIs, model manager, GGUF+ONNX, NPU/GPU/CPU; **`vllm`+`rocm` device combo explicitly targets gfx1151 (Linux)** | ✅ (AMD engineers optimize for Strix Halo) | serving layer/UX more than inference core; NPU (XDNA2) is a surface we don't touch | candidate for the fleet's "easy on-ramp" lane; A/B its vllm-rocm path vs our router on the same weights |
+
+**Per-project notes** (what we'd measure, and the honest caveats):
+
+- **ds4** — the closest goal-overlap (DSV4-Flash on Halos). Their STRIXHALO.md
+  recipe + our TheRock 7.15 = builds clean. Comparison that matters: their
+  ds4f-q2 imatrix quant (experts IQ2_XXS/Q2_K, rest untouched) served by ds4
+  vs Unsloth UD-IQ3_S served by llama.cpp fork — same box, our E2 tier-1
+  battery as judge, t/s alongside.
+- **vllm.cpp** — right engine, wrong platform status for us. Their benchmark
+  discipline (token-exactness, SUPERSEDED labels) is the culture match; the
+  GB10 DSV4 numbers (16.3–18.7 t/s) are our halo ballpark target when AMD
+  support lands.
+- **FreeToken** — the engineering ideas are relevant even before AMD support:
+  bandwidth-adaptive CPU–GPU co-execution is the principled version of our
+  `-cmoe` paging insight; semantic-anchor checkpoints (context edits without
+  recompute) would directly attack our agent-loop re-prefill costs; LRU
+  expert caching = our page-cache argument, made explicit. Watch the ROCm
+  PRs (#132 RDNA3/4 runtime foundation is the one to track); note their
+  pull is NVIDIA-tuned kernels, so even merged, gfx1151 perf is an open
+  question. The fleet's heterogeneous lane (i9/RTX) could trial it sooner.
+- **Lemonade** — different layer than us: they aggregate backends (incl.
+  llama.cpp-family and vllm) behind a friendly server + model manager, with
+  AMD doing the optimizing. No deep conflict: our fleet could *be* a
+  lemonade backend; or lemonade could be the on-ramp for non-tinkerer users
+  of the fleet. The one measurable claim worth checking: their
+  `vllm`+`rocm` gfx1151 combo vs our fork router on the same GGUF.
+
+*And the standing rule: no number below is ours unless labeled OBSERVED;
+sibling claims are REPORTED and commit-pinned where we checked them.*
 
 Repos compared at this date: **halofpx** [`22dd3b54d`](https://github.com/julianmb/halofpx/commit/22dd3b54d)
 ("feat(registry): mandatory quant provenance metadata" — they have started

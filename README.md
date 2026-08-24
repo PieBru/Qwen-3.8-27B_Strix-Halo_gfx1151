@@ -151,7 +151,10 @@ parity, DFlash2-on-ROCm, the sibling-project comparisons, the HIP build recipe:
 
 ### How this compares with sibling projects
 
-The measured-quality-first comparison with the speed-first cousin:
+halofpx (measured, pinned), ds4 (builds on our Halos — bake-off
+candidate), vllm.cpp (right engine, AMD support pending), FreeToken
+(edge-native MoE serving — big ideas, NVIDIA-first for now), Lemonade
+(AMD-backed server layer, explicit gfx1151 support):
 **[docs/BACKENDS.md](docs/BACKENDS.md#how-this-compares-with-sibling-projects)**.
 
 ## Stability without the kernel GPU watchdog (lockup_timeout=-1 playbook)
