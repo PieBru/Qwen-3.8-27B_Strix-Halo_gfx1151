@@ -3,7 +3,7 @@
 Description=run pi scout every morning at 07:00
 
 [Timer]
-OnCalendar=*-*-* 07:00:00
+OnCalendar=*-*-* 07:00:00 Europe/Rome
 Persistent=true
 RandomizedDelaySec=120
 
