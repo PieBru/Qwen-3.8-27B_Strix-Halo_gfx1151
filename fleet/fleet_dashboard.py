@@ -433,14 +433,33 @@ class H(BaseHTTPRequestHandler):
             self._send(200, fragment())
         elif self.path in ("/report/dream", "/report/scout"):
             kind = self.path.rsplit("/", 1)[-1]
-            try:
-                md = open(REPORTS[kind], encoding="utf-8").read()
-                body = (f'<div class="modalbox" onclick="event.stopPropagation()">'
-                        f'<button class="p dim" style="float:right" onclick="document.getElementById(\'modal\').innerHTML=\'\'">close ✕</button>'
-                        f'<div class="md">{md_html(md)}</div></div>')
-            except Exception:
-                body = '<div class="modalbox"><p>report not present on this halo (dream/scout run on the pi main box)</p></div>'
-            self._send(200, body)
+            body = None
+            if HALO == REPORTS_HOST:
+                try:
+                    md = open(REPORTS[kind], encoding="utf-8").read()
+                    body = md_html(md)
+                except Exception:
+                    pass
+            else:
+                # proxy to the reports host so this URL works everywhere
+                # simple text proxy: fetch rendered HTML from the reports host
+                try:
+                    with urllib.request.urlopen(f"http://{REPORTS_HOST_IP}:{PORT}/report/{kind}", timeout=4) as r:
+                        body = r.read().decode()
+                    # strip the reports host's modalbox wrapper, keep inner .md
+                    m = re.search(r'<div class="md">.*</div>', body, re.S)
+                    if m: body = m.group(0)
+                except Exception:
+                    body = None
+            if body is not None:
+                out = (f'<div class="modalbox" onclick="event.stopPropagation()">'
+                       f'<button class="p dim" style="float:right" onclick="document.getElementById(\'modal\').innerHTML=\'\'">close ✕</button>'
+                       f'{body if body.startswith("<div class=\"md\"") else f"<div class=\"md\">{body}</div>"}'
+                       f'</div>')
+                self._send(200, out)
+            else:
+                self._send(200, '<div class="modalbox"><p>report unavailable (reports host '
+                                'down or file missing)</p></div>')
         elif self.path == "/.metrics":
             self._send(200, json.dumps(local_metrics()), "application/json")
         elif self.path == "/htmx.min.js":
