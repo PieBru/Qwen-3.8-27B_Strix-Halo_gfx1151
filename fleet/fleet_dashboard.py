@@ -201,8 +201,10 @@ def doctor(local, peer):
         add("disk >100 GB free", all(m["disk_free_gb"] > 100 for m in both))
     trs = ""
     for name, ok, note in checks:
+        # dimmed test description (standby style) so a FAIL pill is the only
+        # saturated element in the card — operator's eye goes straight to red
         trs += (f'<tr><td>{PILL.format("ok","OK") if ok else PILL.format("bad","FAIL")}</td>'
-                f'<td>{name}</td><td class="dim">{note}</td></tr>')
+                f'<td><span class="p dim">{name}</span></td><td class="dim">{note}</td></tr>')
     return f'<div class="card wide"><h3>fleet doctor</h3><table>{trs}</table></div>'
 
 def load_split(local):
