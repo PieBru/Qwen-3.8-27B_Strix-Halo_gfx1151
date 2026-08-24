@@ -1,0 +1,19 @@
+# fleet-managed user unit — source of truth is this file in the repo
+# (deploy discipline: ff-pull + cp to ~/.config/systemd/user/).
+# The former ROOT system unit (/etc/systemd/system/llama-router.service)
+# was disabled 2026-08-24 — re-enable it ONLY for trading experiments,
+# never both at once (port 1234 conflict).
+[Unit]
+Description=llama-server router (traddy capability lane) on :1234
+After=network.target
+
+[Service]
+ExecStart=/home/admin/Git/llama.cpp/build/bin/llama-server \
+  --models-preset /home/admin/LLM/models.ini --models-max 1 --webui-mcp-proxy --port 1234 --host 0.0.0.0
+Restart=on-failure
+RestartSec=5s
+# the old root unit had OOMScoreAdjust=-1000 — negative values are
+# root-only; user units cannot set them. Default accepted.
+
+[Install]
+WantedBy=default.target

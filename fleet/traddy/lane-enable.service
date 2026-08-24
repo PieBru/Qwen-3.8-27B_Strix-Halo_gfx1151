@@ -1,0 +1,17 @@
+# lane-enable (traddy) — user unit after the router: ff-pull, wait for
+# health, re-enable traddy/traddy on both halos (undo a shutdown drain),
+# fire the flagship warm-up (skips the ~165 s cold load for first users).
+# Deploy: cp to ~/.config/systemd/user/ && systemctl --user daemon-reload
+#        && systemctl --user enable lane-enable.service
+[Unit]
+Description=capability-lane enable + warm-up after boot (traddy)
+After=llama-router.service
+Wants=llama-router.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/admin/Qwen-3.8-27B_Strix-Halo_gfx1151/fleet/traddy/lane-enable.py
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

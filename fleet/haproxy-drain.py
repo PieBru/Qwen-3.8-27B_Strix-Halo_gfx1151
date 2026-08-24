@@ -18,7 +18,8 @@ import sys
 
 SOCK = "/var/run/haproxy-master.sock"
 # backend/server: halos/halo1, halos/halo2, dashb/halo1, dashb/halo2
-VALID = re.compile(r"^(disable|enable) (halos|dashb)/halo[12]$")  # short form in; expanded below
+# halos/dashb servers + the traddy capability lane; short form in, expanded below
+VALID = re.compile(r"^(disable|enable) ((halos|dashb)/halo[12]|traddy/traddy)$")
 
 def main():
     if len(sys.argv) != 3:

@@ -1,0 +1,21 @@
+# lane-pre-drain (traddy) — SYSTEM unit: user units cannot order against
+# system shutdown targets. Fires on CLI poweroff/reboot/halt AND the
+# short-press ACPI button. Disables traddy/traddy on both halos, waits
+# for in-flight lane requests to finish (cap), never blocks shutdown.
+# Deploy: sudo cp to /etc/systemd/system/ && sudo systemctl daemon-reload
+#        && sudo systemctl enable lane-pre-drain.service
+[Unit]
+Description=capability-lane drain before shutdown (traddy)
+DefaultDependencies=no
+Before=shutdown.target poweroff.target reboot.target halt.target
+
+[Service]
+Type=oneshot
+User=admin
+Group=admin
+Environment=FLEET_DRAIN_WAIT=120
+ExecStart=/usr/bin/python3 /home/admin/Qwen-3.8-27B_Strix-Halo_gfx1151/fleet/traddy/lane-drain.py
+TimeoutStartSec=180
+
+[Install]
+WantedBy=shutdown.target
