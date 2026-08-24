@@ -41,6 +41,22 @@ The recipes, the numbers, and every trap we hit (there were many) are
 documented in this repo — so your agent can run 24/7 on hardware you own
 outright.
 
+## External validation — where this model stands (REPORTED)
+
+Third-party datapoint, pinned 2026-08-24, verified against
+`artificialanalysis.ai`'s live data: on the **Artificial Analysis
+Intelligence Index v4.1.1**, *Qwen3.8 27B (xhigh)* scores **52.0 — #2
+overall among listed reasoning models**, behind only its own cloud-scale
+sibling *Qwen3.8 2.4T A95B* (57.7 — a 2.4-trillion-parameter MoE that
+will never fit on a desk) and **ahead of the previous generation's
+flagships** (Qwen3.7 Max 47, Qwen3.7 Plus 39). The same index ranks the
+effort ladder we expose via the template kwargs — xhigh 52 / medium 44 /
+low 43 — independently confirming that the reasoning-effort knob is a
+real quality lever, not just a cost one (our E1/E2 batteries measured the
+same lever from the cost and ceiling sides). Not our measurement — the
+label stays REPORTED; our own numbers live in
+[FINDINGS](FINDINGS.md).
+
 ## How we know (the method behind every number)
 
 All benchmarks are back-to-back interleaved pairs (lesson #1); every battery's
