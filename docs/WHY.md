@@ -110,12 +110,22 @@ definition runs other services on it — inference is a **tenant**, not
 the owner (with on-demand loading the model needn't even stay resident;
 cold load ≈ 10 s). The same 31 Mtok/year, re-priced:*
 
-| The 10%-user's real box | €/Mtok |
+| The 10%-user's real box (31.1 Mtok/yr) | €/Mtok |
 |---|---:|
 | dedicated 3-year inference box (the table's corner case) | 22.59 |
 | 10-year hardware life | 7.58 |
 | 10-yr box, inference one tenant among services (~25% of amortization) | **2.76** |
 | energy floor (amortization belongs to the other services) | 1.15 |
+
+*And the mirror image for the heavy user — same machine, same 3-year
+assumption, but generating flat-out (311 Mtok/yr):*
+
+| The 100%-SOHO real box (311 Mtok/yr) | €/Mtok |
+|---|---:|
+| dedicated 3-year inference box (the table's own row) | 2.42 |
+| 10-year hardware life | 0.92 |
+| 10-yr box, inference the main tenant (~50% of amortization) | **0.60** |
+| energy floor (amortization belongs to the other services) | 0.28 |
 
 The physics anchor is duty-independent: **100 W wall ÷ 20 t/s served =
 5 joules per output token** — €0.28/Mtok in pure energy, and the box's
