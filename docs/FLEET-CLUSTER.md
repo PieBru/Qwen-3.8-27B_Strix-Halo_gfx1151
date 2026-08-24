@@ -64,6 +64,42 @@ audio-serving path). See FLEET-PLAN Phases D/E.
   forgetting), #26694 (long agentic repetition), #27155 (dspark draft KV
   leak), #25796/#26965 (tool-call edges).
 
+## The capability lane (traddy) — live since 2026-08-24
+
+The fleet's first heterogeneous member: **traddy** (192.168.50.209,
+i7-8750H · GTX 1070 Max-Q 8 GB · 62 GB RAM · 3.6 TB NVMe, Arch). Not a
+Qwen3.8-27B peer (dense-27B on ~40 GB/s DDR4 would crawl) — a **lane**:
+its own model families served through the same VIP.
+
+- **Routing**: VIP:**8081** by model name (haproxy ACL on the request
+  body: `Qwen-35B|Qwopus|Gemma4|LFM` → backend `traddy`; bodies ≤16 KB
+  match whole, larger ones match whenever the model field is in the
+  first buffer — true for all standard clients, model is the first JSON
+  key). Explicit lane port VIP:**8083** (zero ambiguity). `X-Fleet-Lane`
+  header marks lane responses; halos keep `X-Served-By`. Default traffic
+  never touches the lane; lane down = 503 on lane models only
+  (fail-closed, doctor row `capability lane reachable`).
+- **Serving**: traddy's own llama.cpp (stock master router build) user
+  unit on :1234, its models.ini untouched (Qwen3.6-35B-A3B Q8 flagship
+  ≈14.7 t/s served, ~200 t/s prefill, ~165 s cold load; Gemma4 · LFM ·
+  Qwopus families). The former ROOT system unit stays disabled —
+  re-enable it only for the trading experiments, never both at once.
+- **Lifecycle**: `fleet/traddy/lane-pre-drain.service` (system unit)
+  drains `traddy/traddy` on BOTH halos at shutdown (CLI + short-press
+  button) and waits for in-flight lane requests (cap 120 s);
+  `lane-enable.service` (user unit, after the router) ff-pulls the
+  clone, re-enables the lane on both halos (closing the forgotten-drain
+  loop — MAINT survives reboots), and fires a flagship warm-up so the
+  first real request skips the cold load.
+- **Access**: full SSH key mesh between strixy2 ↔ halo2 ↔ traddy
+  (BatchMode everywhere); drain commands ride the halos' scoped
+  sudoers grants (whitelist extended to `traddy/traddy`).
+- Known quirks (2026-08-24): the stock router build can wedge in
+  "waiting until model is loaded" after a client aborts during a lazy
+  load (fix: restart the user unit); never restart it with requests in
+  flight. Long lane requests queue behind in-flight ones — budget
+  accordingly (~2 min observed behind an 81 k-token prefill).
+
 ## Roadmap recap (gated, from FLEET-PLAN)
 
 1. **Phase A** — cable in → USB4 link + iperf3 gate (≥5 Gbps).
