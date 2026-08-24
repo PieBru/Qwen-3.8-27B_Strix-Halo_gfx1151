@@ -168,7 +168,6 @@ def halo_card(m):
     rows = [
         ("router", pill(m["router_health"], f'OK · {m["recipes"]} recipes')),
         ("units", pill(m["router_unit"] and m["keepalived"] and m["haproxy"], "router·vrrp·lb")),
-        ("vip", PILL.format("ok", "OWNS VIP") if m["vip_owner"] else '<span class="p dim">standby</span>'),
         ("RAM", num_pill(m, "mem_avail_gb", f'{m["mem_avail_gb"]} GB avail / {m["mem_total_gb"]} · cache {m["cached_gb"]} GB')),
         ("swap", num_pill(m, "swap_used_gb", f'{m["swap_used_gb"]} GB in zram')),
         ("load", num_pill(m, "load1", f'{m["load1"]} / {m["load5"]} · up {up_s}')),
@@ -236,10 +235,19 @@ def fragment():
         missing = PEER_NAME if (local and len(cards) == 1) else "peer"
         from html import escape as esc
         cards.append({"halo": missing, "unreachable": True})
-    vip_owner = next((c["halo"] for c in cards if c.get("vip_owner")), "?")
-    hdr = (f'fleet · VIP {VIP}:8081 · dashboard served by <b>{HALO}</b> · '
-           f'VIP owner <b>{vip_owner}</b> · {time.strftime("%H:%M:%S")}')
-    h = (f'<div class="hdr">{hdr}</div>'
+    def role_chip(m):
+        # one chip per halo: crown for the current VIP owner, sleep otherwise
+        if m is None or m.get("unreachable"):
+            return f'{PILL.format("bad", "unreachable")}'
+        if m.get("vip_owner"):
+            return f'👑 <span class="p ok">{m["halo"]} · OWNS VIP</span>'
+        return f'💤 <span class="p dim">{m["halo"]} · standby</span>'
+    # static title (no bouncing owner text): logo, the common VIP, the clock
+    hdr = (f'<span class="logo">Halo Fleet</span> · '
+           f'<span class="dim">VIP {VIP}:8081</span> · '
+           f'<span class="clock">{time.strftime("%H:%M:%S")}</span>')
+    chips = f'<div class="chips">{role_chip(cards[0])}{role_chip(cards[1])}</div>'
+    h = (f'<div class="hdr">{hdr}</div>{chips}'
          f'<div class="grid">{halo_card(cards[0])}{halo_card(cards[1])}</div>'
          f'<div class="grid">{doctor(local, peer)}{load_split(local)}</div>')
     return h
@@ -248,7 +256,11 @@ PAGE = """<!doctype html><html><head><meta charset="utf-8">
 <title>Halo Fleet</title><script src="/htmx.min.js"></script><style>
 :root{color-scheme:dark}
 body{font:14px/1.45 ui-monospace,monospace;background:#0e1116;color:#cdd6e1;margin:0;padding:16px}
-.hdr{color:#7aa2f7;margin-bottom:12px;font-size:13px}
+.hdr{color:#7aa2f7;margin-bottom:8px;font-size:14px}
+.logo{color:#9ece6a;font-weight:700}
+.clock{color:#cdd6e1}
+.chips{display:flex;gap:8px;margin-bottom:12px;font-size:13px}
+.chips .p{font-size:12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;margin-bottom:12px}
 .card{background:#151a22;border:1px solid #232b38;border-radius:8px;padding:12px}
 .card h3{margin:0 0 8px;color:#9ece6a;font-size:13px;text-transform:lowercase}
