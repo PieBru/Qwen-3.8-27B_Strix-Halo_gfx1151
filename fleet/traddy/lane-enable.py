@@ -16,7 +16,7 @@ import os
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HALOS = [("192.168.50.184", "/home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151"),
          ("192.168.50.15", "/home/piero/Qwen-3.8-27B_Strix-Halo_gfx1151")]
-WARM_MODEL = "Ornith-35B"  # lane default since 2026-08-24 (bake-off winner: +19% t/s, 11x cold load)
+WARM_MODEL = "Tiel-Coder"  # coding lane default 2026-08-24 night: 52.9 t/s served (vs Ornith 22.6, 27B-recipe 31.2), 10/10 code battery, 2.5x agent-session wall-time
 
 
 def sh(cmd, timeout=20):
