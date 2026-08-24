@@ -48,6 +48,7 @@ REPORTS = {"dream": os.path.expanduser("~/Piero/Work/pi-dream/DREAM_REPORT_lates
            "scout": os.path.expanduser("~/Piero/Work/pi-scout/SCOUT_REPORT_latest.md")}
 REPORTS_HOST = "strixy2"  # the pi main box produces both; others render its state
 ROUTER = "http://127.0.0.1:8080"
+USB4_PEER = PEER_IP and {"192.168.50.184": "10.180.243.2", "192.168.50.15": "10.180.243.1"}.get(OWN_IP)
 LOCAL_TZ = ZoneInfo("Europe/Rome")  # DST-tracked; hosts may differ (UTC vs Rome)
 
 def clock():
@@ -118,6 +119,11 @@ def local_metrics():
         m["boot_gate_ok"] = None; m["boot_gate_app"] = None
         m["boot_gate_prev_clean"] = None; m["boot_gate_fs_errs"] = None
         m["boot_gate_errs"] = None; m["boot_gate_this_boot"] = False
+    # USB4 halo-to-halo link (thunderbolt0): the peer directly over 10.x
+    try:
+        m["usb4_peer"] = bool(sh(f"ping -c1 -W1 {USB4_PEER} >/dev/null 2>&1; echo $?") == "0")
+    except Exception:
+        m["usb4_peer"] = False
     # capability lane (traddy): heterogeneous backend via haproxy ACL/lane
     # port — health + served families, probed directly (HTTP only)
     try:
@@ -334,6 +340,8 @@ def doctor(local, peer):
         add("all core units up", all(m["router_unit"] and m["keepalived"] and m["haproxy"] for m in both))
         add("routers healthy", all(m["router_health"] for m in both))
         add("canary timers armed", all(m["canary_timer"] for m in both))
+        add("usb4 interconnect up", all(m.get("usb4_peer") for m in both),
+            "10.180.243.1<->.2 · thunderbolt0 · measured 9.1-9.4 Gbps")
         add("capability lane reachable", all(m.get("lane_health") for m in both),
             (f'{(both[0] or {}).get("lane_recipes", "?")} recipes via traddy:1234'
              if (both[0] or {}).get("lane_health")
