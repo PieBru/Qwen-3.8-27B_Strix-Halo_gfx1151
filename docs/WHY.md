@@ -118,14 +118,37 @@ cold load ≈ 10 s). The same 31 Mtok/year, re-priced:*
 | energy floor (amortization belongs to the other services) | 1.15 |
 
 *And the mirror image for the heavy user — same machine, same 3-year
-assumption, but generating flat-out (311 Mtok/yr; best scenario):*
+assumption, but generating flat-out through the whole 12 h window
+(311 Mtok/yr **of output**; see the accounting note below the table;
+best scenario):*
 
-| The 100%-SOHO real box (311 Mtok/yr) | €/Mtok |
+| The 100%-SOHO real box (311 Mtok/yr out) | €/Mtok |
 |---|---:|
 | dedicated 3-year inference box (the table's own row) | 2.42 |
 | 10-year hardware life | 0.92 |
 | 10-yr box, inference the main tenant (~50% of amortization) | **0.60** |
 | energy floor (amortization belongs to the other services) | 0.28 |
+
+**Accounting note.** All Mtok figures are **output tokens** (the meter
+clients feel). Input isn't free but is ~17× cheaper per token here
+(prefill ~350 t/s vs decode 20 t/s at similar power): at a 4:1 agent
+input:output ratio the energy floor rises only from €0.28 to
+€0.34/Mtok-out; at a pathological 10:1, €0.44. And the window matters:
+"100% duty" means flat-out through the 12 h/day serving window = 311
+Mtok/yr; a never-idle h24×365 box would reach ~622.
+
+> **What the energy floor actually buys.** At ~€0.28–0.44/Mtok, the
+> desk matches low-cost cloud inference on price — but that comparison
+> misses the point, and the point deserves its own paragraph: **this is
+> the price of absolute privacy.** The rational pattern is a hybrid —
+> use commodity cloud where privacy genuinely doesn't matter, and keep
+> the desk for what must never leave the premises: an attorney's case
+> files, medical records, unreleased financials, source code under NDA,
+> personal journals. For exactly those workloads the halo isn't
+> competing on €/Mtok at all; it's the difference between *possible*
+> and *impossible*. Cloud can lower its price to zero and still not
+> sell you what this box gives you: the prompt physically never left
+> the room.
 
 The physics anchor is duty-independent: **100 W wall ÷ 20 t/s served =
 5 joules per output token** — €0.28/Mtok in pure energy, and the box's
