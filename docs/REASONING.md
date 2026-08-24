@@ -10,7 +10,7 @@ levels cost and buy; almost nobody measures. We did — full harness in the
 repo (`e1_cost_battery.py`, `e2_quality_battery.py`, `e2b_hard_battery.py`,
 `e2c_frontier_battery.py`, evidence in `results/e1-cost.csv`,
 `results/e2-quality.csv`, `results/e2b-hard.csv`, `results/e2c-frontier.csv`;
-plan with pre-registered decision rules in `docs/PLAN-reasoning-economics.md`).
+plan with pre-registered decision rules in `docs/PLAN-INDEX.md (landed — archived locally)`).
 Everything below: served through the router (DFlash2 active), temp 0, exact
 reasoning/visible token split via `/tokenize`, template v22.3.
 

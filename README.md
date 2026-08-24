@@ -44,7 +44,7 @@ documented below — so your agent can run 24/7 on hardware you own outright.
 **How we know (the method behind every number):** all benchmarks are
 back-to-back interleaved pairs (lesson #1); every battery's raw evidence is
 committed under `results/` — CSVs, server logs, kernel journal excerpts;
-experiments run under pre-registered decision rules (`docs/PLAN-reasoning-economics.md`)
+experiments run under pre-registered decision rules (`docs/PLAN-INDEX.md (landed — archived locally)`)
 and the reasoning batteries' answer keys are computed by the graders
 themselves; claims carry OBSERVED / INFERRED / REPORTED labels; and when our
 own adversarial README audit caught numbers without committed evidence, we
