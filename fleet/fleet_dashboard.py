@@ -39,12 +39,14 @@ if HALO == "strixy2":
 else:
     OWN_IP, PEER_IP, PEER_NAME = "192.168.50.15", "192.168.50.184", "strixy2"
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+REPORTS_HOST_IP = OWN_IP if HALO == "strixy2" else PEER_IP  # strixy2 = reports host
 CANARY_LOG = os.path.join(REPO, "results", "gpu-canary.log")
 HASHCHECK_STATE = os.path.join(REPO, "results", "fleet-hashcheck.json")
 BOOTGATE_STATE = os.path.join(REPO, "results", "boot-gate.json")
 # nightly reports (produced on the pi main box — strixy2; dim note on halo2)
 REPORTS = {"dream": os.path.expanduser("~/Piero/Work/pi-dream/DREAM_REPORT_latest.md"),
            "scout": os.path.expanduser("~/Piero/Work/pi-scout/SCOUT_REPORT_latest.md")}
+REPORTS_HOST = "strixy2"  # the pi main box produces both; others render its state
 ROUTER = "http://127.0.0.1:8080"
 LOCAL_TZ = ZoneInfo("Europe/Rome")  # DST-tracked; hosts may differ (UTC vs Rome)
 
@@ -116,6 +118,19 @@ def local_metrics():
         m["boot_gate_ok"] = None; m["boot_gate_app"] = None
         m["boot_gate_prev_clean"] = None; m["boot_gate_fs_errs"] = None
         m["boot_gate_errs"] = None; m["boot_gate_this_boot"] = False
+    # nightly reports state (produced on the reports host; exchanged via
+    # /.metrics so ANY renderer shows the same card — no VIP bounce)
+    m["reports"] = {}
+    if HALO == REPORTS_HOST:
+        for kind, p in REPORTS.items():
+            try:
+                age_h = (time.time() - os.path.getmtime(p)) / 3600
+                head = [l for l in open(p, encoding="utf-8").read().splitlines() if l.strip()][:8]
+                teaser = next((l for l in head if l.startswith("**Verdict:**") or l.startswith("- **Generated:**")), head[0] if head else "")
+                teaser = re.sub(r"^[#*-]+\s*|\*\*", "", teaser)[:88]
+                m["reports"][kind] = {"age_h": round(age_h, 1), "teaser": teaser}
+            except Exception:
+                pass
     # nightly GGUF hash verification state (fleet-hashcheck)
     try:
         hc = json.load(open(HASHCHECK_STATE))
@@ -269,24 +284,23 @@ def md_html(text):
     if in_code: out.append("</pre>")
     return "".join(out)
 
-def reports_card(local):
+def reports_card(local, peer):
+    # state always comes from strixy2 (local or via peer metrics) so the card
+    # never bounces between renderers; buttons route to the reports host.
+    src = next((m for m in (local, peer) if m and m.get("halo") == REPORTS_HOST), None)
     rows = ""
     for kind in ("dream", "scout"):
-        try:
-            p = REPORTS[kind]
-            age_h = (time.time() - os.path.getmtime(p)) / 3600
-            head = [l for l in open(p, encoding="utf-8").read().splitlines() if l.strip()][:8]
-            teaser = next((l for l in head if l.startswith("**Verdict:**")), head[0] if head else "")
-            teaser = re.sub(r"^[#*-]+\s*|\*\*|`", "", teaser)[:88]
+        r = (src or {}).get("reports", {}).get(kind)
+        if r:
+            base = "" if HALO == REPORTS_HOST else f"http://{REPORTS_HOST_IP}:{PORT}"
             rows += (f'<tr><td class="k">{kind}</td>'
-                     f'<td><button class="p ok" hx-get="/report/{kind}" hx-target="#modal" '
-                     f'hx-swap="innerHTML">{age_h:.0f}h · open</button></td>'
-                     f'<td class="dim">{teaser}</td></tr>')
-        except Exception:
+                     f'<td><button class="p ok" hx-get="{base}/report/{kind}" hx-target="#modal" '
+                     f'hx-swap="innerHTML">{r["age_h"]:.0f}h · open</button></td>'
+                     f'<td class="dim">{r["teaser"]}</td></tr>')
+        else:
             rows += (f'<tr><td class="k">{kind}</td><td colspan="2">'
-                     f'<span class="p dim">not produced on this halo</span></td></tr>')
+                     f'<span class="p bad">reports host unreachable</span></td></tr>')
     return f'<div class="card"><h3>nightly reports</h3><table>{rows}</table></div>'
-
 def doctor(local, peer):
     checks = []
     def add(name, ok, note=""):
@@ -361,7 +375,7 @@ def fragment():
     h = (f'<div class="hdr">{hdr}</div>{chips}'
          f'<div class="grid">{halo_card(cards[0])}{halo_card(cards[1])}</div>'
          f'<div class="grid">{doctor(local, peer)}{load_split(local)}</div>'
-         f'<div class="grid">{reports_card(local)}</div>')
+         f'<div class="grid">{reports_card(local, peer)}</div>')
     return h
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8">
