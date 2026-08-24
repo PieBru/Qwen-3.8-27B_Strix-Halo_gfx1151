@@ -124,7 +124,31 @@ As-built (differs from the sketch in useful ways):
   known_hosts pinned); dashboard doctor row `usb4 interconnect up`.
 - Next: Phase B (RPC smoke) may proceed on this fabric.
 
-### Phase B — RPC smoke test on the pair (~2 h GPU, timeboxed, revertible)
+### Phase B — RPC smoke test — ✅ COMPLETE (2026-08-24, verdict: TECHNICALLY SOUND, not adopted)
+
+Setup: `build-rpc` (Vulkan+RPC, fork pin 9b9ac3e38) on both halos;
+`ggml-rpc-server` on .15 over the USB4 link (10.180.243.2:50052);
+llama-server on strixy2 with `--rpc`. **Measured (OBSERVED):**
+- **Correctness**: 10 fixed prompts temp-0 vs local single-box: 9/10
+  bit-exact (content AND reasoning); 1 coherent divergence in a long
+  reasoning chain (anthem line variant — FP-ordering class, NOT the
+  #26685 garbling class; no gibberish anywhere).
+- **Decode**: 95 → 104 ms/token = **92% of single-box** (gate was ≥50%).
+  Prefill 62 → 32 t/s (52%) — the split pays a real prefill tax.
+- **Stability**: 15.2k/30.3k/56.9k-token fills clean, zero RPC errors,
+  both processes alive after. (A 70k-token request was cleanly rejected
+  at 64k ctx — my probe sizing error, documented, not a crash.)
+- Verdict: RPC works, is bit-sane, and the fabric supports it — but with
+  BOTH halos alive there is no *serving* case where 92%-decode beats
+  running a full copy per box (HA + 2 clients at full speed). The
+  unique value — one model >124 GB or >262k window — remains blocked
+  upstream by the 262k slot cap. **Chapter closed until that cap lifts
+  or a >124GB model appears; builds kept in build-rpc/ (revertible).**
+- Test-harness lessons (all mine, not the link's): word-lists compress
+  ~11.6 tokens/block (not 74); thinking eats small max_tokens — use
+  reasoning_effort low + budget; `off` is not a valid effort value
+  (template raise); block-counting is beyond Q5's arithmetic (the '100'
+  answer was model error, caught as such).
 On `.15`: stop the router's preload (idle box), run
 `ggml-rpc-server --host <tb-ip> -p 50052 -c` (Vulkan build with
 `-DGGML_RPC=ON` — needs a build config there; fork already carries it).
