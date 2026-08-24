@@ -66,6 +66,14 @@ same lever from the cost and ceiling sides). Not our measurement — the
 label stays REPORTED; our own numbers live in
 [FINDINGS](FINDINGS.md).
 
+Second datapoint (REPORTED, pinned 2026-08-24): on the live **code
+arena** (human-preference coding ladder), *Qwen3.8 27B* holds **#9
+overall** — with the community thread's own framing being "effectively
+DeepSeek-V4-Flash quality for coding, at home" and same-class open
+rivals far behind (Gemma4 31B at #80). Two independent external
+ladders, same conclusion: this is a frontier-adjacent *coding* model
+that happens to fit on a desk.
+
 ## What's the price of absolute privacy?
 
 > **TL;DR: the privacy is not a premium — at any serious usage it's a
