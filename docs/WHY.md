@@ -28,8 +28,10 @@ sponsored placements.
   balanced / speed / vision / a context dial to a 256k-token window) you
   switch per request, like a reasoning level.
 - **Sips power**: ~85 W sustained at full tilt — order of magnitude under a
-  multi-GPU rig; idle cost roughly a lightbulb (~€0.04/night at €0.12/kWh,
-  computed from the 85 W figure — verify against your tariff).
+  multi-GPU rig; idle draws ~10–15 W — about half the cost of an LED lightbulb
+  (~€0.01/night at €0.12/kWh, platform idle measured — vs ~€0.08/night
+  if it actually idled at the 85 W full-tilt figure; verify against
+  your tariff).
 - **Private by physics**: prompts never leave the machine. No telemetry to
   disable, no retention policy to trust — unplugged is unambiguous.
 - **Yours**: no deprecations, no price changes, no terms-of-service updates

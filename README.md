@@ -14,7 +14,8 @@ meters, no telemetry. Your agent runs 24/7 on hardware you own outright:
 - **~17–21 tokens/s** sustained decode of the Q6_K_XL quant (Q8: ~15–18;
   Q5: ~23 — spec decode makes the *quant choice* the speed dial), ~330 t/s
   prefill
-- **~85 W** at full tilt — idle cost roughly a lightbulb
+- **~85 W** at full tilt — idle draws ~10–15 W, about half the cost
+  of leaving an LED lightbulb on
 - **Private by physics** — prompts never leave the machine
 
 **How we know:** every number in this repo traces to committed evidence
