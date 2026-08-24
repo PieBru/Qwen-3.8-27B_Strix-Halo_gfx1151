@@ -1,6 +1,6 @@
-# Backends — Vulkan vs ROCm (and halofpx)
+# Backends — Vulkan vs ROCm (and ecosystem comparisons)
 
-> From [Qwen3.8-27B on Strix Halo](../README.md) — the measured A/B, speed and stability pictures, the halofpx comparison, the HIP build.
+> From [Qwen3.8-27B on Strix Halo](../README.md) — the measured A/B, speed and stability pictures, comparisons with sibling projects, the HIP build.
 
 ## Vulkan vs ROCm, which and why?
 
@@ -184,7 +184,10 @@ fill-decay table in the 1M chapter.)*
   separate draft weights), but on Vulkan DFlash2 beats it 16.9 vs 13.1 t/s —
   keep DFlash2 where it works, MTP where it doesn't.
 
-### How this compares with halofpx as of 2026-08-22
+### How this compares with sibling projects
+
+*Each comparison pins the other repo's commit; re-check against their
+current tip before relying on any number. Siblings so far: halofpx.*
 
 Repos compared at this date: **halofpx** [`22dd3b54d`](https://github.com/julianmb/halofpx/commit/22dd3b54d)
 ("feat(registry): mandatory quant provenance metadata" — they have started

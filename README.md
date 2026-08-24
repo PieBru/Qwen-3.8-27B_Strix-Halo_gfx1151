@@ -146,13 +146,13 @@ Vulkan leads at every depth (2.7× by 117k) and, with the amdgpu watchdog
 out of the way, fills the **entire 262k window** — the old "Vulkan dies at
 137k" was the kernel killing slow-but-legal dispatches, not a driver bug
 (forensics + intervention in the page below). The full story — bare-bench
-parity, DFlash2-on-ROCm, the halofpx comparison, the HIP build recipe:
+parity, DFlash2-on-ROCm, the sibling-project comparisons, the HIP build recipe:
 **[docs/BACKENDS.md](docs/BACKENDS.md)**.
 
-### How this compares with halofpx as of 2026-08-22
+### How this compares with sibling projects
 
 The measured-quality-first comparison with the speed-first cousin:
-**[docs/BACKENDS.md](docs/BACKENDS.md#how-this-compares-with-halofpx-as-of-2026-08-22)**.
+**[docs/BACKENDS.md](docs/BACKENDS.md#how-this-compares-with-sibling-projects)**.
 
 ## Stability without the kernel GPU watchdog (lockup_timeout=-1 playbook)
 
