@@ -131,6 +131,17 @@ pre-registered experiments per project, trigger → run → verdict):
   the idea to our agent loops.
 - **halofpx** — already measured (pinned 2026-08-22); re-run only if
   they publish KLD/quality numbers for their defaults.
+- **EXO** — trigger: either the USB4 Phase-A bring-up clears its 5 Gbps
+  gate AND ds4's two-node RPC smoke works (interconnect question becomes
+  real), or EXO lands Linux/AMD support (#904/#934 close). Run: their TP
+  speedup claims (1.8×/2 devices, 3.2×/4) as the reference bar against our
+  two-node layer-split option — same model class, same interconnect, our
+  e5-style 2-client throughput as the metric. Rule: adopt the distributed
+  path only if it beats full-copy-per-halo on aggregate t/s at equal
+  quality tier AND survives a halo-death drill (EXO has no failover — a
+  dead device breaks the sharded model, so redundancy stays ours). Also
+  steal-list: automatic device discovery for the fleet (static config
+  today) if a review evening ever opens.
 
 **Agent compatibility & quirks lab** — the fleet serves OpenAI-compatible
 APIs, but every agent client has its own template needs, streaming habits,

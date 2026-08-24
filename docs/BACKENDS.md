@@ -197,6 +197,7 @@ then per-project notes.*
 | [vllm.cpp](https://github.com/mudler/vllm.cpp) | vLLM serving core in one C++ binary (continuous batching, RadixAttention) | ❌ Vulkan #125 / ROCm skeleton / #937 | multi-client serving — our e5 question, properly | watch (Phase D); smoke on AMD-integrated support |
 | [FreeToken](https://github.com/FlashML-org/FreeToken) | Edge-native MoE serving: CPU–GPU co-execution, expert caching, semantic-anchor KV edits; 290B+ MoE on consumer rigs | ❌ NVIDIA-first (RTX 30/40/50); **AMD = open PRs** (#60/#23/#53/#132, RDNA3/4 ports in flight) | DSV4-Flash big-model goal — same payload, different engine; the i9/4090Ti backend could run it TODAY | watch for gfx1151; pilot on the i9 when it joins the fleet |
 | [Lemonade](https://github.com/lemonade-sdk/lemonade) | AMD-backed local-AI server: OpenAI/Anthropic/Ollama APIs, model manager, GGUF+ONNX, NPU/GPU/CPU; **`vllm`+`rocm` device combo explicitly targets gfx1151 (Linux)** | ✅ (AMD engineers optimize for Strix Halo) | serving layer/UX more than inference core; NPU (XDNA2) is a surface we don't touch | candidate for the fleet's "easy on-ramp" lane; A/B its vllm-rocm path vs our router on the same weights |
+| [EXO](https://github.com/exo-explore/exo) | Distributed inference: ONE model sharded across a device cluster (topology-aware TP, automatic discovery, RDMA over TB5); 47k★, Python/MLX | ❌ Apple-Silicon/MLX only — gfx1151 = open tracking #904 (Framework Desktop, a Strix Halo) + #934 Vulkan | the *opposite* fleet philosophy: model sharding (capacity) vs our full-copy + HA routing (reliability) | the reference point for our future two-node RPC/USB4 experiment — their TP speedup numbers are the bar; not runnable on our halos today |
 
 **Per-project notes** (what we'd measure, and the honest caveats):
 
@@ -223,6 +224,23 @@ then per-project notes.*
   lemonade backend; or lemonade could be the on-ramp for non-tinkerer users
   of the fleet. The one measurable claim worth checking: their
   `vllm`+`rocm` gfx1151 combo vs our fork router on the same GGUF.
+- **EXO** — the philosophically opposite fleet: they split ONE model across
+  every device (capacity play — Qwen3-235B 8-bit on 4×M3 Ultra, DSV3.1 671B);
+  we run a FULL copy on every halo and route (reliability play). The crux is
+  the interconnect: EXO's speed claims are gated on RDMA over Thunderbolt 5
+  (their docs: 99% latency reduction) — over our 1 GbE, TP sharding would be
+  link-bound, which is exactly why full-copy + stick-table affinity is the
+  right call at our current fabric (tokens cross the wire only at session
+  boundaries). That's also the argument behind our Phase-A USB4 gate
+  (iperf3 ≥ 5 Gbps): if the interconnect gets fast, EXO's question becomes
+  ours, and their 1.8× (2 devices) / 3.2× (4 devices) TP speedups become the
+  benchmark bar for the ds4-style layer-split bake-off. Failure semantics
+  differ by design: a dead device breaks a sharded model; a dead halo only
+  costs the in-flight session (VIP moves <4 s). AMD story today: none —
+  MLX/Metal-first, gfx1151 = open tracking #904 + #934 Vulkan; last commit
+  2026-06-23 (~2 months quiet at 47k★). Steal-list if we ever revisit:
+  automatic device discovery (we're static-config today) and the topology-
+  aware placement logic.
 
 *Standing rule: no number in this chapter is ours unless labeled OBSERVED;
 sibling claims are REPORTED and state-pinned where we checked them.*
@@ -231,7 +249,8 @@ sibling claims are REPORTED and state-pinned where we checked them.*
 run plan, and decision rule — in [Ideas, parked](IDEAS.md): the sibling
 evaluation queue.*
 
-Repos compared at this date: **halofpx** [`22dd3b54d`](https://github.com/julianmb/halofpx/commit/22dd3b54d)
+Repos compared at this date: **halofpx** [`22dd3b54d`](https://github.com/julianmb/halofpx/commit/22dd3b54d),
+**EXO** `2b8f4ae`-era tip (2026-06-22, last push 2026-06-23)
 ("feat(registry): mandatory quant provenance metadata" — they have started
 requiring quant provenance metadata, a step in the right direction) vs **this
 repo** [`5569eb2`](https://github.com/PieBru/Qwen-3.8-27B_Strix-Halo_gfx1151/commit/5569eb2)
