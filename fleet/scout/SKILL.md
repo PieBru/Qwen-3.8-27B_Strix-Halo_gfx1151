@@ -1,6 +1,6 @@
 ---
 name: scout
-description: Nightly research watch for the Halo fleet ("scout"). Scans monitored upstream/community sources (llama.cpp + fork commits/PRs/issues, r/LocalLLaMA + r/StrixHalo via headless Chromium, HF quant repos, engine newborns ds4/vllm.cpp/audio.cpp) and writes a morning report of what's new AND decision-relevant for the fully-local lightweight LAN inference goals. Report-only (Dream Gate pattern): never applies, installs, or edits anything. Use when the operator says "scout", "morning report", "research watch", or wants the nightly scan run.
+description: Nightly research watch for the Halo fleet ("scout"). Scans monitored upstream/community sources (llama.cpp + fork commits/PRs/issues, r/LocalLLaMA + r/StrixHalo + r/LLMDevs via headless Chromium, HF quant repos, engine newborns ds4/vllm.cpp/audio.cpp) and writes a morning report of what's new AND decision-relevant for the fully-local lightweight LAN inference goals. Report-only (Dream Gate pattern): never applies, installs, or edits anything. Use when the operator says "scout", "morning report", "research watch", or wants the nightly scan run.
 ---
 
 # Scout — nightly research watch (fleet rung 1: observe)
@@ -42,7 +42,7 @@ first and carry it as the baseline).
    new releases/tags; issues mentioning strix/gfx1151/ROCm;
    audio.cpp (0xShug0/audio.cpp) — releases, AMD/ROCm notes.
 4. **Reddit** (headless Chromium — curl is 403-blocked; the pattern is
-   proven in the fleet repo): r/StrixHalo new, r/LocalLLaMA new filtered
+   proven in the fleet repo): r/StrixHalo new, r/LLMDevs new, r/LocalLLaMA new filtered
    by keywords (Strix Halo, 8060S, gfx1151, DFlash, DSpark, speculative,
    DSV4, quant, llama.cpp perf). Post + top comments; grade claims vs
    evidence culture.
