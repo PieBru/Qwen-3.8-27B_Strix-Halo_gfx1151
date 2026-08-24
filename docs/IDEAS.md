@@ -213,6 +213,26 @@ context. Explicitly NOT: online per-request retuning (restart cost,
 measurement noise, np=1 — recipes ARE the runtime switch) and
 quality-blind hill-climbing (the constraint gate is mandatory).
 
+  **Hybrid upgrade — LLM-assisted hunter 2.0** (design 2026-08-24; math
+  searches, intelligence thinks — roles NEVER swap). LLM side (our own
+  fleet as the analyst, pi as orchestrator): (1) prior/space engineering
+  from code+docs+scout intel (known-dead dims, flag interactions, bounds);
+  (2) warm-starting TPE's first trials from prior sweeps + upstream claims
+  (e.g. #27553); (3) crash-trial triage from server logs — blacklist-
+  by-construction vs retry vs interesting (this evening's AD-no-MTP and
+  LRU-race classes); (4) ANOVA→mechanism interpretation, adding/removing
+  dimensions mid-run at coach cadence (~every 20 trials); (5) cross-
+  experiment retrieval over results/hunter + past e-series ("flat in e5+e6
+  → dead forever"); (6) cheap quality cascade-screening (shape sanity) —
+  final gates stay DETERMINISTIC. Math side: all sampling, surrogate,
+  acquisition, noise control, adoption gates. Anti-patterns pre-registered:
+  LLM per-trial, LLM-predicted numbers (proposes configs only), LLM
+  quality gates, un-anchored analyst claims. Meta-validation pre-registered:
+  same budget, hunter-pure vs hybrid, metric = evals-to-(champion+5%);
+  hybrid is adopted only if it wins THAT race. REPORTED lineage: OPRO /
+  LLAMBO / FunSearch class (LLM-as-coach beats LLM-as-optimizer for
+  numeric spaces).
+
 **Upstream karma** (pick one, file a PR, cite our evidence):
 
 - llama.cpp **#27588** (ours): trailing `assistant(tool_calls)` dropped in
