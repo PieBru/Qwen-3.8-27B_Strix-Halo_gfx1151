@@ -25,6 +25,18 @@ noted where the gap could bite).
 
 ## Chart 1 — Coding & Software Engineering
 
+```mermaid
+xychart-beta
+    title "Coding & SWE — series: Qwen3.8-27B / Qwen3.6-27B / Qwen3.7-Plus"
+    x-axis ["TB 2.1", "SWE-Pro", "NL2Repo", "DeepSWE", "QwenSWE", "LCB v6"]
+    y-axis "score" 0 --> 100
+    bar [73.0, 61.7, 42.3, 42.2, 79.0, 90.3]
+    bar [63.4, 53.5, 36.2, 13.3, 49.3, 83.9]
+    bar [64.0, 57.6, 41.1, 14.2, 59.2, 89.6]
+```
+
+*Bars left→right match the series order in the title (`xychart-beta` has no legend yet); the table below is the precise reference.*
+
 | Benchmark | Category | Qwen3.8-27B | Qwen3.6-27B | Qwen3.7-Plus | Muse Glimmer-30B | Opus4.6 Max |
 |---|---|---|---:|---:|---:|---:|
 | Terminal Bench 2.1 | Agentic Terminal Coding | **73.0** | 63.4 | 64.0 | 51.7 | **78.2** |
@@ -44,6 +56,18 @@ locally — the official card and our kitchen-table batteries agree on the
 shape (ceiling-class coding at this size).
 
 ## Chart 2 — General & Reasoning
+
+```mermaid
+xychart-beta
+    title "General & Reasoning — series: Qwen3.8-27B / Qwen3.6-27B / Qwen3.7-Plus"
+    x-axis ["CoWork", "Job", "ALE", "IF", "GPQA", "HLE"]
+    y-axis "score" 0 --> 100
+    bar [70.7, 33.4, 42.9, 79.5, 89.2, 30.8]
+    bar [61.0, 21.8, 27.3, 69.1, 87.8, 24.0]
+    bar [65.1, 27.6, 33.6, 79.1, 90.3, 34.7]
+```
+
+*Bars left→right match the series order in the title (`xychart-beta` has no legend yet); the table below is the precise reference.*
 
 | Benchmark | Category | Qwen3.8-27B | Qwen3.6-27B | Qwen3.7-Plus | Muse Glimmer-30B | Opus4.6 Max |
 |---|---|---|---:|---:|---:|---:|
@@ -65,6 +89,18 @@ our measured failure mode).
 
 ## Chart 3 — Agentic Multimodal Intelligence
 
+```mermaid
+xychart-beta
+    title "Agentic Multimodal — series: Qwen3.8-27B / Qwen3.6-27B / Qwen3.7-Plus"
+    x-axis ["OSWorld", "WebArena", "Android", "Recreation", "ClawEval", "SWE-MM", "V2Web"]
+    y-axis "score" 0 --> 100
+    bar [84.3, 64.8, 81.9, 47.1, 56.9, 38.6, 62.9]
+    bar [63.9, 48.8, 70.3, 29.8, 50.4, 25.7, 45.0]
+    bar [73.3, 55.3, 81.0, 30.2, 60.1, 30.0, 42.1]
+```
+
+*Bars left→right match the series order in the title (`xychart-beta` has no legend yet); the table below is the precise reference.*
+
 | Benchmark | Category | Qwen3.8-27B | Qwen3.6-27B | Qwen3.7-Plus | Muse Glimmer-30B | Opus4.6 Max |
 |---|---|---:|---:|---:|---:|---:|
 | OSWorld-Verified | Computer Use | **84.3** | 63.9 | 73.3 | 65.9 | 72.7 |
@@ -84,6 +120,18 @@ latency budget does not.
 
 ## Chart 4 — General Multimodal & Perception
 
+```mermaid
+xychart-beta
+    title "Perception (standard setup) — series: Qwen3.8-27B / Qwen3.6-27B / Qwen3.7-Plus"
+    x-axis ["MathVis", "BabyVis", "CharXiv", "OmniDoc", "RWQA", "ERQA"]
+    y-axis "score" 0 --> 100
+    bar [90.0, 65.7, 83.7, 91.1, 85.9, 65.5]
+    bar [85.1, 28.9, 78.4, 89.4, 84.1, 62.5]
+    bar [90.3, 64.7, 85.8, 91.4, 86.9, 69.8]
+```
+
+*Bars left→right match the series order in the title (`xychart-beta` has no legend yet); the table below is the precise reference.*
+
 | Benchmark | Setup | Qwen3.8-27B | Qwen3.6-27B | Qwen3.7-Plus | Muse Glimmer-30B | Opus4.6 Max |
 |---|---|---|---:|---:|---:|---:|
 | MathVision | Standard / With CI | 90.0 / **94.6** | 85.1 | 90.3 | — | 65.5 |
@@ -99,6 +147,21 @@ nearest-peers (doc intelligence and real-world QA within a point). The
 reminder that several card rows measure the *harness*, not just the
 weights; our serving equivalent of "CI" is the reasoning-effort +
 tools stack we measured in E1/E3.
+
+## Head-to-head vs the frontier (Opus4.6 Max)
+
+```mermaid
+xychart-beta
+    title "vs the frontier — series: Qwen3.8-27B / Opus4.6 Max"
+    x-axis ["TB 2.1", "SWE-Pro", "NL2Repo", "OSWorld", "Android", "GPQA", "HLE"]
+    y-axis "score" 0 --> 100
+    bar [73.0, 61.7, 42.3, 84.3, 81.9, 89.2, 30.8]
+    bar [78.2, 53.4, 47.6, 72.7, 62.0, 91.3, 40.0]
+```
+
+*The 27B's profile vs a frontier model: wins agentic-GUI rows decisively,
+trades coding, concedes the hardest pure-reasoning rows — the same shape
+our E2c frontier battery measured.*
 
 ---
 
