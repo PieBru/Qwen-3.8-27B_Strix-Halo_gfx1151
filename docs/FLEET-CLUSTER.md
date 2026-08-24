@@ -35,7 +35,8 @@ audio-serving path). See FLEET-PLAN Phases D/E.
   the community; ~10–20 Gbps class).
 - **Our staging (done, dormant)**: `thunderbolt-net` module loaded +
   persisted on both boxes; systemd-networkd `.network` files written for the
-  future `tb0` interface (random-migration-safe /30: 10.180.243.1/.2);
+  the `thunderbolt0` interface (as-built 2026-08-24: /30 10.180.243.1/.2,
+  MTU 9000, measured 9.1-9.4 Gbps / 0.3-1.5 ms — see FLEET-PLAN Phase A);
   bring-up runbook in FLEET-PLAN Phase A. Plug in the cable → ~10 min to
   measured iperf3 numbers.
 - **Cable folklore** (wiki + our research): passive 40G only holds ≤1 m;
