@@ -82,10 +82,11 @@ money they want.** What cloud *actually* costs has three regimes
 | Budget-model API (metered) | ~€746 | the whole heavy year, no caps — on someone else's small model |
 | Frontier API (metered) | ~€16,800 | the whole heavy year at frontier quality — input billed at €3/Mtok, output at €15 |
 
-The metered rows price the same heavy year the desk does (622 Mtok out
-+ ~2.5 Gtok in; see the accountant's table below). Note what the table
-quietly says: **no subscription is "unlimited"** — every plan is either
-capped or metered, and the caps are exactly where agent workloads live.
+The metered rows price the same heavy year the desk is asked to serve
+— **622 Mtok out + ~2.5 Gtok in** (full accounting below). Note what
+the table quietly says: **no subscription is "unlimited"** — every plan
+is either capped or metered, and the caps are exactly where agent
+workloads live.
 And every regime charges the same non-monetary price: prompts cross the
 wire, sit in someone else's retention policy, and can be repriced,
 deprecated, or rate-limited without your consent. Unplugged is
