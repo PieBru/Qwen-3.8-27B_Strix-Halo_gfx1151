@@ -7,49 +7,20 @@ Run Qwen3.8-27B with the [strix-halo llama.cpp](https://github.com/Nathanw1014/s
 fork on a Ryzen AI MAX+ 395, with DFlash2 speculative decoding.
 ## Why this exists: cloud-free intelligence on a desk
 
-If you are a solo developer with an AI agent working around the clock, a
-privacy-sensitive operator, or any other entity that wants to be free from
-cloud chains — read on. An all-purpose computer that cost **less than €2,000**
-(launch offer) now serves a 27-billion-parameter reasoning model, entirely
-from your own desk. Which machine? We tested on a **GMKtec EVO-X2** (Ryzen
-AI MAX+ 395, 128 GiB) — [amazon.it/dp/B0F6X332N6](https://www.amazon.it/dp/B0F6X332N6/) —
-any mini-PC or desktop with the same AMD Strix Halo APU works the same. **Not
-affiliated**: no sponsorship, no free hardware, no affiliate links (the
-shopping link above is a plain product URL, no referral tag); we paid for
-ours. External links in this README point only to the open-source projects,
-model publishers, hardware references, and community threads this work builds
-on or measures — see
-[Acknowledgements](#-thanks-to-the-authors-of-this-software-stack) — never to
-sponsored placements.
+A **less-than-€2,000 mini-PC** (AMD Strix Halo, 128 GB) now serves a
+27B reasoning model entirely from your desk — no API keys, no quotas, no
+meters, no telemetry. Your agent runs 24/7 on hardware you own outright:
 
-- **No API keys, no quotas, no meters.** The model lives in your RAM
-  (~122 GiB of it, mlock'd — the box's whole personality is inference).
-- **Real speeds, measured**: 16–21 tokens/s typical sustained decode with
-  DFlash2 speculative decoding (content-dependent: acceptance spans
-  0.28–0.91, so the same model spans ~15–35 t/s; peaks near the top on
-  narrative-style output), ~330 t/s prefill; a five-recipe menu (quality /
-  balanced / speed / vision / a context dial to a 256k-token window) you
-  switch per request, like a reasoning level.
-- **Sips power**: ~85 W sustained at full tilt — order of magnitude under a
-  multi-GPU rig; idle cost roughly a lightbulb (~€0.04/night at €0.12/kWh,
-  computed from the 85 W figure — verify against your tariff).
-- **Private by physics**: prompts never leave the machine. No telemetry to
-  disable, no retention policy to trust — unplugged is unambiguous.
-- **Yours**: no deprecations, no price changes, no terms-of-service updates
-  that quietly reshape your workflow. The stack is open source end to end.
+- **~17–21 tokens/s** sustained decode (DFlash2 speculative), ~330 t/s prefill
+- **~85 W** at full tilt — idle cost roughly a lightbulb
+- **Private by physics** — prompts never leave the machine
 
-The recipes, the numbers, and every trap we hit (there were many) are
-documented below — so your agent can run 24/7 on hardware you own outright.
-
-**How we know (the method behind every number):** all benchmarks are
-back-to-back interleaved pairs (lesson #1); every battery's raw evidence is
-committed under `results/` — CSVs, server logs, kernel journal excerpts;
-experiments run under pre-registered decision rules (`docs/PLAN-INDEX.md (landed — archived locally)`)
-and the reasoning batteries' answer keys are computed by the graders
-themselves; claims carry OBSERVED / INFERRED / REPORTED labels; and when our
-own adversarial README audit caught numbers without committed evidence, we
-corrected the README rather than the evidence (2026-08-23). If a number here
-can't be re-run from this repo, it doesn't belong here.
+**How we know:** every number in this repo traces to committed evidence
+under `results/`, runs under pre-registered decision rules, with
+OBSERVED/INFERRED/REPORTED labels — and when our own audit caught
+evidence-less numbers, we corrected the docs, not the evidence.
+The full pitch — hardware, power math, privacy, and the measurement
+method: **[docs/WHY.md](docs/WHY.md)**.
 
 ## Provenance note
 
@@ -63,45 +34,24 @@ assistants under that supervision — including this sentence. Every number in
 this README traces to a command you can re-run.
 ## TL;DR — reproduce on any gfx1151 (Strix Halo) box
 
-Six steps, ~45 min, no desktop environment needed (Arch minimal headless verified
-end-to-end on a second box, 2026-08-21; Ubuntu may work, untested):
+Clone, install deps, build the fork, download the models (~73 GiB), verify
+the GPU, serve — six steps, ~45 min, headless-friendly:
 
 ```bash
-# 0. this repo (launchers, recipes, systemd unit, model downloader)
 git clone https://github.com/PieBru/Qwen-3.8-27B_Strix-Halo_gfx1151 && cd Qwen-3.8-27B_Strix-Halo_gfx1151
-# 1. deps (Arch; versions OBSERVED working: shaderc 2026.3, libdrm 2.4.134)
-sudo pacman -S --needed base-devel cmake ninja git shaderc vulkan-headers \
-  spirv-headers vulkan-icd-loader vulkan-radeon vulkan-tools libdrm
-# 2. build the fork INSIDE the repo (llama.cpp/ is gitignored; or skip the
-#    build: prebuilt v0.6.6 tarball — same commit, see Quick Start)
-git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp && git checkout strix-halo-vulkan
-cmake -B build-vk -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=ON -DLLAMA_CURL=OFF
-cmake --build build-vk --target llama-server llama-cli llama-bench -j && cd ..
-# 3. models — everything (targets + DFlash2 draft + vision mmproj), verified:
-./download_models.sh            # ~73 GiB total; or pick: q6 q8 q5 draft mmproj
-# 4. verify backend + bare perf (expect: Vulkan0 AMD 8060S; quiet box, f16 KV:
-#    Q6 pp512 ~346 / tg32 ~8.6; Q8 pp512 ~366 / tg32 ~7.3 — zram churn can halve tg)
-./build-vk/bin/llama-cli --list-devices
-./build-vk/bin/llama-bench -m MODEL-UD-Q6_K_XL.gguf -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
-# 5. serve a preset (balanced = Q6 daily driver, ~17-21 t/s on a quiet box)
+./download_models.sh          # after deps + fork build (see full steps)
 ./run_llama-server.sh --goal balanced
-curl -s localhost:8081/completion -H 'Content-Type: application/json' \
-     -d '{"prompt":"Explain briefly why the sky is blue at sunset.","n_predict":64}'
 ```
 
-Numbers are for an 85 W sustained PPT box; expect ±10% run-to-run. On a
-**default kernel**, deep Vulkan fills die at ~137k positions — but that wall
-is the **amdgpu lockup watchdog**, not Vulkan (kernel forensics 2026-08-23:
-every "device lost" was a ring timeout + reset on our own submission). With
-`amdgpu.lockup_timeout=-1` on the cmdline, the same battery filled the
-**entire 262k window** (254,356 positions, zero errors) — see
-[Vulkan vs ROCm](#vulkan-vs-rocm-which-and-why),
-[the deep-positions A/B](#deep-positions-the-amdgpu-watchdog-wall--and-how-to-remove-it),
-and the [stability playbook](#stability-without-the-kernel-gpu-watchdog-lockup_timeout-1-playbook).
-(ROCm/TheRock 7.15 needs no kernel change and survived 215,228 on the same
-battery — the fallback when boot params are off-limits.)
-Once verified, pick your workload recipe from the
-[**recipe menu**](docs/RECIPES.md) table.
+Expected on a quiet box (f16 KV): Q6 prefill ~346 t/s, decode ~17–21 t/s
+served. **One caveat**: on a *default kernel*, deep Vulkan fills die at
+~137k positions — that wall is the amdgpu watchdog, not Vulkan, and one
+kernel parameter removes it entirely (full story linked in the guide).
+
+The complete six-step bring-up with expected numbers, bench commands, and
+the watchdog caveat: **[docs/TLDR.md](docs/TLDR.md)** · zero-build
+alternative: [Quick start](docs/QUICKSTART.md).
+
 ## Headline findings (the counterintuitive ones)
 
 Our setup keeps surprising us — every one of these inverts something most
