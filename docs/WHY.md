@@ -99,6 +99,21 @@ tokens. (The loaded-wait draw — model resident, GPU initialized, no
 generation — is measured at ~35 W wall, so a serving window is never at
 the 5–10 W unloaded idle.)*
 
+*But treat the low-duty rows as the **dedicated-box upper bound**, not a
+real user's bill. Two corrections that compound: a 128 GiB low-power box
+like this realistically serves ~10 years (its post-inference career as a
+Proxmox/LXC host included); and a 10%-inference user almost by
+definition runs other services on it — inference is a **tenant**, not
+the owner (with on-demand loading the model needn't even stay resident;
+cold load ≈ 10 s). The same 31 Mtok/year, re-priced:*
+
+| The 10%-user's real box | €/Mtok |
+|---|---:|
+| dedicated 3-year inference box (the table's corner case) | 22.59 |
+| 10-year hardware life | 7.58 |
+| 10-yr box, inference one tenant among services (~25% of amortization) | **2.76** |
+| energy floor (amortization belongs to the other services) | 1.15 |
+
 The physics anchor is duty-independent: **100 W wall ÷ 20 t/s served =
 5 joules per output token** — €0.28/Mtok in pure energy, and the box's
 amortization (€2.14/Mtok at full duty) costs more than the electricity

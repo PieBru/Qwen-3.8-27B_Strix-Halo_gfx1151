@@ -76,4 +76,24 @@ for d in [0.25, 1.0]:
               f"(halo generates {HOURS*3600*d*DECODE_TPS/1e6:.0f} Mtok at full duty-hours)")
 print("note: cloud also bills input tokens (agent loops are input-heavy); "
       "halo marginal energy per extra token is 5 J ≈ €0.0000003")
+
+# ---- reality-adjusted low-duty scenarios (operator Q&A 2026-08-24) ----
+# The duty table above prices a DEDICATED 3-year box. Two operator
+# corrections: (1) a 128 GiB low-power box realistically serves ~10 years
+# (as Proxmox/LXC host after its inference career, or throughout); (2) a
+# 10%-inference user almost by definition hosts other services on it —
+# inference is a TENANT, not the owner (and with on-demand loading the
+# model needn't stay resident: cold load ≈ 10 s).
+print("\nreality-adjusted: 10% duty, same tokens (31.1 Mtok/yr):")
+scenarios = [
+    ("dedicated 3-yr inference box (table above)", 666.67),
+    ("10-year hardware life, still dedicated",     200.0),
+    ("10-yr life + inference as one tenant (~25% of amort)", 50.0),
+    ("amortization fully attributed elsewhere (energy floor)", 0.0),
+]
+for name, amort in scenarios:
+    energy_yr = (0.10 * P_GEN_W + 0.90 * P_WAIT_W) / 1000 * HOURS * PRICE_EUR_KWH
+    mtok = HOURS * 3600 * 0.10 * DECODE_TPS / 1e6
+    print(f"  {name:<52} {(energy_yr + amort) / mtok:>7.2f} €/Mtok")
+print("  (the dedicated-3yr row IS the table's 10% figure — upper bound, not the user's reality)")
 sys.exit(0)
