@@ -46,7 +46,9 @@ AMORT = HARDWARE_EUR / YEARS                     # 666.67 €/yr
 J_PER_TOK = P_GEN_W / DECODE_TPS                 # 5 J/output token
 KWH_PER_MTOK = J_PER_TOK * 1e6 / 3.6e6           # 1.389 kWh/Mtok
 
-print(f"window: {HOURS:.0f} h/yr · amortization {AMORT:.2f} €/yr · "
+print(f"window: {HOURS:.0f} h/yr · amortization {AMORT:.2f} €/yr "
+      f"(= {AMORT/DAYS_PER_YEAR:.2f} €/day, a fixed daily bill — the "
+      f"unused-subscription cost) · "
       f"{J_PER_TOK:.1f} J/token ⇒ {KWH_PER_MTOK:.3f} kWh/Mtok "
       f"(€{KWH_PER_MTOK*PRICE_EUR_KWH:.3f}/Mtok energy-only)")
 print(f"{'duty':>5} {'Pavg W':>7} {'energy €/yr':>11} {'Mtok/yr':>9} "

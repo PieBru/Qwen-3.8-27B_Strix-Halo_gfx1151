@@ -83,21 +83,24 @@ rate-limited without your consent. Unplugged is unambiguous.
 years, €0.2/kWh energy, and a 12 h/day × 360 d serving window on the
 `balanced` recipe, the all-in cost per output MegaToken is:
 
-| Generation duty | €/Mtok energy | €/Mtok amortization | €/Mtok total | What that looks like |
+| Generation duty | €/day amortization (fixed) | €/Mtok energy (marginal) | €/Mtok total | What that looks like |
 |---:|---:|---:|---:|---|
-| 100% | 0.28 | 2.14 | **2.42** | a bot generating flat-out |
-| 50% | 0.38 | 4.29 | **4.66** | heavy daily driver |
-| 25% | 0.57 | 8.57 | **9.14** | a realistic agentic workload |
-| 10% | 1.15 | 21.43 | **22.59** | evenings-and-weekends tinkering |
+| 100% | 1.85 | 0.28 | **2.42** | a bot generating flat-out |
+| 50% | 1.85 | 0.38 | **4.66** | heavy daily driver |
+| 25% | 1.85 | 0.57 | **9.14** | a realistic agentic workload |
+| 10% | 1.85 | 1.15 | **22.59** | evenings-and-weekends tinkering |
 
-*Read the two columns as the own-vs-rent asymmetry: **energy is the
-marginal cost** — near-zero and flat (5 J per output token, independent
-of how busy you are); **amortization is the capacity cost** — the same
-€667/year of hardware whether you generate 311 Mtok or 31. A quieter box
-doesn't pay more for electricity; it spreads the machine over fewer
-tokens. (The loaded-wait draw — model resident, GPU initialized, no
-generation — is measured at ~35 W wall, so a serving window is never at
-the 5–10 W unloaded idle.)*
+*Read the cost columns as two different kinds of bills. **Amortization
+is a subscription: €1.85/day** (€667/yr ÷ 360 serving days), charged
+every day whether you generate a million tokens or none — like a $200
+/month Claude plan you never open, it still bills daily. **Energy is
+the pay-per-use meter**: near-zero and flat (5 J per output token at
+any duty). The totals climb as duty falls **only because a fixed daily
+bill gets divided by fewer tokens** — a quieter box doesn't pay more
+for electricity, it just spreads the same subscription thinner. (The
+loaded-wait draw — model resident, GPU initialized, no generation — is
+measured at ~35 W wall, so a serving window is never at the 5–10 W
+unloaded idle.)*
 
 *But treat the low-duty rows as the **dedicated-box upper bound**, not a
 real user's bill. Two corrections that compound: a 128 GiB low-power box
