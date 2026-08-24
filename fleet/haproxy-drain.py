@@ -18,16 +18,19 @@ import sys
 
 SOCK = "/var/run/haproxy-master.sock"
 # backend/server: halos/halo1, halos/halo2, dashb/halo1, dashb/halo2
-VALID = re.compile(r"^(disable|enable) (halos|dashb)/halo[12]$")
+VALID = re.compile(r"^(disable|enable) (halos|dashb)/halo[12]$")  # short form in; expanded below
 
 def main():
     if len(sys.argv) != 3:
         print("usage: haproxy-drain.py disable|enable backend/server", file=sys.stderr)
         return 2
-    cmd = f"{sys.argv[1]} {sys.argv[2]}"
-    if not VALID.match(cmd):
-        print(f"refused (not whitelisted): {cmd!r}", file=sys.stderr)
+    short = f"{sys.argv[1]} {sys.argv[2]}"
+    if not VALID.match(short):  # validate the SHORT form the caller supplies
+        print(f"refused (not whitelisted): {sys.argv[1]} {sys.argv[2]!r}", file=sys.stderr)
         return 2
+    # master socket (-S from the systemd unit): runtime commands route to
+    # worker 1 via the "@1" prefix; plain "disable server" is rejected here
+    cmd = f"@1 {sys.argv[1]} server {sys.argv[2]}"
     s = socket.socket(socket.AF_UNIX)
     s.connect(SOCK)
     s.sendall(cmd.encode() + b"\n")
@@ -39,8 +42,12 @@ def main():
             break
         out += b
     s.close()
-    # empty reply = accepted; haproxy only answers errors
-    print((out.decode(errors="replace").strip() or "ok")[:200])
+    # disable/enable reply EMPTY on success; any text = error
+    text = out.decode(errors="replace").strip()
+    if text:
+        print(f"haproxy refused: {text[:200]}", file=sys.stderr)
+        return 1
+    print("ok")
     return 0
 
 if __name__ == "__main__":
