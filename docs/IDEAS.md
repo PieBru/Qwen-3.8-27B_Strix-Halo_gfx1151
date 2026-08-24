@@ -108,6 +108,30 @@ decision rules); this chapter is the menu.
   without a tested way back (git discipline + .bak conventions + the
   fleet doctor's drift detection are the existing rails this climbs).
 
+**Sibling evaluation queue** (from the
+[comparisons chapter](BACKENDS.md#how-this-compares-with-sibling-projects) —
+pre-registered experiments per project, trigger → run → verdict):
+
+- **ds4 vs llama.cpp fork on the same box** — trigger: quant download
+  evening. Run: ds4f-q2 (their imatrix asymmetric quant) under ds4 vs
+  Unsloth UD-IQ3_S under our fork, same Halo; judge = E2 tier-1 battery +
+  t/s pair. Rule: ds4 wins the lane iff quality ≥ our-Q8 − 1 pt AND t/s
+  ≥ 1.5× ours (their whole thesis is specialization).
+- **Lemonade `vllm`+`rocm` vs our router** — trigger: an evening when
+  Lemonade's model manager carries our GGUF. Run: same weights, same
+  prompts, decode/prefill + a 2-client e5-style arm (their continuous
+  batching is the claim). Rule: adopt as on-ramp lane iff parity t/s and
+  the UX wins; our router stays the fleet core regardless.
+- **vllm.cpp on AMD integrated** — trigger: their #125/#41/#937 close.
+  Run: e5 two-client battery as judge vs the router's `-np 2` numbers.
+- **FreeToken** — trigger: ROCm PRs land gfx1151 (or the i9 joins the
+  fleet: trialable immediately on RTX). Run: their CPU–GPU co-execution
+  on DSV4-Flash vs our `-cmoe` mmap paging; judge = t/s at equal quality
+  tier (E2 battery), plus watch whether semantic-anchor KV edits port
+  the idea to our agent loops.
+- **halofpx** — already measured (pinned 2026-08-22); re-run only if
+  they publish KLD/quality numbers for their defaults.
+
 **Upstream karma** (pick one, file a PR, cite our evidence):
 
 - llama.cpp **#27588** (ours): trailing `assistant(tool_calls)` dropped in

@@ -224,8 +224,12 @@ then per-project notes.*
   of the fleet. The one measurable claim worth checking: their
   `vllm`+`rocm` gfx1151 combo vs our fork router on the same GGUF.
 
-*And the standing rule: no number below is ours unless labeled OBSERVED;
-sibling claims are REPORTED and commit-pinned where we checked them.*
+*Standing rule: no number in this chapter is ours unless labeled OBSERVED;
+sibling claims are REPORTED and state-pinned where we checked them.*
+
+*Each comparison above has a pre-registered evaluation experiment — trigger,
+run plan, and decision rule — in [Ideas, parked](IDEAS.md): the sibling
+evaluation queue.*
 
 Repos compared at this date: **halofpx** [`22dd3b54d`](https://github.com/julianmb/halofpx/commit/22dd3b54d)
 ("feat(registry): mandatory quant provenance metadata" — they have started
