@@ -55,6 +55,13 @@ The complete six-step bring-up with expected numbers, bench commands, and
 the watchdog caveat: **[docs/TLDR.md](docs/TLDR.md)** · zero-build
 alternative: [Quick start](docs/QUICKSTART.md).
 
+## Quick start: run the prebuilt release (time-saving)
+
+No build, no toolchain: the toolbox tarball bundles its own RADV + libdrm
+and is verified perf-identical to the fork tip —
+**[docs/QUICKSTART.md](docs/QUICKSTART.md)**, or build from source in the
+[TL;DR](#tldr--reproduce-on-any-gfx1151-strix-halo-box).
+
 ## Headline findings (the counterintuitive ones)
 
 Our setup keeps surprising us — every one of these inverts something most
@@ -75,13 +82,6 @@ LLM users take for granted, and every one is measured, not vibes:
 
 The measured version of each claim, with numbers and evidence links:
 **[docs/FINDINGS.md](docs/FINDINGS.md)**.
-
-## Quick start: run the prebuilt release (time-saving)
-
-No build, no toolchain: the toolbox tarball bundles its own RADV + libdrm
-and is verified perf-identical to the fork tip —
-**[docs/QUICKSTART.md](docs/QUICKSTART.md)**, or build from source in the
-[TL;DR](#tldr--reproduce-on-any-gfx1151-strix-halo-box).
 
 ## Recommended configs (per goal)
 
