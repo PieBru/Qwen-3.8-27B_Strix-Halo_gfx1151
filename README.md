@@ -23,7 +23,10 @@ under `results/`, runs under pre-registered decision rules, with
 OBSERVED/INFERRED/REPORTED labels — and when our own audit caught
 evidence-less numbers, we corrected the docs, not the evidence.
 The full pitch — hardware, power math, privacy, and the measurement
-method: **[docs/WHY.md](docs/WHY.md)**.
+method: **[docs/WHY.md](docs/WHY.md)** — including
+[*What's the price of absolute privacy?*](docs/WHY.md#whats-the-price-of-absolute-privacy):
+€/Mtok all-in (€2.4 flat-out, €9 agent-realistic), break-evens vs cloud
+priced honestly, and why privacy ends up being a discount, not a premium.
 
 ## Provenance note
 

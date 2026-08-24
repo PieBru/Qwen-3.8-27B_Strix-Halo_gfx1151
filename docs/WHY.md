@@ -66,6 +66,53 @@ same lever from the cost and ceiling sides). Not our measurement — the
 label stays REPORTED; our own numbers live in
 [FINDINGS](FINDINGS.md).
 
+## What's the price of absolute privacy?
+
+Two answers, and both are numbers.
+
+**Answer one — you can buy tokens, at the price of your privacy plus the
+money they want.** Cloud metering is simple: ~€0.5–2 per output MegaToken
+on budget APIs, ~€5–15 on frontier models (REPORTED, 2026-08 street
+prices), *plus* your input tokens at the same or higher rate — and agent
+loops are input-heavy (every tool call resends the whole conversation).
+And you pay with more than money: every prompt crosses the wire, sits in
+someone else's retention policy, and can be repriced, deprecated, or
+rate-limited without your consent. Unplugged is unambiguous.
+
+**Answer two — the desk price.** With the €2,000 box amortized over three
+years, €0.2/kWh energy, and a 12 h/day × 360 d serving window on the
+`balanced` recipe, the all-in cost per output MegaToken is:
+
+| Generation duty | €/Mtok (all-in) | What that looks like |
+|---:|---:|---|
+| 100% | €2.42 | a bot generating flat-out |
+| 50% | €4.66 | heavy daily driver |
+| 25% | €9.14 | a realistic agentic workload |
+| 10% | €22.59 | evenings-and-weekends tinkering |
+
+The physics anchor is duty-independent: **100 W wall ÷ 20 t/s served =
+5 joules per output token** — €0.28/Mtok in pure energy, and the box's
+amortization (€2.14/Mtok at full duty) costs more than the electricity
+at every usage level. Which flips the usual intuition: **owning is
+high-fixed / near-zero-marginal (one more token costs €0.0000003),
+cloud is zero-fixed / high-marginal.** Run the sensitivity yourself:
+[`scripts/cost_model.py`](../scripts/cost_model.py) — every parameter is
+documented with its provenance (86 W APU draw is measured; 100 W wall is
+inferred pending a wall meter).
+
+**Break-even, honestly stated.** Against €2/Mtok budget output, the halo
+needs ~355 Mtok/yr to win — more than a light user generates; at 25% duty
+you produce ~78 Mtok/yr, so *budget clouds are cheaper per output token
+for light use, and we're not going to pretend otherwise*. Against
+frontier pricing (~€15/Mtok), break-even is ~47 Mtok/yr — any moderate
+agent year pays for the hardware. Two asymmetries close the rest of the
+gap: the halo doesn't meter your input side at all (prefill costs ~1/17
+the energy per token), and privacy doesn't appear on either ledger but
+only one of them has it.
+
+That's the whole pitch in one sentence: **the privacy is not a premium —
+at any serious usage it's a discount.**
+
 ## How we know (the method behind every number)
 
 All benchmarks are back-to-back interleaved pairs (lesson #1); every battery's
