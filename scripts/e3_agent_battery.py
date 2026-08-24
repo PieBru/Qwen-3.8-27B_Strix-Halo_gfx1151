@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """E3 agentic-realism battery — plan docs/PLAN-reasoning-economics.md (addendum).
 
 Client-side agent loop against the LIVE router: model must call local tools

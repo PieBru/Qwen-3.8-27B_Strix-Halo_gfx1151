@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """E1 cost battery — plan docs/PLAN-reasoning-economics.md.
 
 Measures token/wall-time cost of reasoning levels on the two quant tiers,

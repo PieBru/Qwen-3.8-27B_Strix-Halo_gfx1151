@@ -25,7 +25,7 @@ Type=simple
 # !! SUBSTITUTE THIS PATH with YOUR clone location before enabling !!
 #   sed -i "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" llama-router.service
 # (the README install step greps for "ExecStart=/REPLACE" to catch a forgotten substitution)
-ExecStart=/REPLACE/WITH/YOUR/REPO/PATH/run_llama-server.sh --router --port 8080 --models-max 1 --agent
+ExecStart=/REPLACE/WITH/YOUR/REPO/PATH/scripts/run_llama-server.sh --router --port 8080 --models-max 1 --agent
 # The linger-started user manager does NOT go through PAM, so limits.d's
 # "memlock unlimited" never reaches this unit — raise it here or -lm mmap+mlock
 # silently warns and runs unprotected (README "Lessons learned").

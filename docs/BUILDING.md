@@ -14,9 +14,9 @@ between the two revisions.
 
 **<https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/tree/main>**
 
-First-timers: `./download_models.sh` fetches all three (or pass `q5 q6 q8`),
+First-timers: `./scripts/download_models.sh` fetches all three (or pass `q5 q6 q8`),
 verifies each sha256, and warns if the repo tip has drifted from the
-fingerprints below; `./download_models.sh --check` re-verifies what's on disk.
+fingerprints below; `./scripts/download_models.sh --check` re-verifies what's on disk.
 
 | File | Role | Exact size (bytes) | sha256 starts with |
 |---|---|---:|---|

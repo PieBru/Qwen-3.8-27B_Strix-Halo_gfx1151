@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """E2 quality battery — plan docs/PLAN-reasoning-economics.md.
 
 Deterministic, self-built items (no verbatim public-benchmark content, no LLM

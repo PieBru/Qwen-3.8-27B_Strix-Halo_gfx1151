@@ -42,8 +42,8 @@ the GPU, serve — six steps, ~45 min, headless-friendly:
 
 ```bash
 git clone https://github.com/PieBru/Qwen-3.8-27B_Strix-Halo_gfx1151 && cd Qwen-3.8-27B_Strix-Halo_gfx1151
-./download_models.sh          # after deps + fork build (see full steps)
-./run_llama-server.sh --goal balanced
+./scripts/download_models.sh          # after deps + fork build (see full steps)
+./scripts/run_llama-server.sh --goal balanced
 ```
 
 Expected on a quiet box (f16 KV): Q6_K_XL prefill ~346 t/s, decode

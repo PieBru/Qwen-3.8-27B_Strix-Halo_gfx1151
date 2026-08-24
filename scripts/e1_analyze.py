@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """E1 analysis — plan docs/PLAN-reasoning-economics.md.
 
 Dedups results/e1-cost.csv (restarts appended duplicate cells; keeps the LAST

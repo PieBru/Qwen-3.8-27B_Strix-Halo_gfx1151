@@ -9,4 +9,4 @@ ConditionPathExists=/sys/module/amdgpu/parameters/lockup_timeout
 Type=oneshot
 # stdlib-only script — no venv/uv dependency, safe from a system timer
 # Repo layout differs per box (dev: ~/Piero/Work/<repo>, halo2: ~/<repo>) - resolve both.
-ExecStart=/usr/bin/bash -c 'exec /usr/bin/python3 $(ls -d %h/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151 %h/Qwen-3.8-27B_Strix-Halo_gfx1151 2>/dev/null | head -1)/gpu_canary.py'
+ExecStart=/usr/bin/bash -c 'exec /usr/bin/python3 $(ls -d %h/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151 %h/Qwen-3.8-27B_Strix-Halo_gfx1151 2>/dev/null | head -1)/scripts/gpu_canary.py'

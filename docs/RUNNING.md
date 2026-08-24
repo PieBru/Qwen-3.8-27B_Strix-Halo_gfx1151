@@ -186,13 +186,13 @@ equal (~250–330 pp4k), decode favors Q5-turbo > Q6 > Q8 at every context size.
 Single model with a preset (any field overridable, `--help` for all):
 
 ```bash
-./run_llama-server.sh --goal balanced            # Q6 @ 128k — daily driver
-./run_llama-server.sh --goal quality             # Q8 @ 64k — correctness first
-./run_llama-server.sh --goal speed              # Q5 @ 64k — fastest decoder
-./run_llama-server.sh --goal quality --ctx 196608  # Q8 with a bigger window
-./run_llama-server.sh --model q8 --kv q8_0 --nmax 4   # fully custom
-./run_llama-server.sh --router --agent              # WebUI agent: all tools + MCP proxy
-./run_llama-server.sh --router --tools all --tools-runtime docker:alpine  # sandboxed
+./scripts/run_llama-server.sh --goal balanced            # Q6 @ 128k — daily driver
+./scripts/run_llama-server.sh --goal quality             # Q8 @ 64k — correctness first
+./scripts/run_llama-server.sh --goal speed              # Q5 @ 64k — fastest decoder
+./scripts/run_llama-server.sh --goal quality --ctx 196608  # Q8 with a bigger window
+./scripts/run_llama-server.sh --model q8 --kv q8_0 --nmax 4   # fully custom
+./scripts/run_llama-server.sh --router --agent              # WebUI agent: all tools + MCP proxy
+./scripts/run_llama-server.sh --router --tools all --tools-runtime docker:alpine  # sandboxed
 ```
 
 ### Serving all recipes (the router)
@@ -200,7 +200,7 @@ Single model with a preset (any field overridable, `--help` for all):
 One port, every recipe from the table, loaded on demand:
 
 ```bash
-./run_llama-server.sh --router --port 8080              # foreground
+./scripts/run_llama-server.sh --router --port 8080              # foreground
 # or as a boot-persistent user service — substitute in the pipe (keeps your
 # clone clean for future git pulls; run from the repo root):
 mkdir -p ~/.config/systemd/user

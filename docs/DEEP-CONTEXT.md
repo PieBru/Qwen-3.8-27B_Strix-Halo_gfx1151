@@ -89,7 +89,7 @@ cmake -B build-hip -DGGML_HIP=ON -DAMDGPU_TARGETS=gfx1151 -DCMAKE_BUILD_TYPE=Rel
       -DCMAKE_C_COMPILER=$ROCM_PATH/bin/hipcc -DCMAKE_CXX_COMPILER=$ROCM_PATH/bin/hipcc
 cmake --build build-hip --target llama-server llama-bench -j
 # then run any recipe with build-hip/bin/llama-server instead of build-vk —
-# and ./fill_battery.sh <label> ./llama.cpp/build-hip/bin/llama-server to
+# and ./scripts/fill_battery.sh <label> ./llama.cpp/build-hip/bin/llama-server to
 # reproduce the deep-fill A/B
 ```
 

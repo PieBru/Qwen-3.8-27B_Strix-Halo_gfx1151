@@ -17,7 +17,7 @@
 # Speed: 10 parallel HTTP range requests per file (~8x a single stream on a
 # typical home link; measured 106 MB/s vs 13 MB/s).
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 UNSLOTH=https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main
 ZLAB=https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF/resolve/main

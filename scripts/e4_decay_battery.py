@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """e4 fill-decode decay battery — re-measures the README fill-decay table.
 
 Why: the adversarial audit (2026-08-23) flagged that the original decode-vs-

@@ -6,7 +6,7 @@
 # ceiling 240 s, per-curl --max-time, crash-tolerant (status column), stage ceilings.
 
 set -u
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 BIN=./llama.cpp/build-vk/bin/llama-server
 # build-vk's RUNPATH is a stale pre-move path (trailing ':' = CWD fallback); without
 # this export the server fails to dlopen libggml-vulkan.so.0 outside its bin dir.

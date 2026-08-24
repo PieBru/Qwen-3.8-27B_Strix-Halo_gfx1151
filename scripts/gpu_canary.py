@@ -31,7 +31,7 @@ import urllib.request
 HOST = "localhost:8080"
 MODEL = "Qwen38-27B-balanced"   # always-loaded default; probe is tiny
 COMPLETION_TIMEOUT = 240        # s; normal is <10 s even under load
-REPO = os.path.dirname(os.path.abspath(__file__))  # repo root (script lives at root)
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root (script lives in scripts/)
 STATE_DIR = os.path.expanduser("~/.local/state/gpu_canary")
 FAILS_FILE = os.path.join(STATE_DIR, "consecutive_fails")
 LOG = os.path.join(REPO, "results", "gpu-canary.log")

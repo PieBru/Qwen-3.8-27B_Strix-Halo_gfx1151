@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """T0.4 probe — plan docs/PLAN-reasoning-economics.md.
 
 Tool-call round-trip verification on the LIVE router (post v22.3 swap).

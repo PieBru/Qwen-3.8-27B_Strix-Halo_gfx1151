@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """e6 ngram-replay battery — can ngram-map-k4v lift DFlash2 on OUR APU?
 
 Pre-registered (2026-08-23, before running):

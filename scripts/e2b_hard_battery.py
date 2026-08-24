@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """E2b hard battery — plan docs/PLAN-reasoning-economics.md (tier-1 follow-up).
 
 E2 tier-1 hit a ceiling (90-95% everywhere -> no measurable thinking step).

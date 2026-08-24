@@ -16,7 +16,7 @@ tour of what we ran, what died, and what we now run for which job.
 Every number below comes from the same experiment rig: identical fork commit
 (`9b9ac3e38` unless noted), identical models (Q8 target + DFlash2 draft, f16 KV,
 `-c 262144 -b/-ub 4096 -fa on`), identical battery
-([`fill_battery.sh`](../fill_battery.sh) — grows the context in 16k-token chunks
+([`fill_battery.sh`](../scripts/fill_battery.sh) — grows the context in 16k-token chunks
 through cached prefixes, i.e. true incremental fill). Only the backend — or the
 build — changes between rows. The A/B CSVs, server logs, and the 16k-token
 fill corpus are committed under `results/` (the repo's `.gitignore` hides the

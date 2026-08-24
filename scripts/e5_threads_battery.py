@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """e5 threads-batch & concurrency battery — README 'Threads & 2-client' chapter data.
 
 Question: with full GPU offload (-ngl all), what do -t/-tb = 1..2 cost vs the

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """E0 control-surface matrix — plan T0.2 (docs/PLAN-reasoning-economics.md).
 
 POSTs a fixed conversation to the LIVE router's /apply-template for every

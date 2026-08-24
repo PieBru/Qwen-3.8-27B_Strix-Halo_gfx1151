@@ -18,13 +18,13 @@ git clone https://github.com/Nathanw1014/llama.cpp && cd llama.cpp && git checko
 cmake -B build-vk -DGGML_VULKAN=ON -DCMAKE_BUILD_TYPE=Release -DGGML_NATIVE=ON -DLLAMA_CURL=OFF
 cmake --build build-vk --target llama-server llama-cli llama-bench -j && cd ..
 # 3. models — everything (targets + DFlash2 draft + vision mmproj), verified:
-./download_models.sh            # ~73 GiB total; or pick: q6 q8 q5 draft mmproj
+./scripts/download_models.sh            # ~73 GiB total; or pick: q6 q8 q5 draft mmproj
 # 4. verify backend + bare perf (expect: Vulkan0 AMD 8060S; quiet box, f16 KV:
 #    Q6 pp512 ~346 / tg32 ~8.6; Q8 pp512 ~366 / tg32 ~7.3 — zram churn can halve tg)
 ./build-vk/bin/llama-cli --list-devices
 ./build-vk/bin/llama-bench -m MODEL-UD-Q6_K_XL.gguf -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
 # 5. serve a preset (balanced = Q6_K_XL daily driver, ~17-21 t/s on a quiet box)
-./run_llama-server.sh --goal balanced
+./scripts/run_llama-server.sh --goal balanced
 curl -s localhost:8081/completion -H 'Content-Type: application/json' \
      -d '{"prompt":"Explain briefly why the sky is blue at sunset.","n_predict":64}'
 ```

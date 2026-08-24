@@ -50,7 +50,7 @@
 #                         | ssh:<target> (key auth, trusted host key) | none
 #   --dry-run             print the resolved command, don't exec
 set -euo pipefail
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 GOAL=""; MODEL=""; CTX=65536; NMAX=6; KV=f16; PORT=8081; ROUTER=0; MMAX=1
 NMAX_SET=0

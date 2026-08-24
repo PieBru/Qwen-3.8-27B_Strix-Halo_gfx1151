@@ -76,14 +76,14 @@ A staged, one-axis-at-a-time search for the optimal server config per target qua
 config under `results/`). Results: [findings at a glance](#sweep-findings-at-a-glance).
 
 ```bash
-./sweep_llama_configs.sh 0                                # capacity probe
-./sweep_llama_configs.sh 1                                # --spec-draft-n-max 3-9, both models
-./sweep_llama_configs.sh 2 <best-n6> <best-n8>            # KV types 2x2 (target x draft)
-./sweep_llama_configs.sh 3 "Q6 - - 6" "Q8 - - 6"   # ctx ladder 64k(control)→128k→192k→256k
+./scripts/sweep_llama_configs.sh 0                                # capacity probe
+./scripts/sweep_llama_configs.sh 1                                # --spec-draft-n-max 3-9, both models
+./scripts/sweep_llama_configs.sh 2 <best-n6> <best-n8>            # KV types 2x2 (target x draft)
+./scripts/sweep_llama_configs.sh 3 "Q6 - - 6" "Q8 - - 6"   # ctx ladder 64k(control)→128k→192k→256k
 #  (`-` = default f16 KV; SWEEP_TAG_PREFIX=r2- tags repeat passes; optional 6th+
 #   fields override the ctx list/order — use to break run-order confounds)
-./sweep_llama_configs.sh 4 "Q6 q8_0 q8_0 <n6> <ctx>" ... # -b/-ub 2048/4096/8192
-./sweep_llama_configs.sh 5 ...                            # -tb 16 vs 32
+./scripts/sweep_llama_configs.sh 4 "Q6 q8_0 q8_0 <n6> <ctx>" ... # -b/-ub 2048/4096/8192
+./scripts/sweep_llama_configs.sh 5 ...                            # -tb 16 vs 32
 ```
 
 Guards built in: per-server wait ceiling, fail-fast on dead loads, process-group

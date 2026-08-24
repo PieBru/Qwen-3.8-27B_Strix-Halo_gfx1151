@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + "/..")  # repo root (script lives in scripts/)
 """E2c frontier battery — plan docs/PLAN-reasoning-economics.md.
 
 Escalation after E2 (routine, 90-95%) and E2b (hard, 100% after grader fix)
