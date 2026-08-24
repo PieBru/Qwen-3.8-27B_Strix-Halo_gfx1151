@@ -1,0 +1,13 @@
+# fleet-hashcheck — nightly GGUF sha256 verification per halo (see fleet-hashcheck.py).
+# Catches silent disk corruption / partial writes / swapped weights: exit != 0
+# and the dashboard doctor turns the "weights" pill red. ~35 s on NVMe, CPU-only.
+# Deploy: cp to ~/.config/systemd/user/ && systemctl --user daemon-reload
+[Unit]
+Description=fleet-hashcheck — nightly GGUF sha256 verification
+After=network-online.target
+
+[Service]
+Type=oneshot
+# stdlib-only script — no venv/uv dependency, safe from a system timer
+# Repo layout differs per box (dev: ~/Piero/Work/<repo>, halo2: ~/<repo>) - resolve both.
+ExecStart=/usr/bin/bash -c 'exec /usr/bin/python3 $(ls -d %h/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151 %h/Qwen-3.8-27B_Strix-Halo_gfx1151 2>/dev/null | head -1)/fleet/fleet-hashcheck.py'

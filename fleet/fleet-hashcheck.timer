@@ -1,0 +1,13 @@
+# Nightly weight-integrity check at 02:30 local (before the 03:00 dream;
+# CPU/NVMe only, no GPU contention). Persistent=true catches a missed slot
+# after downtime. Timezone explicit (Europe/Rome) — the box runs UTC.
+[Unit]
+Description=run fleet-hashcheck nightly at 02:30
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 Europe/Rome
+Persistent=true
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

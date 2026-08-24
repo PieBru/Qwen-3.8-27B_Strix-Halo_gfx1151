@@ -38,6 +38,7 @@ else:
     OWN_IP, PEER_IP, PEER_NAME = "192.168.50.15", "192.168.50.184", "strixy2"
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CANARY_LOG = os.path.join(REPO, "results", "gpu-canary.log")
+HASHCHECK_STATE = os.path.join(REPO, "results", "fleet-hashcheck.json")
 ROUTER = "http://127.0.0.1:8080"
 
 def sh(cmd, timeout=5):
@@ -90,6 +91,14 @@ def local_metrics():
         m["canary_age_min"] = round((time.time() - os.path.getmtime(CANARY_LOG)) / 60, 1)
     except Exception:
         m["canary_last"] = None; m["canary_age_min"] = None
+    # nightly GGUF hash verification state (fleet-hashcheck)
+    try:
+        hc = json.load(open(HASHCHECK_STATE))
+        m["weights_ok"] = bool(hc.get("ok"))
+        m["weights_summary"] = hc.get("summary", "?")
+        m["weights_age_h"] = round((time.time() - hc.get("ts", 0)) / 3600, 1)
+    except Exception:
+        m["weights_ok"] = None; m["weights_summary"] = None; m["weights_age_h"] = None
     # kernel ring events last 24h
     rings = sh("journalctl -k --since '24 hours ago' --no-pager 2>/dev/null | grep -c 'ring .* timeout'") or "0"
     m["ring_events_24h"] = int(rings) if rings.isdigit() else 0
@@ -165,6 +174,8 @@ def halo_card(m):
         ("load", num_pill(m, "load1", f'{m["load1"]} / {m["load5"]} · up {up_s}')),
         ("disk", num_pill(m, "disk_free_gb", f'{m["disk_free_gb"]:.0f} GB free')),
         ("canary", pill(bool(m["canary_last"]), (m["canary_last"] or "")[:44] + f' ({m["canary_age_min"]}m ago)') if m["canary_last"] else PILL.format("bad", "no log")),
+        ("weights", (pill(m.get("weights_ok"), f'{m.get("weights_summary")} GGUF OK · {m.get("weights_age_h")}h ago') if m.get("weights_age_h") is not None else PILL.format("bad", "not verified"))
+                   if m.get("weights_ok") is not None else '<span class="p dim">no state yet</span>'),
         ("kernel", pill(m["ring_events_24h"] == 0, "0 ring events 24h", f'{m["ring_events_24h"]} RING TIMEOUTS')),
         ("git", f'<span class="g">{m["git"]}</span>'),
     ]
@@ -183,6 +194,8 @@ def doctor(local, peer):
         add("all core units up", all(m["router_unit"] and m["keepalived"] and m["haproxy"] for m in both))
         add("routers healthy", all(m["router_health"] for m in both))
         add("canary timers armed", all(m["canary_timer"] for m in both))
+        add("weights verified nightly", all(m.get("weights_ok") is True and m.get("weights_age_h", 99) < 26 for m in both),
+            ", ".join(f'{m["halo"]}: {m.get("weights_summary", "?")} ({m.get("weights_age_h", "?")}h)' for m in both))
         add("no kernel ring events 24h", all(m["ring_events_24h"] == 0 for m in both))
         add("swap low (<8 GB)", all(m["swap_used_gb"] < 8 for m in both))
         add("disk >100 GB free", all(m["disk_free_gb"] > 100 for m in both))
