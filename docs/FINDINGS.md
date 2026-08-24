@@ -49,6 +49,18 @@ measured, each linked to its evidence:
    is a real cap. Full story:
    [Reasoning levels — measured](REASONING.md).
 
+8. **Greedy beats sampling for coding — until it gets stuck.** A
+   temperature sweep on coding tasks (130 runs, routine tier + hard-tier
+   escalation; e7 battery) found: at the routine tier the model is at
+   ceiling at every temperature {0, 0.3, 0.6, 0.8, 1.0} — and greedy costs
+   ~10% FEWER tokens (222 vs 242–253 per solve). At the hard tier, greedy
+   fails *deterministically* (same wrong approach every time) while temp
+   0.6 recovers on retry (4/5 → 5/5 solved). The community's
+   "temp 0.6–0.8 is better for coding" is thus **half-right**: sampling
+   helps exactly where greedy ruts exist, and is pure token overhead
+   everywhere else. Practical rule: code at temp 0, retry stuck items
+   once at 0.6. Evidence: `results/e7-temp.csv`, `results/e7x-hard.csv`.
+
 Plus one bonus result that earned its keep quietly: **the model still
 remembers at the depths we unlocked** — a passkey needle hidden 221k tokens
 deep inside a 246k context was recalled exactly
