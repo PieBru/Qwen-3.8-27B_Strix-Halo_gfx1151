@@ -1,4 +1,7 @@
 [Unit]
+# boot insurance: refuse to start if the weight-integrity gate failed
+Requires=fleet-boot-gate.service
+After=fleet-boot-gate.service
 Description=llama-server router — Qwen3.8-27B recipes (models.ini) on :8080
 # Serves the recipes from the repo's models.ini:
 #   Qwen38-27B-quality@64k..@256k | -balanced | -speed | -vision

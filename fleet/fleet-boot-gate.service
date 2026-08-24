@@ -1,0 +1,17 @@
+# fleet-boot-gate — two-level "cheap insurance" at boot (see fleet-boot-gate.py).
+# Runs at boot (linger) BEFORE the router; llama-router.service carries
+# Requires=fleet-boot-gate.service + After=fleet-boot-gate.service, so a
+# failed gate (weight anomaly) leaves the router DOWN — a corrupted weight
+# is never served; the doctor shows why.
+# Deploy: cp to ~/.config/systemd/user/ && systemctl --user daemon-reload
+#        && systemctl --user enable fleet-boot-gate.service
+[Unit]
+Description=fleet-boot-gate — app+system integrity check at boot
+After=default.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/bash -c 'exec /usr/bin/python3 $(ls -d %h/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151 %h/Qwen-3.8-27B_Strix-Halo_gfx1151 2>/dev/null | head -1)/fleet/fleet-boot-gate.py'
+
+[Install]
+WantedBy=default.target

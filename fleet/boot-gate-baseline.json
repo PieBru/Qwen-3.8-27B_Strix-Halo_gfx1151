@@ -1,0 +1,32 @@
+{
+ "models/Qwen3.8-27B-DFlash2-Q8_0.gguf": {
+  "size": 2056414752,
+  "full_sha256": "7f1c9a31a6ed40044c69f6508b50fd63b87abd8e1fb7fe4290303df549153751",
+  "head_1m": "29fae80a3e7dfe01c766bed5d22c7b1f1afbf553b6fa521b7118e216eb643d92",
+  "tail_1m": "2590f23205274529e5b2c790780a9d1e297f177e8f9023ed171a60cc9ea8cf5a"
+ },
+ "models/Qwen3.8-27B-UD-Q5_K_XL.gguf": {
+  "size": 20876938144,
+  "full_sha256": "8601193d3d5760c37fb8ce1b43afebc69df5fb24e1fbc5a547c32e2200305276",
+  "head_1m": "177ae5e70ef0d340fdf2d1d75539cf992d69eecdd8d244e36e33456cdcb07cfa",
+  "tail_1m": "0ae7da9ed539f51ab38647773133a31ebc177331623bbcb90769ffe433476a73"
+ },
+ "models/Qwen3.8-27B-UD-Q6_K_XL.gguf": {
+  "size": 25299061664,
+  "full_sha256": "701d8fa9ed214ab21bfc130cd2a7df19ca89bbef7713e2dfb19f3c63696aa917",
+  "head_1m": "177ae5e70ef0d340fdf2d1d75539cf992d69eecdd8d244e36e33456cdcb07cfa",
+  "tail_1m": "0ae7da9ed539f51ab38647773133a31ebc177331623bbcb90769ffe433476a73"
+ },
+ "models/Qwen3.8-27B-UD-Q8_K_XL.gguf": {
+  "size": 31457991680,
+  "full_sha256": "af36ecb6b5db1407953345b746c14ac93f0657dda413910b4348683a2d990377",
+  "head_1m": "72929c018863e474debaad3808e5ed9c31c88f138b0bd4e4ce68750fa135fa1d",
+  "tail_1m": "1eb04a8bdd264650cb9b4f087a2e3875dd152786c2cbdc8de58dc1ee24965abf"
+ },
+ "models/mmproj-F16.gguf": {
+  "size": 927607488,
+  "full_sha256": "cbb841a9ee0636b2ec172f5bb8df2ea8dfeb01e90fe7c6126581d662a0b4e43e",
+  "head_1m": "d44ce8a524201ab3f36872c573cd4114c04d675bdf6db93641be2d7bcf75cac5",
+  "tail_1m": "6532a9b64b1da75ce989384f7d92f91c88354aaec64f189feac8d6a6d4e6971e"
+ }
+}

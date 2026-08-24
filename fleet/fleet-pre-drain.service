@@ -1,0 +1,26 @@
+# fleet-pre-drain — automatic zero-loss drain at shutdown (see fleet-pre-drain.py).
+# SYSTEM unit (not user): user units cannot order against system shutdown
+# targets — Before=shutdown.target needs system scope. Runs as piero so the
+# peer-SSH path (piero's key) works; the socket write goes through the
+# scoped sudoers grant (fleet-haproxy-drain, pattern: gpu-canary-reboot).
+# Fires on: systemctl poweroff/reboot/halt, and the short-press ACPI power
+# button (observed 2026-08-24: button = systemd shutdown). NOT on a hard
+# long-press or mains cut — the boot gate is the insurance there.
+# Deploy: sudo cp to /etc/systemd/system/ && sudo systemctl daemon-reload
+#        && sudo systemctl enable fleet-pre-drain.service
+[Unit]
+Description=fleet-pre-drain — drain this halo before shutdown (zero-loss moves)
+DefaultDependencies=no
+Before=shutdown.target poweroff.target reboot.target halt.target
+
+[Service]
+Type=oneshot
+User=piero
+Group=piero
+Environment=FLEET_DRAIN_WAIT=120
+# path-agnostic repo resolution (dev: ~/Piero/Work/<repo>, halo2: ~/<repo>)
+ExecStart=/usr/bin/bash -c 'exec /usr/bin/python3 $(ls -d /home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151 /home/piero/Qwen-3.8-27B_Strix-Halo_gfx1151 2>/dev/null | head -1)/fleet/fleet-pre-drain.py'
+TimeoutStartSec=180
+
+[Install]
+WantedBy=shutdown.target
