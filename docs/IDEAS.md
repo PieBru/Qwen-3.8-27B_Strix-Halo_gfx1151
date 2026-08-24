@@ -132,6 +132,32 @@ pre-registered experiments per project, trigger → run → verdict):
 - **halofpx** — already measured (pinned 2026-08-22); re-run only if
   they publish KLD/quality numbers for their defaults.
 
+**Agent compatibility & quirks lab** — the fleet serves OpenAI-compatible
+APIs, but every agent client has its own template needs, streaming habits,
+tool-call shapes, and quirks. A standing test battery ("does the fleet play
+nice with X?"), one evening per agent, results into a compatibility table:
+
+- **Candidate agents**: pi (✅ daily-driven, E3-proven), OpenCode
+  (anomalyco, 200k★ terminal coding agent), Hermes Agent (NousResearch,
+  235k★), DeepSeek-native agents (DeepSeek-Reasonix / deepcode-cli —
+  interesting because they're tuned for this model family), and more as
+  they emerge.
+- **Battery per agent** (reusing existing harnesses where possible):
+  1. connect + chat (base API compat)
+  2. tool-call round-trip (our t04 probe shape — XML/JSON args, error
+     tiering, parallel calls)
+  3. long-context session (50k+ through the fleet VIP — sticky sessions,
+     affinity, re-prefill behavior on failover)
+  4. template interactions (sharp.jinja v22.3 kwargs/aliases vs each
+     client's reasoning_effort/thinking conventions)
+  5. quirks log: anything the agent does that our stack tolerates only by
+     luck (header shapes, streaming assumptions, max_tokens games)
+- **Deliverable**: a compatibility matrix in the docs (agent × works /
+  quirks / fix), feeding back into recipe/server defaults and upstream
+  issue reports where the quirk is ours.
+- *Also serves the Ciao/Phase-E audio path: agents that pass here are the
+  natural first clients of any new fleet lane.*
+
 **Upstream karma** (pick one, file a PR, cite our evidence):
 
 - llama.cpp **#27588** (ours): trailing `assistant(tool_calls)` dropped in
