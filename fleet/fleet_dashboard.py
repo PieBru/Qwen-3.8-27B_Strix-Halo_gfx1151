@@ -85,6 +85,7 @@ def local_metrics():
     m["vip_owner"] = bool(sh(f"ip -4 addr show | grep -c '{VIP}/'"))
     # git
     m["git"] = sh(f"cd {REPO} && git rev-parse --short HEAD") or "?"
+    m["git_dirty"] = bool(sh(f"cd {REPO} && git status --porcelain 2>/dev/null | head -1"))
     # canary log
     try:
         tail = open(CANARY_LOG).read().strip().splitlines()[-1]
@@ -194,7 +195,8 @@ def halo_card(m):
                       f'{m.get("boot_gate_app")} · prev-boot {"clean" if m.get("boot_gate_prev_clean") else "UNCLEAN"} · fs {m.get("boot_gate_fs_errs")} · err {m.get("boot_gate_errs")}')
                   if m.get("boot_gate_ok") is not None else '<span class="p dim">no gate</span>')),
         ("kernel", pill(m["ring_events_24h"] == 0, "0 ring events 24h", f'{m["ring_events_24h"]} RING TIMEOUTS')),
-        ("git", f'<span class="g">{m["git"]}</span>'),
+        ("git", (PILL.format("bad", f'{m["git"]}*dirty') if m.get("git_dirty")
+                 else (f'<span class="p ok">{m["git"]}</span>' if m.get("git") not in (None, "?") else PILL.format("bad", "?")))),
     ]
     trs = "".join(f'<tr><td class="k">{k}</td><td>{v}</td></tr>' for k, v in rows)
     return f'<div class="card"><h3>{m["halo"]}</h3><table>{trs}</table></div>'
@@ -237,10 +239,13 @@ def load_split(local):
         disp = DISPLAY.get(b, b)
         if s:
             share = 100 * s["stot"] / t if t else 0
+            pill_cls = "ok" if s["status"] == "UP" else "bad"
             rows += (f'<tr><td class="k">{disp}</td><td>{PILL.format("ok", s["status"]) if s["status"]=="UP" else PILL.format("bad", s["status"])}</td>'
-                     f'<td>{s["stot"]} req</td><td>{share:.0f}%</td></tr>')
+                     f'<td><span class="p {pill_cls}">{s["stot"]} req</span></td>'
+                     f'<td><span class="p {pill_cls}">{share:.0f}%</span></td></tr>')
         else:
-            rows += f'<tr><td class="k">{disp}</td><td>{PILL.format("bad","no stats")}</td><td>—</td><td>—</td></tr>'
+            rows += (f'<tr><td class="k">{disp}</td><td>{PILL.format("bad","no stats")}</td>'
+                     f'<td>{PILL.format("bad","—")}</td><td>{PILL.format("bad","—")}</td></tr>')
     return f'<div class="card"><h3>load split (haproxy)</h3><table>{rows}</table></div>'
 
 def fragment():
