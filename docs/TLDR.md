@@ -23,7 +23,7 @@ cmake --build build-vk --target llama-server llama-cli llama-bench -j && cd ..
 #    Q6 pp512 ~346 / tg32 ~8.6; Q8 pp512 ~366 / tg32 ~7.3 — zram churn can halve tg)
 ./build-vk/bin/llama-cli --list-devices
 ./build-vk/bin/llama-bench -m MODEL-UD-Q6_K_XL.gguf -ngl 99 -fa on -t 16 -b 4096 -ub 4096 -p 512 -n 32 -d 0,8192 -r 2
-# 5. serve a preset (balanced = Q6 daily driver, ~17-21 t/s on a quiet box)
+# 5. serve a preset (balanced = Q6_K_XL daily driver, ~17-21 t/s on a quiet box)
 ./run_llama-server.sh --goal balanced
 curl -s localhost:8081/completion -H 'Content-Type: application/json' \
      -d '{"prompt":"Explain briefly why the sky is blue at sunset.","n_predict":64}'

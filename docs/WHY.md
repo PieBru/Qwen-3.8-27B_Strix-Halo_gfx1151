@@ -20,8 +20,9 @@ sponsored placements.
 
 - **No API keys, no quotas, no meters.** The model lives in your RAM
   (~122 GiB of it, mlock'd — the box's whole personality is inference).
-- **Real speeds, measured**: 16–21 tokens/s typical sustained decode with
-  DFlash2 speculative decoding (content-dependent: acceptance spans
+- **Real speeds, measured**: ~17–21 tokens/s sustained decode of the
+  **UD-Q6_K_XL quant** with DFlash2 speculative decoding (Q8_K_XL: ~15–18;
+  Q5_K_XL: ~23 — the quant is the speed dial) (content-dependent: acceptance spans
   0.28–0.91, so the same model spans ~15–35 t/s; peaks near the top on
   narrative-style output), ~330 t/s prefill; a five-recipe menu (quality /
   balanced / speed / vision / a context dial to a 256k-token window) you

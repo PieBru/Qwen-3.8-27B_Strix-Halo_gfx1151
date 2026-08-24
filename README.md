@@ -11,7 +11,9 @@ A **less-than-€2,000 mini-PC** (AMD Strix Halo, 128 GB) now serves a
 27B reasoning model entirely from your desk — no API keys, no quotas, no
 meters, no telemetry. Your agent runs 24/7 on hardware you own outright:
 
-- **~17–21 tokens/s** sustained decode (DFlash2 speculative), ~330 t/s prefill
+- **~17–21 tokens/s** sustained decode of the Q6_K_XL quant (Q8: ~15–18;
+  Q5: ~23 — spec decode makes the *quant choice* the speed dial), ~330 t/s
+  prefill
 - **~85 W** at full tilt — idle cost roughly a lightbulb
 - **Private by physics** — prompts never leave the machine
 
@@ -43,8 +45,8 @@ git clone https://github.com/PieBru/Qwen-3.8-27B_Strix-Halo_gfx1151 && cd Qwen-3
 ./run_llama-server.sh --goal balanced
 ```
 
-Expected on a quiet box (f16 KV): Q6 prefill ~346 t/s, decode ~17–21 t/s
-served. **One caveat**: on a *default kernel*, deep Vulkan fills die at
+Expected on a quiet box (f16 KV): Q6_K_XL prefill ~346 t/s, decode
+~17–21 t/s served. **One caveat**: on a *default kernel*, deep Vulkan fills die at
 ~137k positions — that wall is the amdgpu watchdog, not Vulkan, and one
 kernel parameter removes it entirely (full story linked in the guide).
 
