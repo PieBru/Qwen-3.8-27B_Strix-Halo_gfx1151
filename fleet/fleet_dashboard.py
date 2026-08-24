@@ -27,7 +27,9 @@ import socket
 import subprocess
 import time
 import urllib.request
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from zoneinfo import ZoneInfo
 
 PORT = 8082
 VIP = "192.168.50.10"
@@ -41,6 +43,10 @@ CANARY_LOG = os.path.join(REPO, "results", "gpu-canary.log")
 HASHCHECK_STATE = os.path.join(REPO, "results", "fleet-hashcheck.json")
 BOOTGATE_STATE = os.path.join(REPO, "results", "boot-gate.json")
 ROUTER = "http://127.0.0.1:8080"
+LOCAL_TZ = ZoneInfo("Europe/Rome")  # DST-tracked; hosts may differ (UTC vs Rome)
+
+def clock():
+    return datetime.now(LOCAL_TZ).strftime("%H:%M:%S")
 
 def sh(cmd, timeout=5):
     try:
@@ -270,7 +276,7 @@ def fragment():
     # static title (no bouncing owner text): logo, the common VIP, the clock
     hdr = (f'<span class="logo">Halo Fleet</span> · '
            f'<span class="dim">VIP {VIP}:8081</span> · '
-           f'<span class="clock">{time.strftime("%H:%M:%S")}</span>')
+           f'<span class="clock">{clock()}</span>')
     chips = f'<div class="chips">{role_chip(cards[0])}{role_chip(cards[1])}</div>'
     h = (f'<div class="hdr">{hdr}</div>{chips}'
          f'<div class="grid">{halo_card(cards[0])}{halo_card(cards[1])}</div>'
