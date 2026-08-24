@@ -11,8 +11,13 @@ Input provenance (OBSERVED / INFERRED):
 - P_wall_serving = 100 W INFERRED  APU + ~15% platform/PSU overhead
                          (mini-PC wall draw under load; measure with a
                          wall meter to tighten)
-- P_wall_wait    = 35 W  INFERRED  stack loaded (weights mlocked, GPU
-                         initialized), no generation in flight
+- P_wall_wait    = 35 W  MEASURED  2026-08-24: amdgpu power1_average
+                         = 26.2 W APU package with model loaded + GPU
+                         initialized, no generation (vs 86 W generating,
+                         same sensor) + ~9 W platform = ~35 W wall. NOTE:
+                         the 5-10 W "idle" figure is the UNLOADED box —
+                         with ~122 GiB mlock'd and the GPU initialized the
+                         floor during the serving window is ~35 W.
 - decode         = 20 t/s OBSERVED  balanced recipe served range 17-21
 - prefill        ≈ 350 t/s ⇒ ~0.29 J/token ≈ 1/17 of decode energy per
   token: prompt tokens are energy-negligible; the model prices OUTPUT
