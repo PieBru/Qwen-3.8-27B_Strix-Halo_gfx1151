@@ -83,12 +83,21 @@ rate-limited without your consent. Unplugged is unambiguous.
 years, €0.2/kWh energy, and a 12 h/day × 360 d serving window on the
 `balanced` recipe, the all-in cost per output MegaToken is:
 
-| Generation duty | €/Mtok (all-in) | What that looks like |
-|---:|---:|---|
-| 100% | €2.42 | a bot generating flat-out |
-| 50% | €4.66 | heavy daily driver |
-| 25% | €9.14 | a realistic agentic workload |
-| 10% | €22.59 | evenings-and-weekends tinkering |
+| Generation duty | €/Mtok energy | €/Mtok amortization | €/Mtok total | What that looks like |
+|---:|---:|---:|---:|---|
+| 100% | 0.28 | 2.14 | **2.42** | a bot generating flat-out |
+| 50% | 0.38 | 4.29 | **4.66** | heavy daily driver |
+| 25% | 0.57 | 8.57 | **9.14** | a realistic agentic workload |
+| 10% | 1.15 | 21.43 | **22.59** | evenings-and-weekends tinkering |
+
+*Read the two columns as the own-vs-rent asymmetry: **energy is the
+marginal cost** — near-zero and flat (5 J per output token, independent
+of how busy you are); **amortization is the capacity cost** — the same
+€667/year of hardware whether you generate 311 Mtok or 31. A quieter box
+doesn't pay more for electricity; it spreads the machine over fewer
+tokens. (The loaded-wait draw — model resident, GPU initialized, no
+generation — is measured at ~35 W wall, so a serving window is never at
+the 5–10 W unloaded idle.)*
 
 The physics anchor is duty-independent: **100 W wall ÷ 20 t/s served =
 5 joules per output token** — €0.28/Mtok in pure energy, and the box's
