@@ -118,6 +118,15 @@ def local_metrics():
         m["boot_gate_ok"] = None; m["boot_gate_app"] = None
         m["boot_gate_prev_clean"] = None; m["boot_gate_fs_errs"] = None
         m["boot_gate_errs"] = None; m["boot_gate_this_boot"] = False
+    # capability lane (traddy): heterogeneous backend via haproxy ACL/lane
+    # port — health + served families, probed directly (HTTP only)
+    try:
+        lh = fetch_json("http://192.168.50.209:1234/health", 3)
+        lm = fetch_json("http://192.168.50.209:1234/v1/models", 3)
+        m["lane_health"] = bool(lh and lh.get("status") == "ok")
+        m["lane_recipes"] = len(lm["data"]) if lm else 0
+    except Exception:
+        m["lane_health"] = False; m["lane_recipes"] = 0
     # nightly reports state (produced on the reports host; exchanged via
     # /.metrics so ANY renderer shows the same card — no VIP bounce)
     m["reports"] = {}
@@ -301,6 +310,18 @@ def reports_card(local, peer):
             rows += (f'<tr><td class="k">{kind}</td><td colspan="2">'
                      f'<span class="p bad">reports host unreachable</span></td></tr>')
     return f'<div class="card"><h3>nightly reports</h3><table>{rows}</table></div>'
+def lane_card(local):
+    m = local or {}
+    rows = [
+        ("lane", pill(m.get("lane_health"), f'OK · {m.get("lane_recipes", 0)} recipes')
+               if m.get("lane_health") else PILL.format("bad", "DOWN")),
+        ("routing", '<span class="p dim">VIP:8081 by model name · :8083 explicit</span>'),
+        ("models", '<span class="p dim">Qwen3.6-35B-A3B · Gemma4 · LFM · Qwopus</span>'),
+        ("host", '<span class="p dim">traddy · i7-8750H · GTX1070 8GB · 62GB</span>'),
+    ]
+    trs = "".join(f'<tr><td class="k">{k}</td><td>{v}</td></tr>' for k, v in rows)
+    return f'<div class="card"><h3>capability lane · traddy</h3><table>{trs}</table></div>'
+
 def doctor(local, peer):
     checks = []
     def add(name, ok, note=""):
@@ -313,6 +334,10 @@ def doctor(local, peer):
         add("all core units up", all(m["router_unit"] and m["keepalived"] and m["haproxy"] for m in both))
         add("routers healthy", all(m["router_health"] for m in both))
         add("canary timers armed", all(m["canary_timer"] for m in both))
+        add("capability lane reachable", all(m.get("lane_health") for m in both),
+            (f'{(both[0] or {}).get("lane_recipes", "?")} recipes via traddy:1234'
+             if (both[0] or {}).get("lane_health")
+             else "lane down — VIP:8081 traddy models + :8083 fail closed"))
         add("boot insurance ran this boot", all(m.get("boot_gate_ok") is True and m.get("boot_gate_this_boot") for m in both),
             ", ".join(f'{m["halo"]}: {m.get("boot_gate_app")} ({"clean" if m.get("boot_gate_prev_clean") else "UNCLEAN prev"})' for m in both))
         add("weights verified nightly", all(m.get("weights_ok") is True and m.get("weights_age_h", 99) < 26 for m in both),
@@ -375,7 +400,7 @@ def fragment():
     h = (f'<div class="hdr">{hdr}</div>{chips}'
          f'<div class="grid">{halo_card(cards[0])}{halo_card(cards[1])}</div>'
          f'<div class="grid">{doctor(local, peer)}{load_split(local)}</div>'
-         f'<div class="grid">{reports_card(local, peer)}</div>')
+         f'<div class="grid">{reports_card(local, peer)}{lane_card(local)}</div>')
     return h
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8">
