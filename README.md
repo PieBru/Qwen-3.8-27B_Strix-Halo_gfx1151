@@ -176,6 +176,10 @@ because of it: **[docs/REASONING.md](docs/REASONING.md)**.
 Which GGUFs we run and why, the v3.0 tie-battery, the Q4 drop:
 **[docs/BUILDING.md](docs/BUILDING.md#models--unsloth-dynamic-ggufs-aligned-with-the-repo-tip)**.
 
+The official Qwen benchmark card, charted and commented — what the vendor
+measured on BF16 (≈ our Q8, per the tie-battery):
+**[docs/QWEN-CARD.md](docs/QWEN-CARD.md)**.
+
 Every weight's full sha256 sits in the comment above its `model =` line in
 [`models/models.ini`](models/models.ini) — **always verify before first use**
 (`sha256sum models/<file>.gguf`), or run `scripts/download_models.sh --check`
