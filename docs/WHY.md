@@ -33,13 +33,13 @@ sponsored placements.
   if it actually idled at the 85 W full-tilt figure; verify against
   your tariff).
 - **Costs cents per million tokens, all-in**: at €0.2/kWh with the €2,000
-  box amortized over 3 years and a 12 h/day serving window —
-  **~€2.4/Mtok at full generation, ~€9/Mtok at a realistic 25% agentic
-  duty cycle** (5 joules per output token; amortization dominates,
-  marginal energy is €0.0000003/token). Break-even vs budget-cloud
-  output (~€2/Mtok) at ~355 Mtok/yr; vs frontier pricing (~€15/Mtok) any
-  moderate agent year pays for the box — and cloud also bills the
-  input-heavy side that the halo doesn't meter at all. Full sensitivity:
+  box amortized over its realistic **ten-year service life** and a 12 h/day
+  serving window — **~€0.9/Mtok at full generation, ~€3.1/Mtok at a
+  realistic 25% agentic duty cycle** (5 joules per output token; the
+  marginal energy is €0.0000003/token). Against real cloud plans the desk
+  carries agent load for 8–17× less than the Max-plan year it replaces,
+  with no caps — and cloud also bills the input-heavy side the halo
+  meters at ~1/17 the energy. Full sensitivity:
   `scripts/cost_model.py`.
 - **Private by physics**: prompts never leave the machine. No telemetry to
   disable, no retention policy to trust — unplugged is unambiguous.
@@ -91,21 +91,25 @@ wire, sit in someone else's retention policy, and can be repriced,
 deprecated, or rate-limited without your consent. Unplugged is
 unambiguous.
 
-**Answer two — the desk price.** With the €2,000 box amortized over three
-years, €0.2/kWh energy, and a 12 h/day × 360 d serving window on the
+**Answer two — the desk price.** With the €2,000 box amortized over its
+realistic **ten-year service life** (a 128 GiB low-power box outlives any
+3-year gadget cycle — its post-inference Proxmox/LXC career included),
+€0.2/kWh energy, and a 12 h/day × 360 d serving window on the
 `balanced` recipe, the all-in cost per output MegaToken is:
 
 | Generation duty | €/day amortization (fixed) | €/Mtok energy (marginal) | €/Mtok total | What that looks like |
 |---:|---:|---:|---:|---|
-| 100% | 1.85 | 0.28 | **2.42** | a bot generating flat-out |
-| 50% | 1.85 | 0.38 | **4.66** | heavy daily driver |
-| 25% | 1.85 | 0.57 | **9.14** | a realistic agentic workload |
-| 10% | 1.85 | 1.15 | **22.59** | evenings-and-weekends tinkering |
+| 100% | 0.56 | 0.28 | **0.92** | a bot generating flat-out |
+| 50% | 0.56 | 0.38 | **1.66** | heavy daily driver |
+| 25% | 0.56 | 0.57 | **3.14** | a realistic agentic workload |
+| 10% | 0.56 | 1.15 | **7.58** | evenings-and-weekends tinkering |
 
 *Read the cost columns as two different kinds of bills. **Amortization
-is a subscription: €1.85/day** (€667/yr ÷ 360 serving days), charged
+is a subscription: €0.56/day** (€200/yr ÷ 360 serving days at the
+ten-year life), charged
 every day whether you generate a million tokens or none — like a $200
-/month Claude plan you never open, it still bills daily. **Energy is
+/month Claude plan you never open, it still bills daily (just 8×
+cheaper than that plan's own daily rate). **Energy is
 the pay-per-use meter**: near-zero and flat (5 J per output token at
 any duty). The totals climb as duty falls **only because a fixed daily
 bill gets divided by fewer tokens** — a quieter box doesn't pay more
@@ -124,9 +128,8 @@ cold load ≈ 10 s). The same 31 Mtok/year, re-priced:*
 
 | The light 10%-user's real box (31.1 Mtok/yr) — worst scenario | €/Mtok |
 |---|---:|
-| dedicated 3-year inference box (the table's corner case) | 22.59 |
-| 10-year hardware life | 7.58 |
-| 10-yr box, inference one tenant among services (~25% of amortization) | **2.76** |
+| dedicated box, ten-year life (the table's corner case) | 7.58 |
+| ten-yr box, inference one tenant among services (~25% of amortization) | **2.76** |
 | energy floor (amortization belongs to the other services) | 1.15 |
 
 *And the mirror image for the heavy user — same machine, same 3-year
@@ -136,9 +139,8 @@ best scenario):*
 
 | The 100%-SOHO real box (311 Mtok/yr out) | €/Mtok |
 |---|---:|
-| dedicated 3-year inference box (the table's own row) | 2.42 |
-| 10-year hardware life | 0.92 |
-| 10-yr box, inference the main tenant (~50% of amortization) | **0.60** |
+| dedicated box, ten-year life (the table's own row) | 0.92 |
+| ten-yr box, inference the main tenant (~50% of amortization) | **0.60** |
 | energy floor (amortization belongs to the other services) | 0.28 |
 
 ### The accountant's table — both sides metered, input and output
@@ -151,8 +153,8 @@ per token). Same heavy year for both — h24 flat-out at ~100 t/s blended
 
 | Who pays for that year | €/year |
 |---|---:|
-| **Halo, dedicated 3-yr box** | **839** |
-| **Halo, 10-yr box, inference 50% tenant** | **273** |
+| **Halo, dedicated box (ten-year life)** | **373** |
+| **Halo, ten-yr box, inference 50% tenant** | **273** |
 | **Halo, energy floor** (box amortized by other duties) | **173** |
 | Budget API (€0.15/Mtok in · €0.60/Mtok out) | ~746 |
 | Frontier API (€3/Mtok in · €15/Mtok out) | ~16,800 |
@@ -166,7 +168,7 @@ Read it honestly: **the one real competitor is the ~€2,900 Max-plan
 year** — metered APIs at this volume are either small-model cheap
 (€746, different product) or frontier-expensive (€16,800), and the Pro
 plan simply cannot serve it. Against that real option the desk does the
-same year for €173–839 — **3.5–17× cheaper** — with the input-heavy
+same year for €173–373 — **8–17× cheaper** — with the input-heavy
 side (the part agent loops multiply) being its cheapest physics, no
 caps, no rate windows, and the prompt never leaving the room. The
 €273 tenant row buys a privacy-critical year for about **one frontier
@@ -194,9 +196,8 @@ Mtok/yr; a never-idle h24×365 box would reach ~622.
 > the room.
 
 The physics anchor is duty-independent: **100 W wall ÷ 20 t/s served =
-5 joules per output token** — €0.28/Mtok in pure energy, and the box's
-amortization (€2.14/Mtok at full duty) costs more than the electricity
-at every usage level. Which flips the usual intuition: **owning is
+5 joules per output token** — €0.28/Mtok in pure energy; at the
+ten-year life, amortization adds €0.64/Mtok even at full duty. Which flips the usual intuition: **owning is
 high-fixed / near-zero-marginal (one more token costs €0.0000003),
 cloud is zero-fixed / high-marginal.** Run the sensitivity yourself:
 [`scripts/cost_model.py`](../scripts/cost_model.py) — every parameter is
@@ -207,8 +208,8 @@ inferred pending a wall meter).
 price, full stop: a Pro plan (~€290/yr) bundles more tokens than a
 chatter generates, and no hardware bill follows you. The desk wins from
 the moment usage turns *programmatic*: ~78 Mtok/yr (a 25%-duty agent)
-already prices at €667+energy on dedicated hardware — comparable to a
-Pro plan's bundled cost but **without caps**, and it wins outright
+prices at €200+energy on dedicated ten-year hardware — *below* a Pro
+plan's cost and **without caps**, and it wins outright
 against the plans that can actually carry agent load (Max ~€2,900) or
 metered frontier (~€16,800). Two asymmetries widen the gap as load
 grows: the desk's input side is ~1/17 the energy per token (agent loops

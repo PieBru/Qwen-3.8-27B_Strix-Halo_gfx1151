@@ -32,7 +32,7 @@ os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # repo ro
 # ---- parameters (edit here) ----
 PRICE_EUR_KWH = 0.20
 HARDWARE_EUR  = 2000.0
-YEARS         = 3
+YEARS         = 10         # operator doctrine 2026-08-24: a 128 GiB halo serves at least a decade
 HOURS_PER_DAY = 12
 DAYS_PER_YEAR = 360
 DECODE_TPS    = 20.0          # served, balanced Q6+DFlash2
@@ -88,14 +88,13 @@ print("note: cloud also bills input tokens (agent loops are input-heavy); "
 # model needn't stay resident: cold load ≈ 10 s).
 print("\nreality-adjusted: 10% duty, same tokens (31.1 Mtok/yr):")
 scenarios = [
-    ("dedicated 3-yr inference box (table above)", 666.67),
-    ("10-year hardware life, still dedicated",     200.0),
-    ("10-yr life + inference as one tenant (~25% of amort)", 50.0),
+    ("dedicated box, ten-year life (the table's corner)", 200.0),
+    ("ten-yr life + inference as one tenant (~25% of amort)", 50.0),
     ("amortization fully attributed elsewhere (energy floor)", 0.0),
 ]
 for name, amort in scenarios:
     energy_yr = (0.10 * P_GEN_W + 0.90 * P_WAIT_W) / 1000 * HOURS * PRICE_EUR_KWH
     mtok = HOURS * 3600 * 0.10 * DECODE_TPS / 1e6
     print(f"  {name:<52} {(energy_yr + amort) / mtok:>7.2f} €/Mtok")
-print("  (the dedicated-3yr row IS the table's 10% figure — upper bound, not the user's reality)")
+print("  (the dedicated corner row IS the table's 10% figure — upper bound, not the user's reality)")
 sys.exit(0)
