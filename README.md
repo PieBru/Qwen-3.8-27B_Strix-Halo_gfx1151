@@ -173,6 +173,11 @@ because of it: **[docs/REASONING.md](docs/REASONING.md)**.
 Which GGUFs we run and why, the v3.0 tie-battery, the Q4 drop:
 **[docs/BUILDING.md](docs/BUILDING.md#models--unsloth-dynamic-ggufs-aligned-with-the-repo-tip)**.
 
+Every weight's full sha256 sits in the comment above its `model =` line in
+[`models/models.ini`](models/models.ini) — **always verify before first use**
+(`sha256sum models/<file>.gguf`), or run `scripts/download_models.sh --check`
+to verify all at once.
+
 ## Environment · Dependencies · Build from source · The toolbox
 
 Environment notes, the OBSERVED dependency set, building the fork, the
