@@ -129,6 +129,34 @@ best scenario):*
 | 10-yr box, inference the main tenant (~50% of amortization) | **0.60** |
 | energy floor (amortization belongs to the other services) | 0.28 |
 
+### The accountant's table — both sides metered, input and output
+
+Cloud meters both directions (input often at output price or higher);
+the halo meters them at different physics (input costs ~1/17 the energy
+per token). Same heavy year for both — h24 flat-out at ~100 t/s blended
+(the pp 200–350 / tg 20–25 reality), i.e. **622 Mtok output +
+~2.5 Gtok input** — priced on each side's own tariff:
+
+| Who pays for that year | €/year |
+|---|---:|
+| **Halo, dedicated 3-yr box** | **839** |
+| **Halo, 10-yr box, inference 50% tenant** | **273** |
+| **Halo, energy floor** (box amortized by other duties) | **173** |
+| Budget API (€0.15/Mtok in · €0.60/Mtok out) | ~746 |
+| Budget API + $20/mo subscription | ~1,031 |
+| Frontier tier (€3/Mtok in · €15/Mtok out) | ~16,800 |
+| **Frontier + $200/mo subscription (the Claude plan)** | **~19,600** |
+
+*(REPORTED cloud street prices 2026-08; subscriptions converted at
+12×/yr; usage-based portion is 622×out-price + 2,488×in-price.)*
+
+Read it in one line: **the desk does the whole heavy year for less than
+the cheapest metered cloud does it, and for 1–4% of the frontier-subscription
+year** — with the input-heavy side, the exact part agent loops multiply,
+being the desk's cheapest physics. And the €273 tenant row is the
+realistic one: the privacy-critical year costs about one frontier
+*week*.
+
 **Accounting note.** All Mtok figures are **output tokens** (the meter
 clients feel). Input isn't free but is ~17× cheaper per token here
 (prefill ~350 t/s vs decode 20 t/s at similar power): at a 4:1 agent
