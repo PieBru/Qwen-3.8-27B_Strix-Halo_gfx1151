@@ -112,6 +112,21 @@ decision rules); this chapter is the menu.
 [comparisons chapter](BACKENDS.md#how-this-compares-with-sibling-projects) —
 pre-registered experiments per project, trigger → run → verdict):
 
+- **Expert-split across the two halos (`-ot` + RPC)** — llama.cpp splits
+  *tensors*, not just layers: `--split-mode tensor|row` plus
+  `--override-tensor "blk\.<a-b\>\.ffn_.*exps.*=RPC"` can place half the
+  MoE experts on each halo (expert placement is a tensor-placement
+  decision). Trigger: (a) upstream lifts the **262,144 slot cap** — the
+  >262k window becomes servable and memory becomes the binding
+  constraint again; or (b) a **big-MoE download evening** (DSV4-Flash
+  IQ3_S-class, >124 GB — Phase B left build-rpc/ ready on both halos).
+  Run: same Phase-B harness (10-prompt temp-0 A/B + t/s + 15/32/60k
+  fills), expert-halved vs layer-split vs full-copy. Pre-registered
+  expectations: decode < layer-split's 92% (per-token expert routing
+  crosses the 9 Gbps link with unpredictable tails — the intra-host
+  analog via `-cmoe`/`-ncmoe` runs at ~256 GB/s unified memory and
+  already wins there); adopt only if measured decode ≥ full-copy AND
+  the model genuinely needs both boxes' RAM.
 - **ds4 vs llama.cpp fork on the same box** — trigger: quant download
   evening. Run: ds4f-q2 (their imatrix asymmetric quant) under ds4 vs
   Unsloth UD-IQ3_S under our fork, same Halo; judge = E2 tier-1 battery +
