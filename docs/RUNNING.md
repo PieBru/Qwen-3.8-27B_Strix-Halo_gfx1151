@@ -204,7 +204,7 @@ One port, every recipe from the table, loaded on demand:
 # or as a boot-persistent user service — substitute in the pipe (keeps your
 # clone clean for future git pulls; run from the repo root):
 mkdir -p ~/.config/systemd/user
-sed "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" llama-router.service \
+sed "s|/REPLACE/WITH/YOUR/REPO/PATH|$(pwd)|" systemd-units/llama-router.service \
     > ~/.config/systemd/user/llama-router.service
 systemctl --user daemon-reload && systemctl --user enable --now llama-router
 sudo loginctl enable-linger $USER   # run the user manager (and the router) at
