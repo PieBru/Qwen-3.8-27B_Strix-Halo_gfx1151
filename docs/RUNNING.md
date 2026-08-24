@@ -219,7 +219,10 @@ curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
 #### Tip: `Qwen38-27B` — the movable "default model" alias
 
 `models/models.ini` pins one stable client-facing name, `Qwen38-27B`, on the balanced
-recipe (`LLAMA_ARG_ALIAS = Qwen38-27B`). Point clients at **that** name instead
+recipe (`LLAMA_ARG_ALIAS = Qwen38-27B,default`). Point clients at **that** name
+(or at `default` — a blind-use alias added 2026-08-24 so clients that never
+query `/v1/models` can hardcode a name and still hit "the default" recipe;
+send `"model": "default"` explicitly, an omitted field is rejected) instead
 of a recipe name, and changing your mind about which recipe is "the default"
 becomes a one-line move — no client reconfiguration:
 
