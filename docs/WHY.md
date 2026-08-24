@@ -71,13 +71,25 @@ label stays REPORTED; our own numbers live in
 Two answers, and both are numbers.
 
 **Answer one — you can buy tokens, at the price of your privacy plus the
-money they want.** Cloud metering is simple: ~€0.5–2 per output MegaToken
-on budget APIs, ~€5–15 on frontier models (REPORTED, 2026-08 street
-prices), *plus* your input tokens at the same or higher rate — and agent
-loops are input-heavy (every tool call resends the whole conversation).
-And you pay with more than money: every prompt crosses the wire, sits in
-someone else's retention policy, and can be repriced, deprecated, or
-rate-limited without your consent. Unplugged is unambiguous.
+money they want.** What cloud *actually* costs has three regimes
+(REPORTED street reality, 2026-08; plan names are archetypes, prices
+±VAT/exchange):
+
+| Real cloud option | ~€/year | What you really get |
+|---|---:|---|
+| Pro plan ($20/mo class) | ~€290 | bundled casual usage — fine for chatting, **caps bite fast under agent load** (5-hour windows, message limits) |
+| Max/Ultra plan ($200/mo class, "20×") | ~€2,900 | generous caps — a heavy agent year *fits*, but you live inside rate-limit windows, one vendor's choices, and "fair use" clauses |
+| Budget-model API (metered) | ~€746 | the whole heavy year, no caps — on someone else's small model |
+| Frontier API (metered) | ~€16,800 | the whole heavy year at frontier quality — input billed at €3/Mtok, output at €15 |
+
+The metered rows price the same heavy year the desk does (622 Mtok out
++ ~2.5 Gtok in; see the accountant's table below). Note what the table
+quietly says: **no subscription is "unlimited"** — every plan is either
+capped or metered, and the caps are exactly where agent workloads live.
+And every regime charges the same non-monetary price: prompts cross the
+wire, sit in someone else's retention policy, and can be repriced,
+deprecated, or rate-limited without your consent. Unplugged is
+unambiguous.
 
 **Answer two — the desk price.** With the €2,000 box amortized over three
 years, €0.2/kWh energy, and a 12 h/day × 360 d serving window on the
@@ -143,19 +155,22 @@ per token). Same heavy year for both — h24 flat-out at ~100 t/s blended
 | **Halo, 10-yr box, inference 50% tenant** | **273** |
 | **Halo, energy floor** (box amortized by other duties) | **173** |
 | Budget API (€0.15/Mtok in · €0.60/Mtok out) | ~746 |
-| Budget API + $20/mo subscription | ~1,031 |
-| Frontier tier (€3/Mtok in · €15/Mtok out) | ~16,800 |
-| **Frontier + $200/mo subscription (the Claude plan)** | **~19,600** |
+| Frontier API (€3/Mtok in · €15/Mtok out) | ~16,800 |
+| **Max/Ultra plan ($200/mo class) — the plan heavy users actually buy** | **~2,900** (caps permitting) |
+| Pro plan ($20/mo class) | ~290 — **caps won't survive this year** |
 
-*(REPORTED cloud street prices 2026-08; subscriptions converted at
-12×/yr; usage-based portion is 622×out-price + 2,488×in-price.)*
+*(Cloud rows REPORTED 2026-08 street prices; usage-based portion is
+622×out-price + 2,488×in-price.)*
 
-Read it in one line: **the desk does the whole heavy year for less than
-the cheapest metered cloud does it, and for 1–4% of the frontier-subscription
-year** — with the input-heavy side, the exact part agent loops multiply,
-being the desk's cheapest physics. And the €273 tenant row is the
-realistic one: the privacy-critical year costs about one frontier
-*week*.
+Read it honestly: **the one real competitor is the ~€2,900 Max-plan
+year** — metered APIs at this volume are either small-model cheap
+(€746, different product) or frontier-expensive (€16,800), and the Pro
+plan simply cannot serve it. Against that real option the desk does the
+same year for €173–839 — **3.5–17× cheaper** — with the input-heavy
+side (the part agent loops multiply) being its cheapest physics, no
+caps, no rate windows, and the prompt never leaving the room. The
+€273 tenant row buys a privacy-critical year for about **one frontier
+week**.
 
 **Accounting note.** All Mtok figures are **output tokens** (the meter
 clients feel). Input isn't free but is ~17× cheaper per token here
@@ -188,14 +203,16 @@ cloud is zero-fixed / high-marginal.** Run the sensitivity yourself:
 documented with its provenance (86 W APU draw is measured; 100 W wall is
 inferred pending a wall meter).
 
-**Break-even, honestly stated.** Against €2/Mtok budget output, the halo
-needs ~355 Mtok/yr to win — more than a light user generates; at 25% duty
-you produce ~78 Mtok/yr, so *budget clouds are cheaper per output token
-for light use, and we're not going to pretend otherwise*. Against
-frontier pricing (~€15/Mtok), break-even is ~47 Mtok/yr — any moderate
-agent year pays for the hardware. Two asymmetries close the rest of the
-gap: the halo doesn't meter your input side at all (prefill costs ~1/17
-the energy per token), and privacy doesn't appear on either ledger but
+**Break-even, honestly stated.** For *casual* use the cloud wins on
+price, full stop: a Pro plan (~€290/yr) bundles more tokens than a
+chatter generates, and no hardware bill follows you. The desk wins from
+the moment usage turns *programmatic*: ~78 Mtok/yr (a 25%-duty agent)
+already prices at €667+energy on dedicated hardware — comparable to a
+Pro plan's bundled cost but **without caps**, and it wins outright
+against the plans that can actually carry agent load (Max ~€2,900) or
+metered frontier (~€16,800). Two asymmetries widen the gap as load
+grows: the desk's input side is ~1/17 the energy per token (agent loops
+are input-heavy), and privacy doesn't appear on either ledger — but
 only one of them has it.
 
 That's the whole pitch in one sentence: **the privacy is not a premium —
