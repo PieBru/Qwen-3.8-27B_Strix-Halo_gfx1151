@@ -32,6 +32,15 @@ sponsored placements.
   (~€0.01/night at €0.12/kWh, platform idle measured — vs ~€0.08/night
   if it actually idled at the 85 W full-tilt figure; verify against
   your tariff).
+- **Costs cents per million tokens, all-in**: at €0.2/kWh with the €2,000
+  box amortized over 3 years and a 12 h/day serving window —
+  **~€2.4/Mtok at full generation, ~€9/Mtok at a realistic 25% agentic
+  duty cycle** (5 joules per output token; amortization dominates,
+  marginal energy is €0.0000003/token). Break-even vs budget-cloud
+  output (~€2/Mtok) at ~355 Mtok/yr; vs frontier pricing (~€15/Mtok) any
+  moderate agent year pays for the box — and cloud also bills the
+  input-heavy side that the halo doesn't meter at all. Full sensitivity:
+  `scripts/cost_model.py`.
 - **Private by physics**: prompts never leave the machine. No telemetry to
   disable, no retention policy to trust — unplugged is unambiguous.
 - **Yours**: no deprecations, no price changes, no terms-of-service updates
