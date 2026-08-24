@@ -97,8 +97,8 @@ def chat_turn(messages, n_predict):
 def run_arm(arm, spec, nmax, wr):
     log = open(f"results/e6-ngram-server-{arm}.log", "w")
     srv = subprocess.Popen(
-        [BIN, "-m", "./Qwen3.8-27B-UD-Q6_K_XL.gguf",
-         "-md", "./Qwen3.8-27B-DFlash2-Q8_0.gguf",
+        [BIN, "-m", "models/Qwen3.8-27B-UD-Q6_K_XL.gguf",
+         "-md", "models/Qwen3.8-27B-DFlash2-Q8_0.gguf",
          "--spec-type", spec, "--spec-draft-n-max", str(nmax),
          "-ngl", "all", "-ngld", "all", "-fa", "on",
          "-c", "131072", "-np", "1", "-b", "4096", "-ub", "4096",

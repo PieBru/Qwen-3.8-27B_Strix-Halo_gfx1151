@@ -24,7 +24,7 @@ Three questions settle it:
 The table (all values measured and evidence-linked; full column notes below):
 
 
-| Goal | Router recipe (`models.ini`) | Command (`run_llama-server.sh …`) | context | RAM (GiB) | left (GiB) | tg (t/s) | pp4k (t/s) | PPL / KLD↑ |
+| Goal | Router recipe (`models/models.ini`) | Command (`run_llama-server.sh …`) | context | RAM (GiB) | left (GiB) | tg (t/s) | pp4k (t/s) | PPL / KLD↑ |
 |---|---|---|---|---:|---:|---:|---:|---:|
 | **Quality @256k** | `Qwen38-27B-quality@256k` | router-only (Q8 @ 256k) | 262144 (servable ceiling) | ~61 | ~63 | ~25 | ~330 | 4.692 / ref |
 | **Quality** | `Qwen38-27B-quality@64k` (+`@96k`, `@128k`, `@192k`) | `--goal quality` (Q8) | 65536 window; presets to 256k | ~45 | ~78 | ~25 | ~330 | 4.692 / ref |
@@ -42,7 +42,7 @@ at a 4k budget). 2048 sits above hard-routine thinking p90 (~610–736), so
 normal work never touches it. Override per request: body
 `reasoning_budget_tokens` — `32768` for effectively-unrestricted deep work,
 `0` to end thinking immediately, absent/`-1` inherits 2048. Rationale and
-verifications: models.ini `[Qwen38-27B-coding]` section comment and the
+verifications: models/models.ini `[Qwen38-27B-coding]` section comment and the
 [reasoning chapter](REASONING.md).
 
 **The context dial.** All `quality@NNk` presets are the same weights, quality

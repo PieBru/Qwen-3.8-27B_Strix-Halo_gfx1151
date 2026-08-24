@@ -9,7 +9,7 @@ REPO_DIR="llama.cpp"            # clone of Nathanw1014/llama.cpp
 BRANCH="strix-halo-vulkan"      # dequant-once + all-quant transpose + mmid stack
 BUILD_DIR="build-vk"
 
-cd "$(dirname "$0")"            # work relative to this script's location
+cd "$(dirname "$0")/.."        # repo root (script lives in scripts/)
 cd "$REPO_DIR"
 
 # Update to the latest validated Vulkan stack
@@ -44,4 +44,4 @@ echo "OK: Vulkan backend on Radeon 8060S confirmed."
 # Optional smoke test (uncomment — picks a local target model):
 # NOTE: must be a *target* model (UD-Q5_K_XL etc.) — the DFlash2 files are draft-only
 # (dflash arch needs ctx_other; standalone runs fail with "dflash requires ctx_other").
-# "$BUILD_DIR"/bin/llama-cli -m ../Qwen3.8-27B-UD-Q5_K_XL.gguf -ngl 999 -fa on -p "Hello" -n 64
+# "$BUILD_DIR"/bin/llama-cli -m .models/Qwen3.8-27B-UD-Q5_K_XL.gguf -ngl 999 -fa on -p "Hello" -n 64

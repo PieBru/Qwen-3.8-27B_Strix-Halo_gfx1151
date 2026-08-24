@@ -14,7 +14,7 @@ export LD_LIBRARY_PATH="$PWD/llama.cpp/build-vk/bin${LD_LIBRARY_PATH:+:$LD_LIBRA
 PORT=8099
 RES=results; mkdir -p "$RES"
 CSV=$RES/sweep.csv
-DRAFT=Qwen3.8-27B-DFlash2-Q8_0.gguf      # fixed: only draft on disk (Q4_K_M was ~+5% but deleted)
+DRAFT=models/Qwen3.8-27B-DFlash2-Q8_0.gguf      # fixed: only draft on disk (Q4_K_M was ~+5% but deleted)
 [ -f "$CSV" ] || echo "tag,model,ctk,ctv,ctkd,ctvd,ctx,b,ub,tb,nmax,status,load_s,rss_kb,tg_ts,pp4k_ts" >> "$CSV"
 
 # --- deterministic prompts (built once) -----------------------------------
@@ -56,7 +56,7 @@ run_config(){
     -ngl all -ngld all -fa on "${kvargs[@]}" "${dkvargs[@]}" \
     -c "$ctx" -np 1 -b "$b" -ub "$ub" -t 16 -tb "$tb" \
     --spec-type draft-dflash --spec-draft-n-max "$nmax" \
-    --chat-template-file sharp.jinja --jinja --host 127.0.0.1 --port $PORT --metrics \
+    --chat-template-file models/sharp.jinja --jinja --host 127.0.0.1 --port $PORT --metrics \
     > "$log" 2>&1 &
   srv_pid=$!
   local ok=""

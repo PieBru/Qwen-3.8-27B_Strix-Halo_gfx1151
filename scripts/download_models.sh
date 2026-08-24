@@ -24,11 +24,11 @@ ZLAB=https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF/resolve/main
 API_UNSLOTH=https://huggingface.co/api/models/unsloth/Qwen3.8-27B-GGUF/tree/main
 
 declare -A WANT_SHA WANT_BYTES SRC FNAME
-WANT_SHA[q8]=af36ecb6b5db;    WANT_BYTES[q8]=31457991680;   SRC[q8]=$UNSLOTH; FNAME[q8]=Qwen3.8-27B-UD-Q8_K_XL.gguf
-WANT_SHA[q6]=701d8fa9ed21;    WANT_BYTES[q6]=25299061664;   SRC[q6]=$UNSLOTH; FNAME[q6]=Qwen3.8-27B-UD-Q6_K_XL.gguf
-WANT_SHA[q5]=8601193d3d57;    WANT_BYTES[q5]=20876938144;   SRC[q5]=$UNSLOTH; FNAME[q5]=Qwen3.8-27B-UD-Q5_K_XL.gguf
-WANT_SHA[draft]=7f1c9a31a6ed; WANT_BYTES[draft]=2056414752; SRC[draft]=$ZLAB; FNAME[draft]=Qwen3.8-27B-DFlash2-Q8_0.gguf
-WANT_SHA[mmproj]=cbb841a9ee06; WANT_BYTES[mmproj]=927607488; SRC[mmproj]=$UNSLOTH; FNAME[mmproj]=mmproj-F16.gguf
+WANT_SHA[q8]=af36ecb6b5db;    WANT_BYTES[q8]=31457991680;   SRC[q8]=$UNSLOTH; FNAME[q8]=models/Qwen3.8-27B-UD-Q8_K_XL.gguf
+WANT_SHA[q6]=701d8fa9ed21;    WANT_BYTES[q6]=25299061664;   SRC[q6]=$UNSLOTH; FNAME[q6]=models/Qwen3.8-27B-UD-Q6_K_XL.gguf
+WANT_SHA[q5]=8601193d3d57;    WANT_BYTES[q5]=20876938144;   SRC[q5]=$UNSLOTH; FNAME[q5]=models/Qwen3.8-27B-UD-Q5_K_XL.gguf
+WANT_SHA[draft]=7f1c9a31a6ed; WANT_BYTES[draft]=2056414752; SRC[draft]=$ZLAB; FNAME[draft]=models/Qwen3.8-27B-DFlash2-Q8_0.gguf
+WANT_SHA[mmproj]=cbb841a9ee06; WANT_BYTES[mmproj]=927607488; SRC[mmproj]=$UNSLOTH; FNAME[mmproj]=models/mmproj-F16.gguf
 
 NCHUNK=10
 

@@ -63,7 +63,7 @@
    a real image is unverified. (`--mmproj` is a per-section ini key by design; the
    router strips it from the shared CLI.)
 8. **Router CLI args silently override per-recipe ini keys.** The router overlays
-   its own command line onto every `models.ini` section: a key present in both is
+   its own command line onto every `models/models.ini` section: a key present in both is
    always won by the CLI and the section key is dead — no warning is logged. The
    per-child `n_max=` journal line is the ground truth. Rule: shared flags ride the
    router CLI, divergent keys (`spec-type`, `spec-draft-n-max`, `model-draft`,

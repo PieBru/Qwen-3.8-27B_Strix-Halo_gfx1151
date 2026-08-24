@@ -143,7 +143,7 @@ the parked 1M recipe pins q8_0.
    `n_ctx_slot = 1048576`.
 
 Everything needed for the day it unlocks is parked and ready at the bottom of
-`models.ini`: the full 1M recipe (q8_0 KV — NIAH-validated), the RAM budget
+`models/models.ini`: the full 1M recipe (q8_0 KV — NIAH-validated), the RAM budget
 above, and the two blockers documented inline.
 
 

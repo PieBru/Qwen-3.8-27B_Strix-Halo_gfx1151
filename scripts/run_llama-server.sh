@@ -18,22 +18,22 @@
 #   --ctx N               context size (SSM state is tiny; allocation measured flat 64k-256k on a quiet box)
 #   --nmax N              --spec-draft-n-max (6-7 plateau; 4 clearly worse);
 #                         single-model mode only — with --router it's an error:
-#                         spec keys live per-recipe in models.ini (the router CLI
+#                         spec keys live per-recipe in models/models.ini (the router CLI
 #                         overlays every section, so a shared --spec-* would
 #                         override each recipe's own key — server-models.cpp:551)
 #   --kv f16|q8_0         target+draft KV type (f16 measured FASTER and is higher fidelity)
 #   --port N              listen port (default 8081)
-#   --draft FILE          draft GGUF (default Qwen3.8-27B-DFlash2-Q8_0.gguf)
+#   --draft FILE          draft GGUF (default models/Qwen3.8-27B-DFlash2-Q8_0.gguf)
 #   --no-mlock            don't pin weights in RAM (mlock needs memlock unlimited,
 #                         see README "Lessons learned"; without it zram can eat ~30% tg)
 #   --models-max N        router: max models resident at once (default 1; every
 #                         recipe is 20-31 GB of weights + draft mlock'd — 2+
 #                         resident exhausted memory and hard-hung the whole box,
 #                         ssh included; 2026-08-21, models-max 5 → 1)
-#   --router               serve ALL recipes from models.ini via llama-server router
+#   --router               serve ALL recipes from models/models.ini via llama-server router
 #                         mode (names: Qwen38-27B-<QUANT>-<CTX>-<ROLE>, e.g.
 #                         Qwen38-27B-Q6-65K-fast; old short names stay valid as
-#                         aliases via LLAMA_ARG_ALIAS in models.ini)
+#                         aliases via LLAMA_ARG_ALIAS in models/models.ini)
 #   --agent               agent mode: ALL built-in tools + WebUI MCP/CORS proxy
 #                         (-ag). Tools: read_file, file_glob_search, grep_search,
 #                         exec_shell_command, write_file, edit_file, get_datetime,
@@ -54,7 +54,7 @@ cd "$(dirname "$0")/.."
 
 GOAL=""; MODEL=""; CTX=65536; NMAX=6; KV=f16; PORT=8081; ROUTER=0; MMAX=1
 NMAX_SET=0
-DRAFT=Qwen3.8-27B-DFlash2-Q8_0.gguf; MLOCK=1; DRY=0
+DRAFT=models/Qwen3.8-27B-DFlash2-Q8_0.gguf; MLOCK=1; DRY=0
 CTX_SET=0; MODEL_SET=0
 AGENT=0; TOOLS=""; MCPCFG=""; TOOLSRUNTIME=""
 
@@ -111,7 +111,7 @@ if [ "$AGENT" = 1 ] || [ -n "$TOOLS" ] || [ -n "$MCPCFG" ]; then
 fi
 
 if [ "$ROUTER" = 1 ]; then
-  # Router mode: every recipe's shared flags on the CLI; models.ini sections carry
+  # Router mode: every recipe's shared flags on the CLI; models/models.ini sections carry
   # ONLY per-recipe keys (weights file + ctx + n-max + old-name alias).
   # Names clients use: Qwen38-27B-<QUANT>-<CTX>-<ROLE> (e.g. Qwen38-27B-Q6-65K-fast).
   #
@@ -119,21 +119,21 @@ if [ "$ROUTER" = 1 ]; then
   # onto every section (fork's server-models.cpp merge), so a shared
   # --spec-type/--spec-draft-n-max/-md would clobber each recipe's own key —
   # turbo's n-max 5 never actually applied while they lived here. They live
-  # per-section in models.ini now; the vision recipe pins spec-type = none.
-  [ "$NMAX_SET" = 0 ] || { echo "error: --nmax is single-model mode only; edit models.ini per-recipe spec-draft-n-max" >&2; exit 1; }
-  [ -f models.ini ] || { echo "error: models.ini not found next to this script" >&2; exit 1; }
+  # per-section in models/models.ini now; the vision recipe pins spec-type = none.
+  [ "$NMAX_SET" = 0 ] || { echo "error: --nmax is single-model mode only; edit models/models.ini per-recipe spec-draft-n-max" >&2; exit 1; }
+  [ -f models/models.ini ] || { echo "error: models/models.ini not found next to this script" >&2; exit 1; }
   # Router mode also scans the HF cache (~/.cache/huggingface) for servable models;
-  # pin LLAMA_CACHE to an empty dir so ONLY the models.ini recipes are served.
+  # pin LLAMA_CACHE to an empty dir so ONLY the models/models.ini recipes are served.
   mkdir -p .llama-cache
   export LLAMA_CACHE="$PWD/.llama-cache"
   CMD=(./llama.cpp/build-vk/bin/llama-server
-    --models-preset models.ini --models-max "$MMAX"
+    --models-preset models/models.ini --models-max "$MMAX"
     -ngl all -ngld all -fa on "${MLOCKARGS[@]}" "${KVARGS[@]}"
     -b 4096 -ub 4096 -np 1 -t 16 -tb 32
     --presence-penalty 0.0 "${AGENTARGS[@]}"
-    --chat-template-file sharp.jinja
+    --chat-template-file models/sharp.jinja
     --jinja --host 0.0.0.0 --port "$PORT" --metrics)
-  echo ">> router: recipes from models.ini on :$PORT (mmax=$MMAX kv=$KV mlock=$MLOCK pen=0.0 agent=$AGENT tools=${TOOLS:--} mcp=${MCPCFG:--})"
+  echo ">> router: recipes from models/models.ini on :$PORT (mmax=$MMAX kv=$KV mlock=$MLOCK pen=0.0 agent=$AGENT tools=${TOOLS:--} mcp=${MCPCFG:--})"
   [ "$DRY" = 1 ] && { printf '   %q' "${CMD[@]}"; echo; exit 0; }
   # build-vk's RUNPATH is a stale pre-move path; this export keeps libs resolvable.
   export LD_LIBRARY_PATH="$PWD/llama.cpp/build-vk/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
@@ -153,7 +153,7 @@ CMD=(./llama.cpp/build-vk/bin/llama-server
   --presence-penalty 0.0
   --spec-type draft-dflash --spec-draft-n-max "$NMAX"
   "${AGENTARGS[@]}"
-  --chat-template-file sharp.jinja
+  --chat-template-file models/sharp.jinja
   --jinja --host 0.0.0.0 --port "$PORT" --metrics)
 
 echo ">> goal=${GOAL:-custom} model=$MODEL ctx=$CTX kv=$KV nmax=$NMAX mlock=$MLOCK port=$PORT agent=$AGENT tools=${TOOLS:--} mcp=${MCPCFG:--}"

@@ -206,7 +206,7 @@ R0 — What is already mirrored (verified 2026-08-24):
 | Layer | Mechanism | Status |
 |---|---|---|
 | Repo + recipes + docs | `git pull --ff-only` discipline, same commit on both boxes | ✅ running |
-| Router service (10 recipes, same models.ini) | systemd user unit + linger on both | ✅ running |
+| Router service (10 recipes, same models/models.ini) | systemd user unit + linger on both | ✅ running |
 | Model weights | same GGUFs on both (download_models.sh sha256-verified) | ✅ |
 | pi clients | `lan`/`local` providers + pi-llama-cpp extension registers BOTH routers | ✅ running |
 | Ciao-style fallback seam | Ciao already implements `[llm].fallback_base_url` (second llama-server retry, LOUD never-silent) — the pattern to copy | ✅ pattern exists |

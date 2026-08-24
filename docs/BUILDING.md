@@ -20,9 +20,9 @@ fingerprints below; `./scripts/download_models.sh --check` re-verifies what's on
 
 | File | Role | Exact size (bytes) | sha256 starts with |
 |---|---|---:|---|
-| `Qwen3.8-27B-UD-Q8_K_XL.gguf` | quality recipes | 31,457,991,680 | `af36ecb6b5db` |
-| `Qwen3.8-27B-UD-Q6_K_XL.gguf` | speed recipes + vision | 25,299,061,664 | `701d8fa9ed21` |
-| `Qwen3.8-27B-UD-Q5_K_XL.gguf` | turbo recipe | 20,876,938,144 | `8601193d3d57` |
+| `models/Qwen3.8-27B-UD-Q8_K_XL.gguf` | quality recipes | 31,457,991,680 | `af36ecb6b5db` |
+| `models/Qwen3.8-27B-UD-Q6_K_XL.gguf` | speed recipes + vision | 25,299,061,664 | `701d8fa9ed21` |
+| `models/Qwen3.8-27B-UD-Q5_K_XL.gguf` | turbo recipe | 20,876,938,144 | `8601193d3d57` |
 
 `UD-Q4_K_XL` is deliberately absent: evaluated and dropped — the measured case
 against it is below.
@@ -33,9 +33,9 @@ The `DFlash2-*` draft GGUFs live in
 [z-lab/Qwen3.8-27B-DFlash2-GGUF](https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2-GGUF)
 (the `Q4_K_M` variant there measured ~+5% acceptance but needs re-fetching) and
 only load via `-md` next to a target — run standalone they fail with
-`dflash requires ctx_other to be set`. `mmproj-F16.gguf` is the vision projector
+`dflash requires ctx_other to be set`. `models/mmproj-F16.gguf` is the vision projector
 (unsloth repo, sha `cbb841a9ee06…`), wired per-recipe via the `mmproj` key in
-`models.ini`. `download_models.sh` fetches and verifies all five files —
+`models/models.ini`. `download_models.sh` fetches and verifies all five files —
 targets, draft, mmproj — against the fingerprints above.
 
 ### Context beyond 192k?
@@ -62,7 +62,7 @@ arch/vocab/params) and serves with DFlash2:
 
 Quality-first verdict: the v2 XL stays the default — v3.0's token distribution sits
 measurably further from the Q8 reference, and it loses at prefill. Pick v3.0 when
-2.8 GiB of RAM or decode t/s matter more; to adopt it, add a `models.ini` section
+2.8 GiB of RAM or decode t/s matter more; to adopt it, add a `models/models.ini` section
 pointing `model =` at the _M_ file (copy any Q6 section and edit).
 
 ### `UD-Q4_K_XL`: evaluated and dropped (2026-08-21) — GGUF deleted locally

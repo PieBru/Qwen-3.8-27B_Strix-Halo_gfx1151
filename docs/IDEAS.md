@@ -148,7 +148,7 @@ nice with X?"), one evening per agent, results into a compatibility table:
      tiering, parallel calls)
   3. long-context session (50k+ through the fleet VIP — sticky sessions,
      affinity, re-prefill behavior on failover)
-  4. template interactions (sharp.jinja v22.3 kwargs/aliases vs each
+  4. template interactions (models/sharp.jinja v22.3 kwargs/aliases vs each
      client's reasoning_effort/thinking conventions)
   5. quirks log: anything the agent does that our stack tolerates only by
      luck (header shapes, streaming assumptions, max_tokens games)

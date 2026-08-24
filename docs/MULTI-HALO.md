@@ -55,7 +55,7 @@ doctor, and the live load split — no SSH consoles needed for daily ops.
    announce themselves — client fallback banners, journal entries, dashboard
    red pills.
 3. **Mirror by construction**: configs live in the repo (`fleet/`,
-   `systemd-units/`, `models.ini`); a box is rebuilt by cloning + running the
+   `systemd-units/`, `models/models.ini`); a box is rebuilt by cloning + running the
    deploy steps — drift shows up as git diffs, not mysteries.
 4. **Measure the reliability, don't assume it**: failover drills, the fleet
    doctor's green/red table, canary probes on both boxes.

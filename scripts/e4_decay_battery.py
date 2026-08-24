@@ -28,8 +28,8 @@ PORT = 8098
 HOST = f"http://127.0.0.1:{PORT}"
 MODEL_ARGS = [
     "./llama.cpp/build-vk/bin/llama-server",
-    "-m", "./Qwen3.8-27B-UD-Q8_K_XL.gguf",
-    "-md", "./Qwen3.8-27B-DFlash2-Q8_0.gguf",
+    "-m", "models/Qwen3.8-27B-UD-Q8_K_XL.gguf",
+    "-md", "models/Qwen3.8-27B-DFlash2-Q8_0.gguf",
     "--spec-type", "draft-dflash", "--spec-draft-n-max", "6",
     "-ngl", "all", "-ngld", "all", "-fa", "on",
     "-c", "262144", "-np", "1", "-b", "4096", "-ub", "4096", "-t", "16", "-tb", "32",

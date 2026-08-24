@@ -99,7 +99,7 @@ When to pick which:
 Notes on the columns:
 
 All presets: DFlash2-Q8_0 draft, f16 KV, n-max 6 (turbo: 5), `-b/-ub 4096`, `-t 16 -tb 32`,
-`-lm mmap+mlock`, sharp.jinja template, metrics on. tg = sustained decode on a quiet
+`-lm mmap+mlock`, models/sharp.jinja template, metrics on. tg = sustained decode on a quiet
 box; fresh-load peaks run higher. **RAM** = resident footprint vs idle router
 (weights + draft + KV + compute buffers; mlock'd, never swapped), **left** = `free`
 "available" with that recipe live — headroom for concurrent models/activities.
@@ -171,7 +171,7 @@ delta; no second file copy appears), and no llama-server flag or Linux knob
 (KSM can't see driver shmem) dedups device memory across processes. Concurrent
 same-weights recipes therefore always cost a full extra copy; the alternative
 is the current `--models-max 1` serialization (~6–13 s reload on switch). At boot
-only **balanced** loads (`load-on-startup = true` in its models.ini section — the
+only **balanced** loads (`load-on-startup = true` in its models/models.ini section — the
 one recipe allowed under `--models-max 1`); every other recipe's **first request
 pays a one-time load** (~6 s warm, up to ~13 s from cold page cache), and switching recipe
 names under `--models-max 1` unloads the previous one first, paying the same load
@@ -218,12 +218,12 @@ curl -s localhost:8080/v1/chat/completions -H 'Content-Type: application/json' \
 
 #### Tip: `Qwen38-27B` — the movable "default model" alias
 
-`models.ini` pins one stable client-facing name, `Qwen38-27B`, on the balanced
+`models/models.ini` pins one stable client-facing name, `Qwen38-27B`, on the balanced
 recipe (`LLAMA_ARG_ALIAS = Qwen38-27B`). Point clients at **that** name instead
 of a recipe name, and changing your mind about which recipe is "the default"
 becomes a one-line move — no client reconfiguration:
 
-1. In `models.ini`, move the `LLAMA_ARG_ALIAS = Qwen38-27B` line from
+1. In `models/models.ini`, move the `LLAMA_ARG_ALIAS = Qwen38-27B` line from
    `[Qwen38-27B-balanced]` to your preferred section (e.g. `[Qwen38-27B-speed]`).
 2. Move the `load-on-startup = true` line with it, so the boot-preloaded
    recipe stays your default (only ONE recipe may carry it: `--models-max 1`).
@@ -258,7 +258,7 @@ pairing as its example. Two ways, both verified on this stack:
    with correct per-recipe context windows and vision detection — and live
    completions through the discovered names. Our `models.json` now carries
    only load-bearing pins (the `Qwen38-27B` alias surfaces + the nightly
-   systemd pin); the extension carries the catalog, so a new `models.ini`
+   systemd pin); the extension carries the catalog, so a new `models/models.ini`
    recipe appears in pi without any config edit.
 2. **pi built-in** — `/login llama.cpp` + `/llama` + `/model`: model
    load/unload, live status, even Hugging Face downloads from the palette
@@ -307,7 +307,7 @@ llama-server WebUI model picker); older names from this repo's history
 (`-turbo`, `-fast`, `-Q8-192K-quality`, …) no longer resolve — update clients
 to the role names.
 Recipe-specific keys
-(weights, ctx, spec config, mmproj) live in `models.ini` sections — see the header
+(weights, ctx, spec config, mmproj) live in `models/models.ini` sections — see the header
 of that file for the key reference and the CLI-vs-section precedence rule (lessons #8).
 
 ## Test — verify GPU, not silent CPU fallback

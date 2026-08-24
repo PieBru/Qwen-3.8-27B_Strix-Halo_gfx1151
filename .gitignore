@@ -16,3 +16,4 @@ lc-edge/
 pi-resume.sh
 __pycache__/
 docs/archive/
+models/*.gguf

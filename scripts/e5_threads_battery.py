@@ -75,8 +75,8 @@ def one_request(client_id, req_id, out):
 def run_config(cfg, t, tb, wr):
     log = open(f"results/e5-threads-server-{cfg}.log", "w")
     srv = subprocess.Popen(
-        [BIN, "-m", "./Qwen3.8-27B-UD-Q6_K_XL.gguf",
-         "-md", "./Qwen3.8-27B-DFlash2-Q8_0.gguf",
+        [BIN, "-m", "models/Qwen3.8-27B-UD-Q6_K_XL.gguf",
+         "-md", "models/Qwen3.8-27B-DFlash2-Q8_0.gguf",
          "--spec-type", "draft-dflash", "--spec-draft-n-max", "6",
          "-ngl", "all", "-ngld", "all", "-fa", "on",
          "-c", "131072", "-np", "2", "-b", "4096", "-ub", "4096",
