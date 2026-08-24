@@ -42,6 +42,9 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CANARY_LOG = os.path.join(REPO, "results", "gpu-canary.log")
 HASHCHECK_STATE = os.path.join(REPO, "results", "fleet-hashcheck.json")
 BOOTGATE_STATE = os.path.join(REPO, "results", "boot-gate.json")
+# nightly reports (produced on the pi main box — strixy2; dim note on halo2)
+REPORTS = {"dream": os.path.expanduser("~/Piero/Work/pi-dream/DREAM_REPORT_latest.md"),
+           "scout": os.path.expanduser("~/Piero/Work/pi-scout/SCOUT_REPORT_latest.md")}
 ROUTER = "http://127.0.0.1:8080"
 LOCAL_TZ = ZoneInfo("Europe/Rome")  # DST-tracked; hosts may differ (UTC vs Rome)
 
@@ -207,6 +210,83 @@ def halo_card(m):
     trs = "".join(f'<tr><td class="k">{k}</td><td>{v}</td></tr>' for k, v in rows)
     return f'<div class="card"><h3>{m["halo"]}</h3><table>{trs}</table></div>'
 
+def md_html(text):
+    """stdlib markdown-subset renderer for the night reports (headings, hr,
+    bold/italic, inline code, links, bullet/numbered lists, pipe tables,
+    code fences). Escapes HTML FIRST — report text is never raw HTML."""
+    import html as _h
+    def inline(t):
+        # stash code spans FIRST: their content may contain * [ ] that must
+        # not be interpreted as markdown (found the hard way: `results/*.log`
+        # inside a **bold** span broke bold rendering)
+        t = _h.escape(t, quote=False)
+        codes = []
+        def _stash(m):
+            codes.append(m.group(1)); return f"\x00{len(codes)-1}\x00"
+        t = re.sub(r"`([^`]+)`", _stash, t)
+        t = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2" target="_blank">\1</a>', t)
+        t = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", t)
+        return re.sub(r"\x00(\d+)\x00", lambda m: f"<code>{codes[int(m.group(1))]}</code>", t)
+    out, i, in_code, lst = [], 0, False, None
+    para = []
+    def close():
+        nonlocal lst
+        if lst: out.append(f"</{lst}>"); lst = None
+    def flush_para():
+        # join wrapped lines into one paragraph — **bold**/[links] may span them
+        if para:
+            out.append(f"<p>{inline(' '.join(para))}</p>")
+            para.clear()
+    lines = text.splitlines()
+    while i < len(lines):
+        ln = lines[i]
+        if ln.strip().startswith("```"):
+            flush_para(); close()
+            out.append("</pre>" if in_code else "<pre>"); in_code = not in_code; i += 1; continue
+        if in_code: out.append(_h.escape(ln)); i += 1; continue
+        if not ln.strip(): flush_para(); close(); i += 1; continue
+        m = re.match(r"^(#{1,4})\s+(.*)", ln)
+        if m: flush_para(); close(); n = len(m.group(1)) + 1; out.append(f"<h{n}>{inline(m.group(2))}</h{n}>"); i += 1; continue
+        if re.match(r"^[-*_]{3,}\s*$", ln): flush_para(); close(); out.append("<hr>"); i += 1; continue
+        m = re.match(r"^\s*[-*]\s+(.*)", ln)
+        if m:
+            if lst != "ul": flush_para(); close(); out.append("<ul>"); lst = "ul"
+            out.append(f"<li>{inline(m.group(1))}</li>"); i += 1; continue
+        m = re.match(r"^\s*\d+\.\s+(.*)", ln)
+        if m:
+            if lst != "ol": flush_para(); close(); out.append("<ol>"); lst = "ol"
+            out.append(f"<li>{inline(m.group(1))}</li>"); i += 1; continue
+        if ln.strip().startswith("|") and i + 1 < len(lines) and re.match(r"^\s*\|[\s:|-]+\|\s*$", lines[i + 1]):
+            flush_para(); close()
+            hdr = [c.strip() for c in ln.strip().strip("|").split("|")]
+            out.append("<table><tr>" + "".join(f"<th>{inline(c)}</th>" for c in hdr) + "</tr>")
+            j = i + 2
+            while j < len(lines) and lines[j].strip().startswith("|"):
+                out.append("<tr>" + "".join(f"<td>{inline(c)}</td>" for c in lines[j].strip().strip("|").split("|")) + "</tr>"); j += 1
+            out.append("</table>"); i = j; continue
+        para.append(ln); i += 1
+    flush_para(); close()
+    if in_code: out.append("</pre>")
+    return "".join(out)
+
+def reports_card(local):
+    rows = ""
+    for kind in ("dream", "scout"):
+        try:
+            p = REPORTS[kind]
+            age_h = (time.time() - os.path.getmtime(p)) / 3600
+            head = [l for l in open(p, encoding="utf-8").read().splitlines() if l.strip()][:8]
+            teaser = next((l for l in head if l.startswith("**Verdict:**")), head[0] if head else "")
+            teaser = re.sub(r"^[#*-]+\s*|\*\*|`", "", teaser)[:88]
+            rows += (f'<tr><td class="k">{kind}</td>'
+                     f'<td><button class="p ok" hx-get="/report/{kind}" hx-target="#modal" '
+                     f'hx-swap="innerHTML">{age_h:.0f}h · open</button></td>'
+                     f'<td class="dim">{teaser}</td></tr>')
+        except Exception:
+            rows += (f'<tr><td class="k">{kind}</td><td colspan="2">'
+                     f'<span class="p dim">not produced on this halo</span></td></tr>')
+    return f'<div class="card"><h3>nightly reports</h3><table>{rows}</table></div>'
+
 def doctor(local, peer):
     checks = []
     def add(name, ok, note=""):
@@ -280,7 +360,8 @@ def fragment():
     chips = f'<div class="chips">{role_chip(cards[0])}{role_chip(cards[1])}</div>'
     h = (f'<div class="hdr">{hdr}</div>{chips}'
          f'<div class="grid">{halo_card(cards[0])}{halo_card(cards[1])}</div>'
-         f'<div class="grid">{doctor(local, peer)}{load_split(local)}</div>')
+         f'<div class="grid">{doctor(local, peer)}{load_split(local)}</div>'
+         f'<div class="grid">{reports_card(local)}</div>')
     return h
 
 PAGE = """<!doctype html><html><head><meta charset="utf-8">
@@ -292,6 +373,20 @@ body{font:14px/1.45 ui-monospace,monospace;background:#0e1116;color:#cdd6e1;marg
 .clock{color:#cdd6e1}
 .chips{display:flex;gap:8px;margin-bottom:12px;font-size:13px}
 .chips .p{font-size:12px}
+#modal{display:none;position:fixed;inset:0;background:#000c;z-index:10;overflow:auto;padding:24px}
+#modal:not(:empty){display:flex}
+.modalbox{background:#151a22;border:1px solid #232b38;border-radius:8px;max-width:880px;width:100%;height:fit-content;padding:16px;margin:auto}
+.md h2{color:#9ece6a;font-size:15px;margin:12px 0 4px}
+.md h3,.md h4{color:#7aa2f7;font-size:13px;margin:10px 0 4px}
+.md p{margin:4px 0}
+.md li{margin:2px 0 0}
+.md pre{background:#0e1116;border:1px solid #232b38;border-radius:6px;padding:8px;overflow:auto;font-size:12px;white-space:pre-wrap}
+.md code{color:#e0af68}
+.md table{border-collapse:collapse;margin:6px 0}
+.md th,.md td{border:1px solid #232b38;padding:2px 8px;font-size:12px;text-align:left}
+.md a{color:#7aa2f7}
+.md hr{border:0;border-top:1px solid #232b38;margin:8px 0}
+button.p{cursor:pointer;font-family:inherit}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:12px;margin-bottom:12px}
 .card{background:#151a22;border:1px solid #232b38;border-radius:8px;padding:12px}
 .card h3{margin:0 0 8px;color:#9ece6a;font-size:13px;text-transform:lowercase}
@@ -304,6 +399,7 @@ td.k{color:#565f89;white-space:nowrap}
 .g{color:#9ece6a}
 </style></head><body>
 <div id="dash" hx-get="/fragment" hx-trigger="load, every 5s">loading fleet…</div>
+<div id="modal" onclick="this.innerHTML=''"></div>
 </body></html>"""
 
 class H(BaseHTTPRequestHandler):
@@ -321,6 +417,16 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/fragment":
             self._send(200, fragment())
+        elif self.path in ("/report/dream", "/report/scout"):
+            kind = self.path.rsplit("/", 1)[-1]
+            try:
+                md = open(REPORTS[kind], encoding="utf-8").read()
+                body = (f'<div class="modalbox" onclick="event.stopPropagation()">'
+                        f'<button class="p dim" style="float:right" onclick="document.getElementById(\'modal\').innerHTML=\'\'">close ✕</button>'
+                        f'<div class="md">{md_html(md)}</div></div>')
+            except Exception:
+                body = '<div class="modalbox"><p>report not present on this halo (dream/scout run on the pi main box)</p></div>'
+            self._send(200, body)
         elif self.path == "/.metrics":
             self._send(200, json.dumps(local_metrics()), "application/json")
         elif self.path == "/htmx.min.js":
