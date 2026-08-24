@@ -39,6 +39,7 @@ else:
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CANARY_LOG = os.path.join(REPO, "results", "gpu-canary.log")
 HASHCHECK_STATE = os.path.join(REPO, "results", "fleet-hashcheck.json")
+BOOTGATE_STATE = os.path.join(REPO, "results", "boot-gate.json")
 ROUTER = "http://127.0.0.1:8080"
 
 def sh(cmd, timeout=5):
@@ -91,6 +92,20 @@ def local_metrics():
         m["canary_age_min"] = round((time.time() - os.path.getmtime(CANARY_LOG)) / 60, 1)
     except Exception:
         m["canary_last"] = None; m["canary_age_min"] = None
+    # boot insurance state (fleet-boot-gate: app weights + system level)
+    try:
+        bg = json.load(open(BOOTGATE_STATE))
+        m["boot_gate_ok"] = bool(bg.get("app", {}).get("ok"))
+        m["boot_gate_app"] = bg.get("app", {}).get("summary", "?")
+        m["boot_gate_prev_clean"] = bg.get("sys", {}).get("prev_boot_clean")
+        m["boot_gate_fs_errs"] = bg.get("sys", {}).get("fs_error_lines")
+        m["boot_gate_errs"] = bg.get("sys", {}).get("err_count")
+        # did the gate run THIS boot? (state ts must postdate boot start)
+        m["boot_gate_this_boot"] = bool(bg.get("ts", 0) >= time.time() - m["uptime_s"] - 60)
+    except Exception:
+        m["boot_gate_ok"] = None; m["boot_gate_app"] = None
+        m["boot_gate_prev_clean"] = None; m["boot_gate_fs_errs"] = None
+        m["boot_gate_errs"] = None; m["boot_gate_this_boot"] = False
     # nightly GGUF hash verification state (fleet-hashcheck)
     try:
         hc = json.load(open(HASHCHECK_STATE))
@@ -175,6 +190,9 @@ def halo_card(m):
         ("canary", pill(bool(m["canary_last"]), (m["canary_last"] or "")[:44] + f' ({m["canary_age_min"]}m ago)') if m["canary_last"] else PILL.format("bad", "no log")),
         ("weights", (pill(m.get("weights_ok"), f'{m.get("weights_summary")} GGUF OK · {m.get("weights_age_h")}h ago') if m.get("weights_age_h") is not None else PILL.format("bad", "not verified"))
                    if m.get("weights_ok") is not None else '<span class="p dim">no state yet</span>'),
+        ("boot", (pill(m.get("boot_gate_ok") and m.get("boot_gate_this_boot"),
+                      f'{m.get("boot_gate_app")} · prev-boot {"clean" if m.get("boot_gate_prev_clean") else "UNCLEAN"} · fs {m.get("boot_gate_fs_errs")} · err {m.get("boot_gate_errs")}')
+                  if m.get("boot_gate_ok") is not None else '<span class="p dim">no gate</span>')),
         ("kernel", pill(m["ring_events_24h"] == 0, "0 ring events 24h", f'{m["ring_events_24h"]} RING TIMEOUTS')),
         ("git", f'<span class="g">{m["git"]}</span>'),
     ]
@@ -193,6 +211,8 @@ def doctor(local, peer):
         add("all core units up", all(m["router_unit"] and m["keepalived"] and m["haproxy"] for m in both))
         add("routers healthy", all(m["router_health"] for m in both))
         add("canary timers armed", all(m["canary_timer"] for m in both))
+        add("boot insurance ran this boot", all(m.get("boot_gate_ok") is True and m.get("boot_gate_this_boot") for m in both),
+            ", ".join(f'{m["halo"]}: {m.get("boot_gate_app")} ({"clean" if m.get("boot_gate_prev_clean") else "UNCLEAN prev"})' for m in both))
         add("weights verified nightly", all(m.get("weights_ok") is True and m.get("weights_age_h", 99) < 26 for m in both),
             ", ".join(f'{m["halo"]}: {m.get("weights_summary", "?")} ({m.get("weights_age_h", "?")}h)' for m in both))
         add("no kernel ring events 24h", all(m["ring_events_24h"] == 0 for m in both))
