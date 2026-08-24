@@ -104,52 +104,25 @@ Once verified, pick your workload recipe from the
 [**recipe menu**](docs/RECIPES.md) table.
 ## Headline findings (the counterintuitive ones)
 
-Seven results from this setup that invert what most LLM users expect — each
-measured, each linked to its evidence:
+Our setup keeps surprising us — every one of these inverts something most
+LLM users take for granted, and every one is measured, not vibes:
 
-1. **Context allocation is free; filling it is not.** Decode speed does not
-   scale with the *allocated* window on this hybrid-SSM model — 28–30 t/s
-   whether `c` is 32k or 256k (Q8: 24.7 vs 24.9). Most layers carry a
-   constant-size recurrent state; only fill depth costs
-   (~10 t/s by 78k filled → 5.5 at 254k on the Q8 probe; see the decay
-   table below). Consequence: the
-   `quality@64k…@256k` presets turn the window into a per-request dial that
-   costs only RAM. Details in the
-   [findings](#sweep-findings-at-a-glance) and the recipes-table notes.
-2. **A lighter quant is *slower* here, not faster.** With speculative decode,
-   Q4 (16.7 GiB of weights) decodes at 28 t/s vs Q5's 32 — quant noise
-   collapses DFlash2 draft acceptance (0.647 → 0.41) and rejected drafts eat
-   the bandwidth win whole. [Why Q4 was dropped](docs/BUILDING.md#ud-q4_k_xl-evaluated-and-dropped-2026-08-21--gguf-deleted-locally)
-3. **Sampling penalties are poison for speculative decode.** A mild
-   `repeat_penalty 1.05` costs **23–28% decode t/s** on every spec recipe —
-   penalized logits stop agreeing with the draft (acceptance 0.647 → 0.450).
-   Prefill is immune; use it per-request only. [Lesson #9](docs/LESSONS.md)
-4. **f16 KV is both faster *and* higher-fidelity here.** 128 GiB of unified
-   memory inverts the usual trade: q8_0 KV measured slower than f16 (Q6 19.2
-   vs 20.8 t/s) — so the quality choice is also the speed choice. And if you
-   do need to shrink a window: retrieval survives KV quantization down to q4_0
-   (40/40 needles, f16→q4_0, up to 96k). [Findings](#sweep-findings-at-a-glance)
-5. **Two recipes = two full weight copies, even for the same GGUF file.**
-   mmap shares the file pages, but each recipe's process uploads its own GTT
-   weights copy — measured 41.0 → 71.5 GiB RAM when vision loaded next to
-   balanced (same Q6 file). No flag or Linux trick dedups device memory
-   across processes. (Concurrency note, [recipes](docs/RECIPES.md))
-6. **Vision is free until the first image arrives.** Attaching mmproj costs
-   ~nothing statically and text runs at full speed — but image tokens crash
-   the DFlash2 speculative batch, so the vision recipe rides without spec
-   decode (8.4 t/s vs 29 for the same weights). "It loads" ≠ "it works".
-   [Lesson #7](docs/LESSONS.md)
-7. **Thinking is not the expensive part — running out of it is.** On
-   olympiad-style items at a 4k completion budget, *thinking* modes failed
-   30–40% by burning the whole budget on reasoning and returning **nothing**,
-   while non-thinking solved 10/10. The effort knob doesn't order cost
-   (median thinking tokens are flat low→xhigh); only `reasoning_budget_tokens`
-   is a real cap. Full story:
-   [Reasoning levels — measured](#reasoning-levels-cost-and-quality--measured).
+- **The window is free; *filling* it isn't** — allocate 32k or 256k, decode
+  speed doesn't care. Only how deep you *fill* it costs.
+- **A smaller quant is *slower* here** — quant noise breaks the speculative
+  drafter's guesses; the bandwidth you save gets eaten by rejected drafts.
+- **Sampling penalties poison speculative decode** — 1.05 repeat penalty
+  costs a quarter of your speed.
+- **f16 KV beats quantized KV on *both* speed and quality** — 128 GB of
+  unified memory inverts the usual trade.
+- **Two recipes = two full weight copies in GPU memory**, even for the same
+  file on disk.
+- **Vision is free… until the first image arrives** — then spec decode dies.
+- **Thinking is not the expensive part — running *out* of it is.**
 
-Also big, but limitation-shaped rather than surprise-shaped: the 1M-context
-story (262k servable ceiling, measured RAM budget, three routes to 1M) has
-[its own chapter](#the-1m-token-context-what-works-what-doesnt-and-what-it-costs).
+The measured version of each claim, with numbers and evidence links:
+**[docs/FINDINGS.md](docs/FINDINGS.md)**.
+
 ## Quick start: run the prebuilt release (time-saving)
 
 No build, no toolchain: the toolbox tarball bundles its own RADV + libdrm
@@ -268,121 +241,23 @@ and the "it loads ≠ it works" vision lesson:
 
 ## Ideas, parked
 
-Things we researched, started, or parked — each is a standing invitation for a
-fellow Haloer to pick up. The fleet has its own documentation set: **[docs/MULTI-HALO.md](docs/MULTI-HALO.md)**
-(the guide: [HA stack as built](docs/FLEET-HA.md) — one VIP address,
-failover-drilled, dashboard — plus [clustering research](docs/FLEET-CLUSTER.md)
-and the [master plan](docs/FLEET-PLAN.md) with phases, bake-offs, and
-decision rules); this chapter is the menu.
+Our open threads — the research menu for anyone (including future us) who
+wants to pick one up:
 
-**Two-Halo fleet** (two 128 GB Strix boxes, one flock):
+- **Two-Halo fleet**: USB4 direct link (cable inbound, runbook ready),
+  llama.cpp RPC "virtual halo", DeepSeek V4 Flash as the quality frontier.
+- **Engine bake-off**: ds4, vllm.cpp, audio.cpp — all three *build* on our
+  Halos today (verified).
+- **Quality & reasoning**: what's left of the measurement program.
+- **Fleet growth**: enrolling the LAN's beefy boxes (i9/RTX, i7/8GB) as
+  heterogeneous backends.
+- **The scout**: nightly research dream → the auto-healing, auto-evolutive
+  ladder (observe → propose → heal → evolve; operator seals every rung).
+- **Upstream karma**: our filed issues and the PRs we owe the community.
 
-- **USB4 direct link** — a 0.8 m certified cable turns two Halos into a
-  ~10–20 Gbps pair (vs 1 GbE); thunderbolt-net staging is ready on both
-  boxes (`tb0`, static /30, module persisted). *Status: cable in transit —
-  bring-up runbook ready.*
-- **llama.cpp RPC virtual-Halo** — `ggml-rpc-server` + `--rpc` splits
-  weights/KV across both boxes; the decoder needs only ~300 KB/s cross-
-  traffic (1 GbE suffices!), prefill pays ~10–15%. Open upstream bugs to
-  dodge: #26685 (Vulkan garble), #26746 (gfx1151 TOP_K crash), #26128.
-- **DeepSeek V4 Flash on two Halos** — the quality frontier: ~685B MoE,
-  Unsloth UD-IQ3_S lands at 116 GB (perfect two-Halo split) or their Q2
-  imatrix quants fit one Halo. The fork already ships DSV4 Vulkan kernels
-  + dspark spec decode. Bonus insight: MoE + mmap = demand-paged experts
-  (hot experts in RAM, cold ones on the 7.9 GB/s NVMe) — single-Halo
-  DSV4 might just work.
-
-**Engine bake-off** (all three build on gfx1151 today — verified):
-
-- **ds4 (DwarfStar)** — antirez's DSV4-specialized engine, 21k★,
-  Strix-Halo ROCm target builds first-try against TheRock 7.15; ships
-  two-Halo layer-split pipeline + SSD expert streaming. Next: the ~100 GB
-  quant download and a first t/s number.
-- **vllm.cpp** — vLLM's serving core (continuous batching, RadixAttention)
-  in one C++ binary; multi-client serving frontier — currently broken on
-  AMD iGPU (their #125/#41/#937) → watch, then a one-evening smoke.
-- **audio.cpp** — 50 families of ASR/TTS/VAD/diar on ggml, builds on the
-  Halos (Vulkan, verified): the natural audio-server side for our sister
-  project [Ciao](https://github.com/PieBru/Ciao) (Wyoming bridge = the fun
-  part).
-
-**Quality & reasoning**:
-
-- **passkey at depth** — we filled 254k positions and measured speed at
-  every depth; nobody has measured *recall* there. `llama-passkey` is
-  built and waiting for a GPU evening.
-- **e3 agent battery tail** — 10 of 30 tool-loop episodes unbanked
-  (`e3_agent_battery.py`, resume-safe).
-- **froggeric template watch** — v22.3 current; upgrades are a ~30-min
-  adopt-track (their suite + our E0 matrix).
-
-**Fleet growth — heterogeneous backends** (researched 2026-08-24):
-
-- The fleet's HA spine (VIP + haproxy) is backend-agnostic: enrolling a
-  box = two haproxy `server` lines + a llama-server that answers `/health`.
-- **Beefy i9 + RTX 4090 Ti + 128 GB DDR5** → third *27B-class* backend
-  (CUDA speed likely beats the halos; 128 GB RAM opens `-cmoe` MoE shapes).
-  Pilot candidate: weight-80 backend behind the existing VIP.
-- **i7 + 8 GB VRAM + 64 GB** → wrong box for the 27B, right box for the
-  small-model speed lane, embeddings, or **audio.cpp for Ciao** (Phase E
-  lands naturally on exactly this class of hardware).
-- Heterogeneity caveats researched: per-server `weight` (leastconn doesn't
-  know "fast"), KV re-prefill on cross-hardware failover (same one-time
-  cost, more frequent), dashboard doctor needs a generalized "backends"
-  card (halo-specific checks don't map), capacity-sharing vs dedicated
-  (boxes already running llama-server for others = *federation*, not
-  takeover), LAN trust surface.
-- Suggested pilot: enroll the i9 alone (evening, zero fleet risk), live
-  with three-way spreading for a week, then decide the i7's lane.
-
-**Nightly research dream — the "scout"** (researched 2026-08-24):
-
-- Unattended ~07:00 pi run (same systemd pattern as the nightly memory
-  dream; [pi-dream](https://github.com/PieBru/pi-dream) is the chassis)
-  that scans the monitored sources — llama.cpp/fork commits + merged PRs,
-  r/LocalLLaMA + r/StrixHalo (+ this repo's watch ledger triggers), HF
-  quant repos (Unsloth/froggeric), the engine newborns (ds4, vllm.cpp,
-  audio.cpp) — and writes a **morning report**: what's new AND *worth
-  evaluating* for our fully-local, lightweight LAN-inference goals.
-- Infrastructure ~90% standing: pi + headless-Chromium Reddit browsing
-  (proven), GitHub API, the watch ledger's named triggers, report
-  conventions. Missing piece: a `scout` skill (focused prompt + source
-  list + worth-evaluating filter) on the pi-dream chassis.
-- Filter is the design core: the report earns its 07:00 slot only by
-  surfacing *decision-relevant* changes (perf/quality deltas on our
-  model/hardware class, bug fixes touching our open issues, new quant
-  revisions) — not a firehose. Each finding links evidence + names the
-  repo experiment that would evaluate it (e.g. "DFlash2 upstreamed →
-  re-run stock-vs-fork spec battery").
-- Quality gate: report-only by default (pi-dream's Dream Gate pattern);
-  nothing auto-applies to recipes or memory without a human pass.
-- **The philosophy behind it — auto-healing, auto-evolutive system**: the
-  scout is phase 1 of a ladder, not a newsfeed:
-  1. **Observe** (day 1): morning report, operator reads.
-  2. **Propose** (stable weeks): report + drafted experiment/patch per
-     finding, operator approves each.
-  3. **Auto-heal** (trust earned): autonomous *revertible* actions only —
-     restart a wedged service (the canary already does this pattern),
-     re-pin a flaky recipe, re-run a battery and file the result; every
-     action journaled + one-command rollback.
-  4. **Auto-evolve** (highest bar, always operator-sealed): adopting
-     measured improvements (new quants, flags, recipes) — proposal +
-     evidence lands as a PR/draft; **the operator keeps the seal** (the
-     agent's own constitution: never self-ratify hard changes).
-  Rollback is a first-class citizen at every rung — nothing evolves
-  without a tested way back (git discipline + .bak conventions + the
-  fleet doctor's drift detection are the existing rails this climbs).
-
-**Upstream karma** (pick one, file a PR, cite our evidence):
-
-- llama.cpp **#27588** (ours): trailing `assistant(tool_calls)` dropped in
-  auto-prefill — PR offer stands (serialize vs reject).
-- Watchdog forensics worth posting on **#27076/#27458**: our kernel-log
-  1:1 + `lockup_timeout=-1` intervention is the only published causal
-  proof we know of.
-- **#27210** (adaptive MTP) / **#27342** (DFlash2 upstreaming): both open,
-  both shape our spec-decode future; our spec-battery is ready to be the
-  first gfx1151 datapoint when they merge.
+Full detail, statuses, and the design thinking:
+**[docs/IDEAS.md](docs/IDEAS.md)** · the fleet's own docs:
+[MULTI-HALO](docs/MULTI-HALO.md).
 
 Something catch your eye? Open an issue — measured numbers welcome, vibes
 politely declined.
