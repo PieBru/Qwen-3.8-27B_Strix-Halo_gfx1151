@@ -54,40 +54,63 @@ owner spreads requests across both routers. Direct per-box access
   listen on their real IPs (`:8082`) so any breathing box can show the
   fleet state directly.
 
-## Planned maintenance — the pre-drain (zero-loss move)
+## Planned maintenance — the AUTOMATIC pre-drain (2026-08-24, verified)
 
 An **unplanned** halo death costs the in-flight session (one 502, observed
-2026-08-24: `Server halos/halo2 is DOWN … 1 sessions active`). A *planned*
-poweroff (moving a box) can avoid even that: drain the leaving halo first,
-so its in-flight generations finish and new requests go to the survivor —
-the box then leaves as maintenance, not failure.
+2026-08-24: `Server halos/halo2 is DOWN … 1 sessions active`). A shutdown
+that goes through systemd — **CLI (`poweroff`/`reboot`/`halt`) AND the
+short-press ACPI power button** (observed: the button runs the systemd
+shutdown sequence) — now drains automatically:
 
-Procedure (on the current VIP owner — strixy2 unless the VIP moved):
+- **`fleet/fleet-pre-drain.service`** (SYSTEM unit — user units cannot
+  order against system shutdown targets; `Before=shutdown.target`,
+  `WantedBy=shutdown.target`, `User=piero`, enabled on both boxes) runs
+  `fleet/fleet-pre-drain.py` at shutdown: identifies the VIP owner,
+  disables **my** server on the OWNER's haproxy (local socket via the
+  scoped sudoers grant if I own it; the peer's socket over SSH otherwise —
+  works for both roles since every haproxy defines both backends), then
+  waits for my `scur == 0` from the owner's `8404/;csv` (in-flight
+  generations finish), capped at 120 s (`FLEET_DRAIN_WAIT`). Never blocks
+  shutdown on its own failure — failover covers.
+- **`fleet/haproxy-drain.py`** — the whitelisted root helper behind the
+  scoped `fleet-haproxy-drain` sudoers grant (gpu-canary-reboot pattern).
+  Dry-test-verified gotchas baked in: the runtime API needs the literal
+  `server` word; `/var/run/haproxy-master.sock` is the MASTER socket so
+  commands route via the `@1` worker prefix; empty reply = success.
+  Manual form: `sudo python3 fleet/haproxy-drain.py disable halos/halo2`.
+- **Verified 2026-08-24 (dry, both ownership paths)**: owner=self
+  (strixy2): disable → CSV `MAINT` → `drained clean (scur=0)` → enable →
+  `UP`. owner=peer (from strixy-9ad3 over SSH): peer-path drain incl.
+  remote CSV poll → `MAINT` → restore → `UP`. The under-fire path (a real
+  button/CLI shutdown with the hook armed) is checked at the next real
+  move. A hard long-press or mains cut bypasses all of this by definition
+  — that's what the boot insurance below is for.
+- If a shutdown is CANCELLED after the drain ran, my server stays MAINT:
+  re-enable by hand (`haproxy-drain.py enable halos/<me>`; the dashboard
+  load-split shows MAINT).
 
-1. **Drain the leaving halo.** haproxy's stats socket is root-owned
-   (`/var/run/haproxy-master.sock`, verified 2026-08-24; `socat`/`nc` are
-   NOT installed on the boxes, so use the stdlib form):
-   ```bash
-   echo "disable server halos/halo2" | python3 -c      "import socket,sys; s=socket.socket(socket.AF_UNIX); s.connect('/var/run/haproxy-master.sock');       s.sendall(sys.stdin.read().encode()+b'\n'); print(s.recv(65536).decode().strip())"
-   ```
-   (`halos/halo2` = backend/server names from fleet/haproxy.cfg, verified.
-   The server goes MAINT: health checks keep running, traffic stops.)
-2. **Confirm the drain**: a completion through the VIP answers with
-   `x-served-by: halo1` and 200 (in-flight sessions on halo2 finish; new
-   ones never start there).
-3. **Power off the box** (button or ssh) — now a zero-502 maintenance event.
-4. **After power-on + router up**: re-enable on the same socket
-   (`echo "enable server halos/halo2" | …` — same python form) and confirm
-   the haproxy journal shows `Server halos/halo2 is UP, Layer7 check passed`.
-5. **Post-power-cycle integrity** (a physical poweroff skips clean unmount;
-   cheap insurance after ANY button poweroff): run
-   `fleet/fleet-hashcheck.py` on the moved box — verifies all 5 weights
-   byte-identical against models/models.ini hashes (~45 s, CPU-only).
+## Boot insurance — two levels at every boot (2026-08-24, verified)
 
-*Status note 2026-08-24: socket path + server names OBSERVED; the
-disable/enable round-trip itself is documented but not yet re-executed
-post-doc (the sudo session was faillock-locked when first attempted) — the
-round-trip is a 10-second test before the next real move.*
+"**Cheap insurance**" for what no shutdown hook can cover (mains cut,
+long-press hard off) plus a fast always-on gate for every boot:
+
+- **`fleet/fleet-boot-gate.service`** (user unit, `WantedBy=default.target`,
+  both boxes) runs `fleet/fleet-boot-gate.py` at boot BEFORE the router
+  (`llama-router.service` carries `Requires=` + `After=`):
+  - **L1 app**: size + first/last 1 MiB sha256 of all 5 weights vs
+    `fleet/boot-gate-baseline.json` (pinned beside the full sha256s in
+    models.ini) — ~0.2 s; catches gross corruption before the router
+    EVER serves. **A failed gate leaves the router DOWN** (sabotage-
+    guarded: broken baseline → gate rc=1 → router start REFUSED).
+  - **L2 system**: prev-boot clean-shutdown classifier (journal markers),
+    kernel fs/IO error lines this boot, err-priority count — REPORTED,
+    never blocking (an UNCLEAN prev boot is the insurance *kicking in*,
+    not a failure). Surfaced on each halo card's `boot` row and the
+    doctor's `boot insurance ran this boot` check.
+- The full 45 s hashcheck remains nightly (02:30 Europe/Rome,
+  `fleet-hashcheck.timer`); after ANY physical power cycle, run it by hand
+  too (`python3 fleet/fleet-hashcheck.py` — verified 5/5 after the
+  2026-08-24 move).
 
 ## Deploy discipline (the rule the doctor enforces)
 
