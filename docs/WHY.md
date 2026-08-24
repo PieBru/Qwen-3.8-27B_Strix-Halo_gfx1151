@@ -68,6 +68,9 @@ label stays REPORTED; our own numbers live in
 
 ## What's the price of absolute privacy?
 
+> **TL;DR: the privacy is not a premium — at any serious usage it's a
+> discount.**
+
 Two answers, and both are numbers.
 
 **Answer one — you can buy tokens, at the price of your privacy plus the
