@@ -94,6 +94,18 @@ its own model families served through the same VIP.
 - **Access**: full SSH key mesh between strixy2 ↔ halo2 ↔ traddy
   (BatchMode everywhere); drain commands ride the halos' scoped
   sudoers grants (whitelist extended to `traddy/traddy`).
+- **Dual-use protocol (operator 2026-08-24)**: traddy serves the lane until
+  trading or other fully-local experiments claim it. Handing it back:
+  1. `systemctl --user disable --now llama-router` (the lane unit — the
+     pre-drain hook drains the lane automatically if you shut down;
+     for a same-session handover run
+     `python3 fleet/traddy/lane-drain.py` first so in-flight lane
+     requests finish),
+  2. re-enable the ROOT unit (`sudo systemctl enable --now
+     llama-router`) for the trading stack,
+  3. the fleet degrades loudly by design: doctor `capability lane
+     reachable` goes red, lane models 503 fail-closed, `default`
+     traffic untouched. Reverse the steps to return the box to the lane.
 - Known quirks (2026-08-24): the stock router build can wedge in
   "waiting until model is loaded" after a client aborts during a lazy
   load (fix: restart the user unit); never restart it with requests in
