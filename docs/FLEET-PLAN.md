@@ -102,13 +102,27 @@ RadixAttention) — the *right* answer to the original 2-client question —
 but AMD integrated is its open edge. Their GB10 DSV4 numbers (16.3–18.7 t/s
 IQ2-mix) are the halo ballpark target.
 
-### Phase A — USB4 link bring-up (infrastructure, ~45–90 min, no GPU)
-Plug the USB4 cable; authorize devices (boltd/`/sys/bus/thunderbolt`);
-thunderbolt-net; static IPs (e.g. 10.0.0.1/30); iperf3 both directions;
-SSH over it; leave eno1 as fallback. **Success = measured ≥ 5 Gbps
-sustained TB-net throughput** (else re-plug/retarget; a certified 40Gbps
-cable matters). *This alone pays off for model distribution, results/
-sync, backups — independent of RPC.*
+### Phase A — USB4 link bring-up — ✅ COMPLETE (2026-08-24, measured)
+
+Cable: PremiumCord EJ903C (0.8 m, e-marker). Plug-in was fully
+automatic on both halos — no bolt authorization needed (AMD USB4
+auto-authorized; security level "user" did not block TB-net).
+As-built (differs from the sketch in useful ways):
+
+- Interface name is **`thunderbolt0`** (kernel default), not `tb0` —
+  the staged 90-tb0.network never matched; renamed to
+  **05-thunderbolt0.network** (must sort before 20-ethernet.network,
+  which steals the interface via its `enx…` ALTNAME matching `en*`).
+- Addressing as staged: 10.180.243.1/.2 /30, **MTU 9000** (+2-3%),
+  declarative networkd (survives reboots; eno1 untouched as fallback).
+- **Measured: 9.43/8.96 Gbps (MTU 1500), 9.48/9.21 (MTU 9000), 9.10
+  aggregate @ 4 streams, RTT 0.28-1.5 ms** — the ~9.1-9.4 Gbps
+  platform ceiling, ~1.9× the 5 Gbps gate. (USB4 40G signalling but
+  TB-net software path tops out here; parallel streams add no headroom
+  — relevant for RPC batch sizing.)
+- SSH over the link works both ways (aliases halo1-usb4/halo2-usb4,
+  known_hosts pinned); dashboard doctor row `usb4 interconnect up`.
+- Next: Phase B (RPC smoke) may proceed on this fabric.
 
 ### Phase B — RPC smoke test on the pair (~2 h GPU, timeboxed, revertible)
 On `.15`: stop the router's preload (idle box), run
