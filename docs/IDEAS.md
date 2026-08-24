@@ -12,14 +12,14 @@ decision rules); this chapter is the menu.
 
 **Two-Halo fleet** (two 128 GB Strix boxes, one flock):
 
-- **USB4 direct link** — a 0.8 m certified cable turns two Halos into a
-  ~10–20 Gbps pair (vs 1 GbE); thunderbolt-net staging is ready on both
-  boxes (`tb0`, static /30, module persisted). *Status: cable in transit —
-  bring-up runbook ready.*
-- **llama.cpp RPC virtual-Halo** — `ggml-rpc-server` + `--rpc` splits
-  weights/KV across both boxes; the decoder needs only ~300 KB/s cross-
-  traffic (1 GbE suffices!), prefill pays ~10–15%. Open upstream bugs to
-  dodge: #26685 (Vulkan garble), #26746 (gfx1151 TOP_K crash), #26128.
+- **USB4 direct link — ✅ LANDED** (Phase A, 2026-08-24): `thunderbolt0`,
+  10.180.243.1/.2, MTU 9000, measured 9.1–9.4 Gbps / 0.3–1.5 ms — see
+  [FLEET-PLAN](FLEET-PLAN.md). Serves as standing fabric.
+- **llama.cpp RPC virtual-Halo — ✅ LANDED & CLOSED** (Phase B, 2026-08-24):
+  bit-sane (9/10 temp-0), decode 92% of single-box, prefill 52%; not
+  adopted while both halos are alive (>124 GB / >262k value blocked
+  upstream). Builds kept revertible; expert-split variant pre-registered
+  below.
 - **DeepSeek V4 Flash on two Halos** — the quality frontier: ~685B MoE,
   Unsloth UD-IQ3_S lands at 116 GB (perfect two-Halo split) or their Q2
   imatrix quants fit one Halo. The fork already ships DSV4 Vulkan kernels
@@ -43,9 +43,8 @@ decision rules); this chapter is the menu.
 
 **Quality & reasoning**:
 
-- **passkey at depth** — we filled 254k positions and measured speed at
-  every depth; nobody has measured *recall* there. `llama-passkey` is
-  built and waiting for a GPU evening.
+- **passkey at depth — ✅ LANDED** (2026-08-24): recall PASS at 147k/197k/
+  246k filled (+ near-end ~221k) — deep-context story complete (DEEP-CONTEXT).
 - **e3 agent battery tail** — 10 of 30 tool-loop episodes unbanked
   (`e3_agent_battery.py`, resume-safe).
 - **froggeric template watch** — v22.3 current; upgrades are a ~30-min
@@ -58,9 +57,9 @@ decision rules); this chapter is the menu.
 - **Beefy i9 + RTX 4090 Ti + 128 GB DDR5** → third *27B-class* backend
   (CUDA speed likely beats the halos; 128 GB RAM opens `-cmoe` MoE shapes).
   Pilot candidate: weight-80 backend behind the existing VIP.
-- **i7 + 8 GB VRAM + 64 GB** → wrong box for the 27B, right box for the
-  small-model speed lane, embeddings, or **audio.cpp for Ciao** (Phase E
-  lands naturally on exactly this class of hardware).
+- **i7 + 8 GB VRAM + 64 GB — ✅ LANDED** (traddy, 2026-08-24): the
+  capability lane (VIP:8081/:8083), Ornith-1.5-35B-A3B default after the
+  bake-off. audio.cpp for Ciao still lands naturally here (Phase E).
 - Heterogeneity caveats researched: per-server `weight` (leastconn doesn't
   know "fast"), KV re-prefill on cross-hardware failover (same one-time
   cost, more frequent), dashboard doctor needs a generalized "backends"
