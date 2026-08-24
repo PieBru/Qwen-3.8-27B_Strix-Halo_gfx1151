@@ -28,17 +28,22 @@ the live status surface is the dashboard at `http://192.168.50.10:8082`.
             clients (pi · Ciao · scripts · WebUI)
               │
               ▼  192.168.50.10:8081  (VIP — one address, forever)
-        ┌─ keepalived VRRP + haproxy (on both halos) ─┐
-        │   leastconn + /health checks every 2 s      │
+        ┌─ keepalived VRRP + haproxy (both halos) ────┐
+        │   leastconn + stick(IP) + /health 2 s       │
+        │   model-name ACL → capability lane           │
         ▼                                             ▼
    strixy2 (MASTER)                            strixy-9ad3 (BACKUP)
    · router :8080, 10 recipes                  · identical router
-   · preload: balanced (alias Qwen38-27B)      · same weights, same recipes
-   · GPU canary · dream nightly                · GPU canary (deployed 08-24)
+   · preload: balanced (alias default)         · same weights, same recipes
+   · GPU canary · boot gate · dream nightly    · GPU canary · boot gate
    · fleet dashboard agent :8082               · fleet dashboard agent :8082
    · RPC/ds4/audio.cpp build-ready             · audio.cpp built (Vulkan)
         │                                             │
-        └──────────── 1 GbE today · USB4 soon ────────┘
+        └── USB4 direct link ✅ (10.180.243.1/.2, 9.4 Gbps measured) ──┘
+                    │
+                    ▼  traddy (capability lane, i7 + GTX1070)
+                       · :1234 · Tiel-Coder / Ornith / Gemma4 / LFM
+                       · routed by model name via VIP:8081, or :8083 direct
 ```
 
 **Both up** → requests spread leastconn (two clients = two full-speed
