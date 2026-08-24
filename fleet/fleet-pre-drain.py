@@ -33,10 +33,15 @@ import time
 import urllib.request
 
 VIP = "192.168.50.10"
-HALOS = {"strixy2": ("halo1", "192.168.50.184", "192.168.50.15"),
-         "strixy-9ad3": ("halo2", "192.168.50.15", "192.168.50.184")}
-ME, OWN_IP, PEER_IP = HALOS[os.uname().nodename]
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# host -> (server name, own ip, peer ip, repo path) — paths differ per box
+# (dev: ~/Piero/Work/<repo>, halo2: ~/<repo>); the peer's sudoers grant is
+# pinned to ITS path, so remote drains must use the PEER's layout.
+HALOS = {"strixy2": ("halo1", "192.168.50.184", "192.168.50.15",
+                     "/home/piero/Piero/Work/Qwen-3.8-27B_Strix-Halo_gfx1151"),
+         "strixy-9ad3": ("halo2", "192.168.50.15", "192.168.50.184",
+                         "/home/piero/Qwen-3.8-27B_Strix-Halo_gfx1151")}
+ME, OWN_IP, PEER_IP, REPO = HALOS[os.uname().nodename]
+REPOS = {v[1]: v[3] for v in HALOS.values()}  # ip -> repo path
 DRAIN_WAIT = int(os.environ.get("FLEET_DRAIN_WAIT", "120"))
 LOG = os.path.join(REPO, "results", "fleet-pre-drain.log")
 
@@ -64,9 +69,10 @@ def i_own_vip():
 def haproxy_cmd(action, remote=None):
     """disable/enable my server on the VIP owner's haproxy socket."""
     arg = f"{action} halos/{ME}"
-    script = f"{REPO}/fleet/haproxy-drain.py"
     if remote is None:
+        script = f"{REPO}/fleet/haproxy-drain.py"
         return sh(f"sudo -n /usr/bin/python3 {script} {arg}", timeout=15)
+    script = f"{REPOS[remote]}/fleet/haproxy-drain.py"  # the PEER's repo layout
     return sh(f"ssh -o ConnectTimeout=8 -o BatchMode=yes piero@{remote} "
               f"'sudo -n /usr/bin/python3 {script} {arg}'", timeout=25)
 
