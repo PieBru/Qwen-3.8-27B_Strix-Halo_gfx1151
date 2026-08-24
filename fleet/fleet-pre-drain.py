@@ -85,8 +85,9 @@ def my_scur(remote=None):
         except Exception:
             return None
     else:
-        rc, out, _ = sh(f"ssh -o ConnectTimeout=8 -o BatchMode=yes piero@{remote} "
-                        f"'curl -s --max-time 4 http://127.0.0.1:8404/;csv'", timeout=15)
+        # quote the URL: the ';csv' path is a shell metachar inside the remote sh
+        rc, out, _ = sh("ssh -o ConnectTimeout=8 -o BatchMode=yes piero@" + remote
+                        + " \"curl -s --max-time 4 'http://127.0.0.1:8404/;csv'\"", timeout=15)
         if rc != 0:
             return None
         csv = out
