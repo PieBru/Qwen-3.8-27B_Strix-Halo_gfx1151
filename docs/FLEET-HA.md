@@ -54,6 +54,41 @@ owner spreads requests across both routers. Direct per-box access
   listen on their real IPs (`:8082`) so any breathing box can show the
   fleet state directly.
 
+## Planned maintenance — the pre-drain (zero-loss move)
+
+An **unplanned** halo death costs the in-flight session (one 502, observed
+2026-08-24: `Server halos/halo2 is DOWN … 1 sessions active`). A *planned*
+poweroff (moving a box) can avoid even that: drain the leaving halo first,
+so its in-flight generations finish and new requests go to the survivor —
+the box then leaves as maintenance, not failure.
+
+Procedure (on the current VIP owner — strixy2 unless the VIP moved):
+
+1. **Drain the leaving halo.** haproxy's stats socket is root-owned
+   (`/var/run/haproxy-master.sock`, verified 2026-08-24; `socat`/`nc` are
+   NOT installed on the boxes, so use the stdlib form):
+   ```bash
+   echo "disable server halos/halo2" | python3 -c      "import socket,sys; s=socket.socket(socket.AF_UNIX); s.connect('/var/run/haproxy-master.sock');       s.sendall(sys.stdin.read().encode()+b'\n'); print(s.recv(65536).decode().strip())"
+   ```
+   (`halos/halo2` = backend/server names from fleet/haproxy.cfg, verified.
+   The server goes MAINT: health checks keep running, traffic stops.)
+2. **Confirm the drain**: a completion through the VIP answers with
+   `x-served-by: halo1` and 200 (in-flight sessions on halo2 finish; new
+   ones never start there).
+3. **Power off the box** (button or ssh) — now a zero-502 maintenance event.
+4. **After power-on + router up**: re-enable on the same socket
+   (`echo "enable server halos/halo2" | …` — same python form) and confirm
+   the haproxy journal shows `Server halos/halo2 is UP, Layer7 check passed`.
+5. **Post-power-cycle integrity** (a physical poweroff skips clean unmount;
+   cheap insurance after ANY button poweroff): run
+   `fleet/fleet-hashcheck.py` on the moved box — verifies all 5 weights
+   byte-identical against models/models.ini hashes (~45 s, CPU-only).
+
+*Status note 2026-08-24: socket path + server names OBSERVED; the
+disable/enable round-trip itself is documented but not yet re-executed
+post-doc (the sudo session was faillock-locked when first attempted) — the
+round-trip is a 10-second test before the next real move.*
+
 ## Deploy discipline (the rule the doctor enforces)
 
 Fleet deploys are **git push on the dev box → `git pull --ff-only` on the
