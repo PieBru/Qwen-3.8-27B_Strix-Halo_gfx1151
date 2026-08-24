@@ -4,7 +4,7 @@
 
 ## Sweep findings at a glance
 
-How these were measured: [config research](#config-research-sweep_llama_configssh).
+How these were measured: [config research](#the-sweep-harness--how-the-sweet-spots-were-found).
 
 | Axis | Winner | Evidence |
 |---|---|---|
