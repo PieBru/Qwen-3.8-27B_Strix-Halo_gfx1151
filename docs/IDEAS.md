@@ -184,6 +184,35 @@ nice with X?"), one evening per agent, results into a compatibility table:
 - *Also serves the Ciao/Phase-E audio path: agents that pass here are the
   natural first clients of any new fleet lane.*
 
+**"Sweet-spot hunter" — math-driven config optimization** (replaces hand
+sweeps; methodology, tooling verified: optuna 4.9 via `uv run --with
+optuna`). The insight from committed evidence: knobs are mostly FLAT
+(threads under GPU offload — e5) and metrics can INVERT between bench and
+served (64.6 tg32 bench → 22.6 served vs champion's 31.2) — so the search
+algorithm matters less than (a) screening out dead dimensions and (b)
+anchoring to a production-shaped objective. Three phases, ~1 evening:
+- **P0 screening (~25 low-fidelity evals)**: Latin Hypercube over the full
+  mixed space (ctx, -b/-ub, -t/-tb, KV type, spec-type/n-max, fit knobs);
+  ANOVA main-effects + 2-factor interactions on log(t/s); keep only dims
+  whose effect clears the measurement noise floor (duel-rep std). Kills
+  plateau dimensions before they waste search budget.
+- **P1 search (~100 evals, 5–30 s each)**: TPE (handles categorical +
+  continuous + conditional natively; robust to crashed combos — blacklist
+  as infeasible). Objective = *anchored served proxy*: interleaved
+  champion-vs-candidate pairs (lesson #1), production protocol (mixed
+  prefill+decode, realistic ctx, warm cache), every 5th trial re-runs the
+  champion config to detect thermal/drift; log every trial to
+  results/hunter/*.jsonl.
+- **P2 adoption gate (pre-registered)**: top-5 candidates → full served
+  probe + quality constraint (E2 coding tier ≥ baseline − 1 pt; KLD/PPL
+  for quant/KV-touching knobs) + fill-battery stability soak. Adopt iff
+  served t/s ≥ champion + 5% AND quality gate AND soak clean; champion
+  recipe retained as rollback.
+Per-workload profiles (routine / coding / long-ctx) — optima move with
+context. Explicitly NOT: online per-request retuning (restart cost,
+measurement noise, np=1 — recipes ARE the runtime switch) and
+quality-blind hill-climbing (the constraint gate is mandatory).
+
 **Upstream karma** (pick one, file a PR, cite our evidence):
 
 - llama.cpp **#27588** (ours): trailing `assistant(tool_calls)` dropped in
