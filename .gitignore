@@ -15,3 +15,4 @@ lc-edge/
 # Local-only by design — never commit or delete.
 pi-resume.sh
 __pycache__/
+docs/archive/
