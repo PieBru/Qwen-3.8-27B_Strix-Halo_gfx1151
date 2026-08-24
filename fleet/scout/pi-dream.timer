@@ -1,0 +1,17 @@
+[Unit]
+Description=pi dream — nightly memory distillation at 03:00
+Requires=pi-dream.service
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 Europe/Rome
+# HEADLESS SERVER (plain minimal Arch, no GNOME/display, always on — operator
+# 2026-08-19): Persistent=true => a MISSED 03:00 (downtime/reboot) catches up
+# at next boot. The GNOME consent gate (pi-dream-consent.service) CANNOT run
+# here (nothing ever starts graphical-session.target), so install.sh skips it
+# on headless boxes. Flip to false only on a graphical/laptop box, where you
+# also want install.sh to enable the consent gate (see --consent).
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=default.target
