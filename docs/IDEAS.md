@@ -107,6 +107,14 @@ decision rules); this chapter is the menu.
   without a tested way back (git discipline + .bak conventions + the
   fleet doctor's drift detection are the existing rails this climbs).
 
+**"Good Enough For Coding" evaluation program → moved out**
+(2026-08-25) The LLM+harness coding-reliability evaluation — FCB-15 battery,
+TRAPS-14 battery, `fcb15_run.py` runner, HARNESS-EVAL-FRAMEWORK, arms chain —
+now lives in its own repo: [`../Good-Enough-For-Coding`](../../Good-Enough-For-Coding)
+(backup: github.com/PieBru/Good-Enough-For-Coding). All future eval work,
+overnight arms, and yardstick updates happen there; this repo keeps only
+model/fleet-side experiments (E7 temperature calibration, quant ladders, etc.).
+
 **Sibling evaluation queue** (from the
 [comparisons chapter](BACKENDS.md#how-this-compares-with-sibling-projects) —
 pre-registered experiments per project, trigger → run → verdict):
