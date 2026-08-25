@@ -7,7 +7,12 @@
 #        && systemctl --user enable fleet-boot-gate.service
 [Unit]
 Description=fleet-boot-gate — app+system integrity check at boot
-After=default.target
+# 2026-08-25: was After=default.target — that created an ordering CYCLE at boot
+# (default.target -> llama-router -> fleet-boot-gate -> default.target), so
+# systemd deleted the gate's start job and the router never came up after the
+# driver-update reboot. A boot gate must run BEFORE the session target is
+# "done", not after it: basic.target is the right anchor (matches llama-router).
+After=basic.target
 
 [Service]
 Type=oneshot
