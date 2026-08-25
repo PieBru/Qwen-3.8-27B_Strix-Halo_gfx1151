@@ -46,16 +46,21 @@ def extract_code(text):
     return m[0] if m else (text or "")
 
 
-def one(item_idx, model, host, temp, tries=5):
+def one(item_idx, model, host, temp, tries=5, seed=None):
+    """seed: optional int -> appended as a system-nudge-free deterministic
+    variation via temperature sampling; llama-server seeds via 'seed' param."""
     spec_, harness = ITEMS[item_idx]
     last = None
     for a in range(tries):
         try:
-            body = json.dumps({
+            payload = {
                 "model": model,
                 "messages": [{"role": "user", "content": PROMPT.format(spec=spec_)}],
                 "max_tokens": 4000, "temperature": temp,
-            }).encode()
+            }
+            if seed is not None:
+                payload["seed"] = seed
+            body = json.dumps(payload).encode()
             req = urllib.request.Request(f"http://{host}/v1/chat/completions", body,
                                          {"Content-Type": "application/json"})
             t0 = time.time()
@@ -83,6 +88,8 @@ def main():
     ap.add_argument("--host", default="127.0.0.1:8080")
     ap.add_argument("--model", default="Qwen38-27B-coding")
     ap.add_argument("--tag", required=True)
+    ap.add_argument("--mode", default="single", choices=["single", "bestof"])
+    ap.add_argument("--shots", type=int, default=5)
     args = ap.parse_args()
 
     assert selfcheck(), "battery selfcheck failed — refusing to run"
@@ -102,6 +109,23 @@ def main():
     with open(out_path, "a") as out:
         for i in range(n_items):
             if (args.model, i) in done:
+                continue
+            if args.mode == "bestof":
+                solved = False
+                any_ok = []
+                for shot in range(args.shots):
+                    r_ = one(i, args.model, args.host, 0.7, seed=1000 + shot)
+                    any_ok.append(r_["ok"])
+                    if r_["ok"]:
+                        solved = True
+                        break  # early stop: best-of-N solved
+                    row = {"model": args.model, "item": i, "phase": f"shot{shot}", **r_}
+                    out.write(json.dumps(row) + "\n"); out.flush()
+                row = {"model": args.model, "item": i, "phase": "bestof",
+                       "ok": solved, "shots_used": len(any_ok)}
+                out.write(json.dumps(row) + "\n"); out.flush()
+                print(f"item {i+1}: best-of-{args.shots} {'SOLVED' if solved else 'unsolved'}"
+                      f" ({len(any_ok)} shots)", flush=True)
                 continue
             g = one(i, args.model, args.host, 0.0)
             row = {"model": args.model, "item": i, "phase": "greedy", **g}
