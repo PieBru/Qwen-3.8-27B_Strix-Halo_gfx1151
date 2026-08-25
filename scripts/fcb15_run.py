@@ -20,30 +20,68 @@ import urllib.request
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, "results")
 from fcb15_items import ITEMS, REFS, WRONG  # noqa: E402
+GRADE_MODE = "check"
+_t_ITEMS = None  # traps (prompt, expected) list when selected
 
 PROMPT = ("Write Python code exactly as specified. Reply with ONE python "
           "code block and nothing else.\n\n{spec}")
+
+# in stdout mode item tuple is (prompt, None): use prompt directly
+
+
+def _grade(src, item_idx, full_text=None):
+    """Grade: check-mode runs the item harness on src; traps-mode execs src and
+    compares the LAST stdout line, falling back to a prose-stated answer when the
+    code block doesn't print (models sometimes answer in prose + demo code)."""
+    _, harness = ITEMS[item_idx]
+    if harness is None:  # traps mode
+        import io as _io, contextlib as _cl
+        pe = _t_ITEMS[item_idx] if isinstance(_t_ITEMS, dict) else _t_ITEMS[item_idx]
+        want = pe[1]
+        buf = _io.StringIO()
+        try:
+            with _cl.redirect_stdout(buf):
+                exec(src, {})
+        except Exception:
+            pass
+        lines = [l.strip() for l in buf.getvalue().splitlines() if l.strip()]
+        if lines and lines[-1] == want:
+            return True
+        if full_text:
+            import re as _re
+            tail = full_text[-400:]
+            pats = [rf"output[^0-9\n]*{_re.escape(want)}\b",
+                    rf"\*\*{_re.escape(want)}\*\*",
+                    rf"→\s*{_re.escape(want)}\b",
+                    rf"->\s*{_re.escape(want)}\b",
+                    rf"is\s+\**{_re.escape(want)}\**\s*(?:\.|$)"]
+            return any(_re.search(p, tail) for p in pats)
+        return False
+    ns = {}; exec(harness, ns); ns["check"](src)
+    return True
 
 
 def selfcheck():
     bad = 0
     for i, ((spec_, h), ref) in enumerate(zip(ITEMS, REFS)):
         try:
-            ns = {}; exec(h, ns); ns["check"](ref)
+            if not _grade(ref, i):
+                print(f"SELFCHECK FAIL ref {i+1}"); bad += 1
         except Exception:
             print(f"SELFCHECK FAIL ref {i+1}"); bad += 1
-    for i, ((spec_, h), wrong) in enumerate(zip(ITEMS, WRONG)):
-        try:
-            ns = {}; exec(h, ns); ns["check"](wrong)
-            print(f"SELFCHECK LEAK {i+1}"); bad += 1
-        except Exception:
-            pass
+    if GRADE_MODE == "check":  # leak probes only meaningful in check mode
+        for i, ((spec_, h), wrong) in enumerate(zip(ITEMS, WRONG)):
+            try:
+                if _grade(wrong, i):
+                    print(f"SELFCHECK LEAK {i+1}"); bad += 1
+            except Exception:
+                pass
     return bad == 0
 
 
 def extract_code(text):
     m = re.findall(r"```(?:python)?\s*(.*?)```", text or "", re.S)
-    return m[0] if m else (text or "")
+    return m[-1] if m else (text or "")  # LAST block = final answer (models emit sketch-first)
 
 
 def one(item_idx, model, host, temp, tries=5, seed=None):
@@ -68,12 +106,12 @@ def one(item_idx, model, host, temp, tries=5, seed=None):
             dt = time.time() - t0
             m = r["choices"][0]["message"]
             code = extract_code(m.get("content") or "")
-            ok = False
             try:
-                ns = {}; exec(harness, ns); ns["check"](code); ok = True
+                ok = _grade(code, item_idx, full_text=m.get("content") or "")
             except Exception:
                 ok = False
             return {"ok": ok, "wall": round(dt, 1),
+                    "content_tail": (m.get("content") or "")[-120:],
                     "reason_w": len((m.get("reasoning_content") or "").split()),
                     "content_w": len((m.get("content") or "").split()),
                     "finish": r["choices"][0].get("finish_reason")}
@@ -89,10 +127,33 @@ def main():
     ap.add_argument("--model", default="Qwen38-27B-coding")
     ap.add_argument("--tag", required=True)
     ap.add_argument("--mode", default="single", choices=["single", "bestof"])
+    ap.add_argument("--battery", default="fcb15", choices=["fcb15", "traps", "combined"])
     ap.add_argument("--shots", type=int, default=5)
     args = ap.parse_args()
 
-    assert selfcheck(), "battery selfcheck failed — refusing to run"
+    global ITEMS, REFS, WRONG, GRADE_MODE, _t_ITEMS
+
+    if args.battery == "combined":
+        import importlib.util as _ilu
+        _sp = _ilu.spec_from_file_location("t14", "results/traps14_items.py")
+        _t = _ilu.module_from_spec(_sp); sys.modules["t14"] = _t; _sp.loader.exec_module(_t)
+        _t_ITEMS = {15 + i: pe for i, pe in enumerate(_t.ITEMS)}  # traps rows live at idx>=15
+        ITEMS = list(ITEMS) + [(p, None) for p, _ in _t.ITEMS]
+        REFS = list(REFS) + list(_t.REFS)
+        WRONG = list(WRONG) + ["print('DELIBERATELY WRONG')"] * len(_t.ITEMS)
+        assert selfcheck(), "combined selfcheck failed"
+    elif args.battery == "traps":
+        import importlib.util as _ilu
+        _sp = _ilu.spec_from_file_location("t14", "results/traps14_items.py")
+        _t = _ilu.module_from_spec(_sp); sys.modules["t14"] = _t; _sp.loader.exec_module(_t)
+        _t_ITEMS = _t.ITEMS  # (prompt, expected) for traps rows
+        ITEMS = [(p, None) for p, _ in _t.ITEMS]
+        REFS = _t.REFS
+        WRONG = ["print('DELIBERATELY WRONG')"] * len(ITEMS)
+        GRADE_MODE = "stdout"
+        assert selfcheck(), "traps selfcheck failed"
+    else:
+        assert selfcheck(), "battery selfcheck failed — refusing to run"
 
     out_path = f"results/fcb15-{args.tag}.jsonl"
     done = set()
