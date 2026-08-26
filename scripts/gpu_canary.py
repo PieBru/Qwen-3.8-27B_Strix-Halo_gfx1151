@@ -69,6 +69,26 @@ def write_fails(n):
         fh.write(str(n))
 
 
+def any_model_loading_or_probe_model_not_loaded():
+    """2026-08-26 incident grace: distinguish an in-flight model LOAD from a
+    GPU wedge. The catalog (/v1/models) reports per-model status:
+    'loading' (weights streaming) or 'unloaded' (probe model evicted by a
+    scheduled job's pinned model — will reload on demand). Both mean the
+    completion path is legitimately blocked, NOT wedged. Catalog failure ->
+    False (can't prove a load; fall through to the wedge verdict)."""
+    try:
+        d = http(f"http://{HOST}/v1/models", timeout=15)
+        for m in d.get("data", []):
+            st = (m.get("status") or {}).get("value")
+            if st == "loading":
+                return True
+            if m.get("id") == MODEL and st in ("unloaded", "unknown"):
+                return True
+    except Exception:
+        return False
+    return False
+
+
 def main():
     if not unit_active("llama-router.service"):
         log("router inactive — planned offline, skipping probe")
@@ -95,6 +115,18 @@ def main():
         write_fails(0)
         return 0
     except Exception as e:
+        # Model-load grace (2026-08-26 incident): a scheduled job's pinned
+        # model (e.g. gefc-dream's quality@128k) evicts the resident one;
+        # /health stays green while the completion path is dead — the SAME
+        # signature as a wedge. Before counting a fail, check the catalog:
+        # any model loading (or the probe model not yet loaded) = in-flight
+        # LOAD, not a GPU wedge — reset the counter and skip this cycle.
+        if any_model_loading_or_probe_model_not_loaded():
+            log(f"probe DEAD ({e}) BUT a model load is in flight "
+                f"(catalog says loading/not-loaded) — load contention, not a "
+                f"GPU wedge; counter reset, next cycle re-probes")
+            write_fails(0)
+            return 0
         fails = read_fails() + 1
         write_fails(fails)
         log(f"probe DEAD ({e}) — health was green: GPU-wedge signature, "
