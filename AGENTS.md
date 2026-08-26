@@ -1,0 +1,42 @@
+# Project agent memory — Qwen-3.8-27B Strix Halo (gfx1151) fleet repo
+
+Project-specific facts for serving + battery work on the Halo fleet. The
+global `~/.pi/agent/AGENTS.md` applies everywhere and wins on overlap unless
+this file is stricter. (Created 2026-08-26 under the operator's dream-apply
+authorization — seeded from the nightly dream recommendations.)
+
+## Serving topology
+
+- `llama-router.service` (systemd USER unit, enabled) serves the Qwen3.8-27B
+  recipes from `models/models.ini` on `127.0.0.1:8080` — 10 aliases:
+  `balanced`, `balanced@96k`, `coding`, `quality@64k/96k/128k/192k/256k`,
+  `speed`, `vision`. It `Requires/After=fleet-boot-gate.service`; a boot
+  ordering cycle (fleet-boot-gate → default.target → llama-router) once left
+  :8080 down after a driver-update reboot — fixed 2026-08-25 (commit
+  `22564c0`, gate `After=basic.target`). Dead :8080 after reboot ⇒
+  `journalctl --user -u llama-router` first.
+- The LAN rig `192.168.50.15:8080` runs the same router (pi provider `lan`).
+- pi's `~/.pi/agent/models.json` / `settings.json enabledModels` can fall
+  behind the alias set (⇒ `Warning: No models match pattern "lan/..."`) —
+  re-sync against the served `/v1/models` list; done once 2026-08-25 (only
+  2 of 10 aliases were registered).
+
+## Fleet lanes + batteries
+
+- Remote battery hosts: `admin@192.168.50.209` (`~/LLM/Tiel/` model
+  downloads; liveness via `pgrep -f "wget.*Tiel"`) and
+  `piero@192.168.50.15` (repo mirror, `git pull --ff-only` sync). Batteries
+  write to local `results/` (`e1-battery.log`/`e1-cost.csv`, `e2c-`, `e4-`,
+  `e7-` batteries, `hip-rocm715-256k-fill.csv`, `device lost` log greps).
+- Fork re-pins land with a gate commit (pattern:
+  `chore(fork): re-pin 9b9ac3e38 -> 0eb528051 (6 commits, gate PASS)`).
+- Fleet lane defaults (night verdicts): Tiel-Coder = coding default; Ornith
+  = traddy lane default. Unattended agent batches → `quality@128k`, agent
+  context ceiling 100 k.
+
+## Long-run monitoring discipline
+
+- Battery/soak monitoring follows the global HARD WALL-TIME RULE
+  (operator-enforced 2026-08-26): background the run (nohup/setsid + log),
+  poll with ≤60 s commands or yield the turn — never foreground
+  `sleep 300+` loops.
