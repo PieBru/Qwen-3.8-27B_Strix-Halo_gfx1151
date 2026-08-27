@@ -91,6 +91,15 @@ KVARGS=()
 [ "$KV" = q8_0 ] && KVARGS=(-ctk q8_0 -ctv q8_0 -ctkd q8_0 -ctvd q8_0)
 MLOCKARGS=(); [ "$MLOCK" = 1 ] && MLOCKARGS=(-lm mmap+mlock)
 
+# HOST knobs (operator 2026-08-27): threads + batch sizes depend on the
+# SERVING BOX (core count, memory bandwidth), not the model — they live
+# HERE (per-host launch env), never in models.ini. Defaults = the Strix
+# Halo class (16 Zen5 cores); any other box overrides via service env:
+#   Environment=LLAMA_T=8 LLAMA_TB=16 LLAMA_B=2048 LLAMA_UB=2048
+HOST_T="${LLAMA_T:-16}"; HOST_TB="${LLAMA_TB:-32}"
+HOST_B="${LLAMA_B:-4096}"; HOST_UB="${LLAMA_UB:-4096}"
+HOSTARGS=(-t "$HOST_T" -tb "$HOST_TB" -b "$HOST_B" -ub "$HOST_UB")
+
 # Agent / tools / MCP (opt-in: these features execute files & shell commands —
 # never enable on an untrusted network; upstream pins WebUI CORS to localhost,
 # but the plain API on 0.0.0.0 has no such guard).
@@ -128,13 +137,14 @@ if [ "$ROUTER" = 1 ]; then
   export LLAMA_CACHE="$PWD/.llama-cache"
   CMD=(./llama.cpp/build-vk/bin/llama-server
     --models-preset models/models.ini --models-max "$MMAX"
-    "${MLOCKARGS[@]}" "${KVARGS[@]}"
+    "${MLOCKARGS[@]}" "${KVARGS[@]}" "${HOSTARGS[@]}"
     --presence-penalty 0.0 "${AGENTARGS[@]}"
     --host 0.0.0.0 --port "$PORT" --metrics)
-  # NOTE (operator 2026-08-27): -ngl/-ngld/-fa/-b/-ub/-np/-t/-tb and the
-  # chat-template/jinja pins moved to models.ini [*] (+ per-section
-  # overrides) — speed knobs that hit each model differently must be
-  # model-level, not CLI-global (CLI silently beats sections).
+  # NOTE (operator 2026-08-27): per-MODEL speed knobs (-ngl/-ngld/-fa/-np,
+  # chat-template/jinja) live in models.ini [*] + sections (CLI silently
+  # beats sections — never pin model-shaped keys here). PER-HOST knobs
+  # (-t/-tb threads, -b/-ub batches) stay on the launch line via
+  # HOSTARGS/env: they track the serving box, not the model.
   echo ">> router: recipes from models/models.ini on :$PORT (mmax=$MMAX kv=$KV mlock=$MLOCK pen=0.0 agent=$AGENT tools=${TOOLS:--} mcp=${MCPCFG:--})"
   [ "$DRY" = 1 ] && { printf '   %q' "${CMD[@]}"; echo; exit 0; }
   # build-vk's RUNPATH is a stale pre-move path; this export keeps libs resolvable.
