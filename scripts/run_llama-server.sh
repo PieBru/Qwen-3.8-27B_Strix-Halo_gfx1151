@@ -128,11 +128,13 @@ if [ "$ROUTER" = 1 ]; then
   export LLAMA_CACHE="$PWD/.llama-cache"
   CMD=(./llama.cpp/build-vk/bin/llama-server
     --models-preset models/models.ini --models-max "$MMAX"
-    -ngl all -ngld all -fa on "${MLOCKARGS[@]}" "${KVARGS[@]}"
-    -b 4096 -ub 4096 -np 1 -t 16 -tb 32
+    "${MLOCKARGS[@]}" "${KVARGS[@]}"
     --presence-penalty 0.0 "${AGENTARGS[@]}"
-    --chat-template-file models/sharp.jinja
-    --jinja --host 0.0.0.0 --port "$PORT" --metrics)
+    --host 0.0.0.0 --port "$PORT" --metrics)
+  # NOTE (operator 2026-08-27): -ngl/-ngld/-fa/-b/-ub/-np/-t/-tb and the
+  # chat-template/jinja pins moved to models.ini [*] (+ per-section
+  # overrides) — speed knobs that hit each model differently must be
+  # model-level, not CLI-global (CLI silently beats sections).
   echo ">> router: recipes from models/models.ini on :$PORT (mmax=$MMAX kv=$KV mlock=$MLOCK pen=0.0 agent=$AGENT tools=${TOOLS:--} mcp=${MCPCFG:--})"
   [ "$DRY" = 1 ] && { printf '   %q' "${CMD[@]}"; echo; exit 0; }
   # build-vk's RUNPATH is a stale pre-move path; this export keeps libs resolvable.
