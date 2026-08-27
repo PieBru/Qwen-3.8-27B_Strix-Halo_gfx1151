@@ -7,14 +7,13 @@ authorization — seeded from the nightly dream recommendations.)
 
 ## Serving topology
 
-- `llama-router.service` (systemd USER unit, enabled) serves the Qwen3.8-27B
-  recipes from `models/models.ini` on `127.0.0.1:8080` — 10 aliases:
-  `balanced`, `balanced@96k`, `coding`, `quality@64k/96k/128k/192k/256k`,
-  `speed`, `vision`. It `Requires/After=fleet-boot-gate.service`; a boot
+- `llama-router.service` (systemd USER unit, enabled) serves the
+  `models/models.ini` recipes on `127.0.0.1:8080` — recipe set per the global
+  Local-LLM fact (10 Qwen38-27B aliases + lazy-loaded `[Qwen38-flash]`
+  try-out recipe). It `Requires/After=fleet-boot-gate.service`; a boot
   ordering cycle (fleet-boot-gate → default.target → llama-router) once left
   :8080 down after a driver-update reboot — fixed 2026-08-25 (commit
-  `22564c0`, gate `After=basic.target`). Dead :8080 after reboot ⇒
-  `journalctl --user -u llama-router` first.
+  `22564c0`, gate `After=basic.target`).
 - The LAN rig `192.168.50.15:8080` runs the same router (pi provider `lan`).
 - pi's `~/.pi/agent/models.json` / `settings.json enabledModels` can fall
   behind the alias set (⇒ `Warning: No models match pattern "lan/..."`) —
@@ -33,6 +32,15 @@ authorization — seeded from the nightly dream recommendations.)
 - Fleet lane defaults (night verdicts): Tiel-Coder = coding default; Ornith
   = traddy lane default. Unattended agent batches → `quality@128k`, agent
   context ceiling 100 k.
+
+## GPU liveness
+
+- `gpu_canary` (user timer, every 10 min; `scripts/gpu_canary.py` +
+  `systemd-units/gpu-canary.{service,timer}`) closes the gap left by
+  `amdgpu.lockup_timeout=-1` (no kernel ring watchdog): /health OK + a
+  1-token completion dead ⇒ GPU ring wedged; 2 consecutive ⇒ journal + reboot.
+  2026-08-26: model-load grace added so an in-flight LOAD is not misread as a
+  wedge (reboot-loop incident, commit `84c5004`).
 
 ## Long-run monitoring discipline
 
