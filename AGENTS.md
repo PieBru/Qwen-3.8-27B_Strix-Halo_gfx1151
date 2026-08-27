@@ -33,15 +33,6 @@ authorization — seeded from the nightly dream recommendations.)
   = traddy lane default. Unattended agent batches → `quality@128k`, agent
   context ceiling 100 k.
 
-## GPU liveness
-
-- `gpu_canary` (user timer, every 10 min; `scripts/gpu_canary.py` +
-  `systemd-units/gpu-canary.{service,timer}`) closes the gap left by
-  `amdgpu.lockup_timeout=-1` (no kernel ring watchdog): /health OK + a
-  1-token completion dead ⇒ GPU ring wedged; 2 consecutive ⇒ journal + reboot.
-  2026-08-26: model-load grace added so an in-flight LOAD is not misread as a
-  wedge (reboot-loop incident, commit `84c5004`).
-
 ## Long-run monitoring discipline
 
 - Battery/soak monitoring follows the global HARD WALL-TIME RULE
