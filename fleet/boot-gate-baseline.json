@@ -5,12 +5,6 @@
   "head_1m": "29fae80a3e7dfe01c766bed5d22c7b1f1afbf553b6fa521b7118e216eb643d92",
   "tail_1m": "2590f23205274529e5b2c790780a9d1e297f177e8f9023ed171a60cc9ea8cf5a"
  },
- "models/Qwen3.8-27B-UD-Q5_K_XL.gguf": {
-  "size": 20876938144,
-  "full_sha256": "8601193d3d5760c37fb8ce1b43afebc69df5fb24e1fbc5a547c32e2200305276",
-  "head_1m": "177ae5e70ef0d340fdf2d1d75539cf992d69eecdd8d244e36e33456cdcb07cfa",
-  "tail_1m": "0ae7da9ed539f51ab38647773133a31ebc177331623bbcb90769ffe433476a73"
- },
  "models/Qwen3.8-27B-UD-Q6_K_XL.gguf": {
   "size": 25299061664,
   "full_sha256": "701d8fa9ed214ab21bfc130cd2a7df19ca89bbef7713e2dfb19f3c63696aa917",
